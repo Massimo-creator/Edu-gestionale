@@ -1,0 +1,2692 @@
+<!DOCTYPE html>
+<!-- saved from url=(0048)file:///C:/Users/Dell/Downloads/eduCare_v18.html -->
+<html lang="it"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>eduCare - Gestionale Comunità Educative</title>
+<meta name="description" content="Gestionale digitale per comunità educative per minori">
+<meta name="theme-color" content="#0d1b3e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="eduCare">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 100 100&#39;%3E%3Crect width=&#39;100&#39; height=&#39;100&#39; rx=&#39;20&#39; fill=&#39;url(%23g)&#39;/%3E%3Cdefs%3E%3ClinearGradient id=&#39;g&#39; x1=&#39;0&#39; y1=&#39;0&#39; x2=&#39;1&#39; y2=&#39;1&#39;%3E%3Cstop offset=&#39;0%25&#39; stop-color=&#39;%231e40af&#39;/%3E%3Cstop offset=&#39;100%25&#39; stop-color=&#39;%23065f46&#39;/%3E%3C/linearGradient%3E%3C/defs%3E%3Ctext x=&#39;28&#39; y=&#39;68&#39; font-family=&#39;Georgia,serif&#39; font-size=&#39;58&#39; font-weight=&#39;700&#39; fill=&#39;white&#39; opacity=&#39;0.9&#39;%3Ee%3C/text%3E%3Ctext x=&#39;54&#39; y=&#39;68&#39; font-family=&#39;Georgia,serif&#39; font-size=&#39;58&#39; font-weight=&#39;700&#39; fill=&#39;%234ade80&#39; font-style=&#39;italic&#39;%3EC%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 100 100&#39;%3E%3Crect width=&#39;100&#39; height=&#39;100&#39; rx=&#39;20&#39; fill=&#39;url(%23g)&#39;/%3E%3Cdefs%3E%3ClinearGradient id=&#39;g&#39; x1=&#39;0&#39; y1=&#39;0&#39; x2=&#39;1&#39; y2=&#39;1&#39;%3E%3Cstop offset=&#39;0%25&#39; stop-color=&#39;%231e40af&#39;/%3E%3Cstop offset=&#39;100%25&#39; stop-color=&#39;%23065f46&#39;/%3E%3C/linearGradient%3E%3C/defs%3E%3Ctext x=&#39;28&#39; y=&#39;68&#39; font-family=&#39;Georgia,serif&#39; font-size=&#39;58&#39; font-weight=&#39;700&#39; fill=&#39;white&#39; opacity=&#39;0.9&#39;%3Ee%3C/text%3E%3Ctext x=&#39;54&#39; y=&#39;68&#39; font-family=&#39;Georgia,serif&#39; font-size=&#39;58&#39; font-weight=&#39;700&#39; fill=&#39;%234ade80&#39; font-style=&#39;italic&#39;%3EC%3C/text%3E%3C/svg%3E">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#f4f6f9;--sidebar:#1a2540;--accent:#3b82f6;--accent2:#10b981;--warn:#f59e0b;--danger:#ef4444;--card:#fff;--text:#1e293b;--muted:#64748b;--border:#e2e8f0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
+.app-shell{display:flex;height:100vh;overflow:hidden}
+/* ===== WELCOME SCREEN – redesign ===== */
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;700&display=swap');
+
+.welcome-screen{
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  position:relative;
+  overflow:hidden;
+  color:#fff;
+  text-align:center;
+  padding:40px 24px;
+  background:#0d1b3e;
+  font-family:'DM Sans',sans-serif;
+}
+
+/* — layered background — */
+.welcome-screen::before{
+  content:'';
+  position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 80%, rgba(16,185,129,.18) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 80% 20%, rgba(59,130,246,.22) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(99,102,241,.12) 0%, transparent 70%);
+  pointer-events:none;
+}
+
+/* geometric grid overlay */
+.welcome-screen::after{
+  content:'';
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+  background-size:48px 48px;
+  pointer-events:none;
+  mask-image:radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%);
+}
+
+/* floating orbs */
+.ws-orb{
+  position:absolute;
+  border-radius:50%;
+  filter:blur(60px);
+  pointer-events:none;
+  animation:orbDrift 12s ease-in-out infinite alternate;
+}
+.ws-orb-1{width:320px;height:320px;background:rgba(59,130,246,.15);top:-80px;left:-80px;animation-delay:0s;}
+.ws-orb-2{width:280px;height:280px;background:rgba(16,185,129,.12);bottom:-60px;right:-60px;animation-delay:-4s;}
+.ws-orb-3{width:200px;height:200px;background:rgba(99,102,241,.14);top:40%;right:10%;animation-delay:-8s;}
+
+@keyframes orbDrift{
+  from{transform:translate(0,0) scale(1);}
+  to{transform:translate(24px,16px) scale(1.08);}
+}
+
+/* — logo mark — */
+.ws-logomark{
+  position:relative;
+  width:88px;height:88px;
+  border-radius:24px;
+  background:linear-gradient(135deg,#1e40af 0%,#065f46 100%);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 0 1px rgba(255,255,255,.12), 0 20px 60px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.15);
+  margin-bottom:32px;
+  animation:logoIn .8s cubic-bezier(.34,1.56,.64,1) both;
+  flex-shrink:0;
+}
+.ws-logomark svg{width:48px;height:48px;filter:drop-shadow(0 2px 8px rgba(0,0,0,.3));}
+
+@keyframes logoIn{
+  from{opacity:0;transform:translateY(-20px) scale(.8);}
+  to{opacity:1;transform:translateY(0) scale(1);}
+}
+
+/* — wordmark — */
+.ws-wordmark{
+  font-family:'DM Serif Display',Georgia,serif;
+  font-size:clamp(3rem,8vw,5.5rem);
+  line-height:1;
+  letter-spacing:-.02em;
+  margin-bottom:8px;
+  animation:fadeUp .7s .15s cubic-bezier(.22,1,.36,1) both;
+}
+.ws-edu{color:#ffffff;}
+.ws-care{
+  color:transparent;
+  background:linear-gradient(135deg,#4ade80 0%,#22d3ee 100%);
+  -webkit-background-clip:text;background-clip:text;
+  font-style:italic;
+}
+
+/* — tagline — */
+.ws-tagline{
+  font-size:clamp(.9rem,2vw,1.1rem);
+  font-weight:300;
+  color:rgba(255,255,255,.6);
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  margin-bottom:36px;
+  animation:fadeUp .7s .25s cubic-bezier(.22,1,.36,1) both;
+}
+
+/* — feature pills — */
+.ws-features{
+  display:flex;flex-wrap:wrap;gap:10px;justify-content:center;
+  max-width:600px;
+  margin-bottom:44px;
+  animation:fadeUp .7s .35s cubic-bezier(.22,1,.36,1) both;
+}
+.ws-pill{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 14px;
+  border-radius:100px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.06);
+  backdrop-filter:blur(8px);
+  font-size:.8rem;
+  font-weight:500;
+  color:rgba(255,255,255,.8);
+  white-space:nowrap;
+}
+.ws-pill-dot{width:6px;height:6px;border-radius:50%;background:#4ade80;flex-shrink:0;}
+
+/* — CTA button — */
+.welcome-actions{
+  margin:0;
+  animation:fadeUp .7s .45s cubic-bezier(.22,1,.36,1) both;
+}
+.welcome-btn{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:16px 40px;
+  border:none;
+  border-radius:100px;
+  background:linear-gradient(135deg,#22c55e 0%,#16a34a 100%);
+  color:#fff;
+  font-family:'DM Sans',sans-serif;
+  font-size:1rem;
+  font-weight:700;
+  letter-spacing:.02em;
+  cursor:pointer;
+  position:relative;
+  overflow:hidden;
+  box-shadow:0 8px 32px rgba(34,197,94,.35), 0 0 0 1px rgba(255,255,255,.1) inset;
+  transition:transform .18s ease, box-shadow .18s ease, filter .18s ease;
+}
+.welcome-btn::before{
+  content:'';
+  position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,.18) 0%,transparent 60%);
+  pointer-events:none;
+}
+.welcome-btn:hover{
+  transform:translateY(-2px) scale(1.02);
+  box-shadow:0 14px 44px rgba(34,197,94,.45), 0 0 0 1px rgba(255,255,255,.15) inset;
+  filter:brightness(1.05);
+}
+.welcome-btn:active{transform:translateY(0) scale(.98);}
+.welcome-btn-arrow{font-size:1.1rem;transition:transform .18s ease;}
+.welcome-btn:hover .welcome-btn-arrow{transform:translateX(4px);}
+
+/* note sotto il bottone */
+.welcome-note{
+  margin-top:18px;
+  font-size:.8rem;
+  color:rgba(255,255,255,.38);
+  letter-spacing:.05em;
+  animation:fadeUp .7s .55s cubic-bezier(.22,1,.36,1) both;
+}
+
+/* — footer — */
+.welcome-screen .welcome-footer{
+  position:fixed;bottom:24px;left:0;right:0;
+  text-align:center;
+  font-size:.75rem;
+  color:rgba(255,255,255,.28);
+  letter-spacing:.06em;
+}
+
+@keyframes fadeUp{
+  from{opacity:0;transform:translateY(18px);}
+  to{opacity:1;transform:translateY(0);}
+}
+
+/* hide old logo pieces */
+.logo-educare,.logo-book,.logo-spine,.logo-heart{display:none;}
+#sidebar{width:230px;background:var(--sidebar);color:#fff;display:flex;flex-direction:column;flex-shrink:0}
+.sidebar-brand{padding:18px 16px;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:6px}
+.sidebar-brand h1{font-size:.95rem;font-weight:800;color:#fff;line-height:1.3}
+.sidebar-brand small{color:#94a3b8;font-size:.72rem}
+#sidebar h2{padding:14px 16px 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:#cbd5e1;font-size:.88rem;border-left:3px solid transparent;transition:.15s}
+.nav-item:hover{background:rgba(255,255,255,.07);color:#fff}
+.nav-item.active{background:rgba(59,130,246,.18);color:#fff;border-left-color:var(--accent)}
+.nav-item .ico{font-size:1rem;width:18px;text-align:center}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#topbar{background:#fff;border-bottom:1px solid var(--border);padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+#topbar h3{font-size:1rem;font-weight:700}
+#content{flex:1;overflow-y:auto;padding:24px}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+.card{background:var(--card);border-radius:10px;padding:20px;border:1px solid var(--border)}
+
+/* ===== HAMBURGER BUTTON (hidden on desktop) ===== */
+#hamburger{display:none;background:none;border:none;cursor:pointer;padding:6px;flex-direction:column;gap:5px;flex-shrink:0;}
+#hamburger span{display:block;width:22px;height:2px;background:var(--text);border-radius:2px;transition:.25s;}
+#sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:199;}
+
+/* ===== MOBILE RESPONSIVE ===== */
+@media(max-width:768px){
+  body{overflow:auto;}
+  .app-shell{overflow:auto;}
+
+  /* Hamburger visibile */
+  #hamburger{display:flex;}
+
+  /* Sidebar diventa drawer laterale */
+  #sidebar{
+    position:fixed;top:0;left:0;height:100%;z-index:200;
+    transform:translateX(-100%);transition:transform .25s ease;
+    width:260px;overflow-y:auto;
+  }
+  #sidebar.open{transform:translateX(0);}
+  #sidebar-overlay.open{display:block;}
+
+  /* Topbar compatta */
+  #topbar{padding:0 14px;height:52px;}
+  #topbar h3{font-size:.92rem;}
+  #topbar-user{display:none;}
+
+  /* Content più compatto */
+  #content{padding:12px;}
+
+  /* Griglia → colonna singola */
+  .g2,.g3,.g4{grid-template-columns:1fr;}
+
+  /* Card più compatte */
+  .card{padding:14px;}
+  .stat-big{font-size:1.8rem;}
+
+  /* Tabelle scrollabili */
+  table{font-size:.78rem;}
+  .card[style*="overflow-x:auto"]{overflow-x:auto;}
+
+  /* Bottoni più grandi al tocco */
+  .btn{padding:10px 14px;font-size:.85rem;}
+  .btn-sm{padding:7px 11px;font-size:.78rem;}
+
+  /* Sec-header impilato */
+  .sec-header{flex-direction:column;align-items:flex-start;gap:8px;}
+
+  /* Modal full screen */
+  .modal{width:96vw;padding:18px;max-height:88vh;}
+  .modal-wide{width:96vw;}
+
+  /* Tabs scrollabili */
+  .tabs{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;}
+  .tab{white-space:nowrap;}
+
+  /* Chat full height */
+  #content > div[style*="height:calc(100vh"]{height:calc(100vh - 120px)!important;}
+
+  /* Turni e mansioni scrollabili */
+  .turni-grid{overflow-x:auto;}
+
+  /* Form group label più grande */
+  .form-group label{font-size:.84rem;}
+  .form-group input,.form-group select,.form-group textarea{font-size:.9rem;padding:10px 12px;}
+
+  /* Welcome screen adattata */
+  .ws-wordmark{font-size:2.8rem;}
+  .ws-features{gap:6px;}
+  .ws-pill{font-size:.72rem;padding:5px 10px;}
+}
+.card-title{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:12px}
+.stat-big{font-size:2.2rem;font-weight:700}
+.stat-sub{font-size:.8rem;color:var(--muted);margin-top:4px}
+.btn{padding:8px 16px;border-radius:6px;border:none;cursor:pointer;font-size:.875rem;font-weight:500;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{opacity:.88}
+.btn-success{background:var(--accent2);color:#fff}.btn-success:hover{opacity:.88}
+.btn-warn{background:var(--warn);color:#fff}
+.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{opacity:.88}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-ghost:hover{background:var(--bg)}
+.btn-pdf{background:#dc2626;color:#fff}.btn-pdf:hover{opacity:.88}
+.btn-sm{padding:5px 10px;font-size:.78rem}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:.76rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:10px 12px;border-bottom:2px solid var(--border)}
+td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:.86rem;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f8fafc}
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:700}
+.badge-blue{background:#dbeafe;color:#1d4ed8}
+.badge-green{background:#d1fae5;color:#065f46}
+.badge-yellow{background:#fef3c7;color:#92400e}
+.badge-red{background:#fee2e2;color:#991b1b}
+.badge-gray{background:#f1f5f9;color:#475569}
+.badge-purple{background:#ede9fe;color:#5b21b6}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:5px}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:6px;font-size:.88rem;outline:none;transition:.15s;font-family:inherit;background:#fff}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,130,246,.12)}
+.form-group textarea{resize:vertical;min-height:90px}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:12px;padding:28px;width:min(560px,96vw);max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal-wide{width:min(820px,96vw)}
+.modal h3{font-size:1.05rem;font-weight:800;margin-bottom:18px;display:flex;align-items:center;gap:8px}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);flex-wrap:wrap}
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;flex-wrap:wrap}
+.tab{padding:10px 16px;cursor:pointer;font-size:.86rem;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-pane{display:none}.tab-pane.active{display:block}
+.turni-grid{display:grid;grid-template-columns:120px repeat(7,1fr);gap:3px;font-size:.8rem}
+.turni-grid .th{background:#f1f5f9;padding:8px;text-align:center;font-weight:700;border-radius:4px;font-size:.75rem}
+.turni-grid .op-name{padding:8px;font-weight:600;background:#f8fafc;border-radius:4px;display:flex;align-items:center;font-size:.8rem}
+.slot{padding:6px 4px;text-align:center;border-radius:4px;cursor:pointer;min-height:34px;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;border:1px solid transparent;user-select:none}
+.slot-M{background:#dbeafe;color:#1d4ed8;border-color:#bfdbfe}
+.slot-P{background:#d1fae5;color:#065f46;border-color:#a7f3d0}
+.slot-N{background:#fef3c7;color:#92400e;border-color:#fde68a}
+.slot-R{background:#f1f5f9;color:#94a3b8;border-color:#e2e8f0}
+.slot-empty{background:#fff;border:1px dashed #cbd5e1;color:#cbd5e1}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-day-name{text-align:center;font-size:.73rem;font-weight:700;color:var(--muted);padding:6px}
+.cal-day{min-height:74px;background:#fff;border-radius:6px;border:1px solid var(--border);padding:5px;cursor:pointer;transition:.1s}
+.cal-day:hover{border-color:var(--accent)}
+.cal-day.today{border-color:var(--accent);background:#eff6ff}
+.cal-day.other-month{opacity:.35}
+.cal-day-num{font-size:.8rem;font-weight:700;margin-bottom:3px}
+.cal-event{font-size:.66rem;background:var(--accent);color:#fff;border-radius:3px;padding:1px 4px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-event.ev-green{background:var(--accent2)}
+.cal-event.ev-yellow{background:var(--warn);color:#fff}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;flex-shrink:0}
+.sec-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
+.sec-header h2{font-size:.95rem;font-weight:800}
+.nota-card{background:#f8faff;border:1px solid #bfdbfe;border-radius:8px;padding:14px;margin-bottom:10px}
+.nota-card.tipo-PEI{background:#f0fdf4;border-color:#86efac}
+.nota-card.tipo-Relazione{background:#fefce8;border-color:#fde047}
+.nota-card .nota-meta{font-size:.73rem;color:var(--muted);margin-top:8px}
+.timeline{padding-left:16px;border-left:2px solid var(--border)}
+.tl-item{position:relative;padding:0 0 14px 14px}
+.tl-item::before{content:'';position:absolute;left:-5px;top:5px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.tl-item .tl-date{font-size:.73rem;color:var(--muted)}
+.tl-item .tl-text{font-size:.86rem;margin-top:2px}
+.empty-state{text-align:center;padding:40px 20px;color:var(--muted)}
+.empty-state .es-icon{font-size:2.5rem;margin-bottom:10px}
+.empty-state p{font-size:.88rem}
+.progress-bar{height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:var(--accent);border-radius:3px}
+/* PEI form */
+.pei-section{background:#f8faff;border:1px solid #bfdbfe;border-radius:8px;padding:16px;margin-bottom:14px}
+.pei-section h4{font-size:.82rem;font-weight:800;color:#1d4ed8;margin-bottom:12px;text-transform:uppercase;letter-spacing:.04em}
+</style>
+</head>
+<body>
+
+<div id="welcomeScreen" class="welcome-screen">
+  <!-- floating orbs -->
+  <div class="ws-orb ws-orb-1"></div>
+  <div class="ws-orb ws-orb-2"></div>
+  <div class="ws-orb ws-orb-3"></div>
+
+  <!-- logo mark -->
+  <div class="ws-logomark" aria-hidden="true">
+    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- book -->
+      <path d="M8 36V14a2 2 0 012-2h10c2.5 0 4 1.5 4 4v22" stroke="rgba(255,255,255,.9)" stroke-width="2.2" stroke-linecap="round"></path>
+      <path d="M40 36V14a2 2 0 00-2-2H28c-2.5 0-4 1.5-4 4v22" stroke="rgba(255,255,255,.9)" stroke-width="2.2" stroke-linecap="round"></path>
+      <path d="M8 36h32" stroke="rgba(255,255,255,.5)" stroke-width="2.2" stroke-linecap="round"></path>
+      <!-- heart -->
+      <path d="M24 18c0 0-7-4.5-7 1.5 0 3.5 7 8 7 8s7-4.5 7-8c0-6-7-1.5-7-1.5z" fill="#4ade80"></path>
+    </svg>
+  </div>
+
+  <!-- wordmark -->
+  <div class="ws-wordmark">
+    <span class="ws-edu">edu</span><span class="ws-care">Care</span>
+  </div>
+
+  <!-- tagline -->
+  <div class="ws-tagline">Gestionale per comunità educative</div>
+
+  <!-- feature pills -->
+  <div class="ws-features">
+    <span class="ws-pill"><span class="ws-pill-dot"></span>Cartelle sociali</span>
+    <span class="ws-pill"><span class="ws-pill-dot"></span>PEI e relazioni</span>
+    <span class="ws-pill"><span class="ws-pill-dot"></span>Turni operatori</span>
+    <span class="ws-pill"><span class="ws-pill-dot"></span>Calendario eventi</span>
+    <span class="ws-pill"><span class="ws-pill-dot"></span>Supporto MSNA</span>
+  </div>
+
+  <!-- CTA -->
+  <div class="welcome-actions">
+    <button class="welcome-btn" onclick="entraGestionale()">
+      Entra nel gestionale
+      <span class="welcome-btn-arrow">→</span>
+    </button>
+  </div>
+
+  <div class="welcome-note">Offline · Nessun dato inviato a server esterni</div>
+
+  <div class="welcome-footer">eduCare &nbsp;·&nbsp; Sistema gestionale per comunità educative &nbsp;·&nbsp; v2.1</div>
+</div>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" style="display:none;height:100vh;align-items:center;justify-content:center;background:#0d1b3e;position:relative;overflow:hidden;">
+  <!-- orbs decorativi -->
+  <div style="position:absolute;width:400px;height:400px;border-radius:50%;background:rgba(59,130,246,.12);filter:blur(80px);top:-100px;left:-100px;pointer-events:none;"></div>
+  <div style="position:absolute;width:300px;height:300px;border-radius:50%;background:rgba(16,185,129,.1);filter:blur:80px;bottom:-80px;right:-60px;pointer-events:none;"></div>
+
+  <div style="background:rgba(255,255,255,.04);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:44px 40px;width:min(420px,94vw);position:relative;z-index:1;box-shadow:0 24px 80px rgba(0,0,0,.5);">
+    <!-- logo -->
+    <div style="text-align:center;margin-bottom:32px;">
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#1e40af,#065f46);box-shadow:0 8px 24px rgba(0,0,0,.3);margin-bottom:16px;">
+        <span style="font-size:1.8rem;">📖</span>
+      </div>
+      <div style="font-family:&#39;DM Serif Display&#39;,Georgia,serif;font-size:2rem;color:#fff;line-height:1;"><span style="color:#fff;">edu</span><span style="color:#4ade80;font-style:italic;">Care</span></div>
+      <div style="color:rgba(255,255,255,.45);font-size:.82rem;margin-top:6px;letter-spacing:.1em;text-transform:uppercase;">Accesso al gestionale</div>
+    </div>
+
+    <!-- form -->
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label style="display:block;color:rgba(255,255,255,.6);font-size:.78rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;">Nome comunità</label>
+        <input id="login-comunita" type="text" placeholder="es. Casa Terraferma" style="width:100%;padding:12px 16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:.95rem;outline:none;transition:.2s;" onfocus="this.style.borderColor=&#39;rgba(74,222,128,.6)&#39;" onblur="this.style.borderColor=&#39;rgba(255,255,255,.15)&#39;" onkeydown="if(event.key===&#39;Enter&#39;)document.getElementById(&#39;login-email&#39;).focus()">
+      </div>
+      <div>
+        <label style="display:block;color:rgba(255,255,255,.6);font-size:.78rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;">Email</label>
+        <input id="login-email" type="email" placeholder="nome@esempio.it" style="width:100%;padding:12px 16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:.95rem;outline:none;transition:.2s;" onfocus="this.style.borderColor=&#39;rgba(74,222,128,.6)&#39;" onblur="this.style.borderColor=&#39;rgba(255,255,255,.15)&#39;" onkeydown="if(event.key===&#39;Enter&#39;)document.getElementById(&#39;login-password&#39;).focus()">
+      </div>
+      <div>
+        <label style="display:block;color:rgba(255,255,255,.6);font-size:.78rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;">Password</label>
+        <input id="login-password" type="password" placeholder="••••••••" style="width:100%;padding:12px 16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:.95rem;outline:none;transition:.2s;" onfocus="this.style.borderColor=&#39;rgba(74,222,128,.6)&#39;" onblur="this.style.borderColor=&#39;rgba(255,255,255,.15)&#39;" onkeydown="if(event.key===&#39;Enter&#39;)doLogin()">
+      </div>
+      <div id="login-error" style="color:#f87171;font-size:.82rem;min-height:18px;text-align:center;"></div>
+      <button id="login-btn" onclick="doLogin()" style="width:100%;padding:14px;border:none;border-radius:10px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:1rem;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(34,197,94,.3);transition:.18s;margin-top:4px;" onmouseover="this.style.transform=&#39;translateY(-1px)&#39;;this.style.boxShadow=&#39;0 12px 32px rgba(34,197,94,.4)&#39;" onmouseout="this.style.transform=&#39;&#39;;this.style.boxShadow=&#39;0 8px 24px rgba(34,197,94,.3)&#39;">
+        Accedi
+      </button>
+    </div>
+
+    <div style="text-align:center;margin-top:20px;color:rgba(255,255,255,.3);font-size:.75rem;">
+      eduCare · Dati protetti e cifrati
+    </div>
+  </div>
+</div>
+
+<div id="sidebar-overlay" onclick="chiudiSidebar()"></div>
+
+<div id="mainApp" class="app-shell" style="display:none;">
+
+<div id="sidebar">
+  <div class="sidebar-brand" style="display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <h1>📖 eduCare</h1>
+      <small>Gestionale per comunità educative<br>Cartelle sociali, PEI e relazioni</small>
+    </div>
+    <button onclick="chiudiSidebar()" style="background:none;border:none;color:#94a3b8;font-size:1.4rem;cursor:pointer;padding:4px;display:none;" id="sidebar-close">✕</button>
+  </div>
+  <h2>Navigazione</h2>
+  <div class="nav-item active" onclick="showPage(&#39;dashboard&#39;)"><span class="ico">📊</span> Dashboard</div>
+  <div class="nav-item" onclick="showPage(&#39;diario&#39;)"><span class="ico">📓</span> Diario di bordo</div>
+  <div class="nav-item" onclick="showPage(&#39;chat&#39;)"><span class="ico">💬</span> Chat équipe</div>
+  <div class="nav-item" onclick="showPage(&#39;minori&#39;)"><span class="ico">👤</span> Minori</div>
+  <div class="nav-item" onclick="showPage(&#39;calendario&#39;)"><span class="ico">📅</span> Calendario</div>
+  <div class="nav-item" onclick="showPage(&#39;turni&#39;)"><span class="ico">🔄</span> Turni Operatori</div>
+  <div class="nav-item" onclick="showPage(&#39;mansioni&#39;)"><span class="ico">🧹</span> Mansioni Minori</div>
+  <div class="nav-item" onclick="showPage(&#39;menu&#39;)"><span class="ico">🍽️</span> Menù settimanale</div>
+  <div class="nav-item" onclick="showPage(&#39;acquisti&#39;)"><span class="ico">🛒</span> Acquisti</div>
+  <div class="nav-item" onclick="showPage(&#39;equipe&#39;)"><span class="ico">📋</span> Agenda équipe</div>
+  <div class="nav-item" onclick="showPage(&#39;attivita&#39;)"><span class="ico">🎯</span> Attività</div>
+  <div class="nav-item" onclick="showPage(&#39;operatori&#39;)"><span class="ico">👥</span> Operatori</div>
+  <div style="margin-top:auto;padding:12px 10px;border-top:1px solid rgba(255,255,255,.08);">
+    <div id="sidebar-user" style="padding:8px 6px 10px;font-size:.75rem;color:#94a3b8;line-height:1.4;"></div>
+    <div class="nav-item" onclick="doLogout()" style="color:#f87171;border-radius:8px;margin:0;">
+      <span class="ico">🚪</span> Esci
+    </div>
+    <div style="padding:8px 6px 0;font-size:.68rem;color:#475569;">v3.0 • Cloud sync</div>
+  </div>
+</div>
+
+<div id="main">
+  <div id="topbar">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button id="hamburger" onclick="apriSidebar()" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+      <h3 id="page-title">Dashboard</h3>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span id="today-date" style="font-size:.82rem;color:var(--muted)">domenica 15 marzo 2026</span>
+      <span id="topbar-user" style="font-size:.78rem;color:var(--muted);border-left:1px solid var(--border);padding-left:12px;"></span>
+    </div>
+  </div>
+  <div id="content"></div>
+</div>
+
+<!-- MODAL MINORE -->
+<div class="modal-overlay" id="modal-minore">
+  <div class="modal">
+    <h3>👤 <span id="modal-minore-title">Nuovo Minore</span></h3>
+    <div class="grid g2">
+      <div class="form-group"><label>Nome *</label><input id="m-nome" placeholder="Nome"></div>
+      <div class="form-group"><label>Cognome *</label><input id="m-cognome" placeholder="Cognome"></div>
+      <div class="form-group"><label>Data di nascita</label><input id="m-dob" type="date"></div>
+      <div class="form-group"><label>Nazionalità</label><input id="m-naz" placeholder="es. Italia"></div>
+      <div class="form-group"><label>Data ingresso</label><input id="m-ingresso" type="date"></div>
+      <div class="form-group"><label>Stato</label>
+        <select id="m-stato"><option>In comunità</option><option>Permesso</option><option>Ricovero</option><option>Dimesso</option><option>AWOL</option></select>
+      </div>
+    </div>
+    <div class="form-group"><label>Tutore / Referente legale</label><input id="m-tutore" placeholder="Nome, ente o avvocato"></div>
+    <div class="grid g2">
+      <div class="form-group"><label>Status giuridico</label>
+        <select id="m-status-giuridico">
+          <option>MSNA</option><option>Minore italiano</option><option>Neomaggiorenne</option><option>Altro</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Codice fiscale</label><input id="m-cf" placeholder="Opzionale"></div>
+      <div class="form-group"><label>Permesso / titolo soggiorno</label><input id="m-permesso" placeholder="es. Minore età, affidamento, attesa esito"></div>
+      <div class="form-group"><label>Scadenza permesso</label><input id="m-scad-permesso" type="date"></div>
+      <div class="form-group"><label>Procedura tutela / tutore</label><input id="m-tutela" placeholder="es. aperta, nominato, da richiedere"></div>
+      <div class="form-group"><label>Scadenza legale / udienza</label><input id="m-scad-legale" type="date"></div>
+      <div class="form-group"><label>Proseguimento amministrativo</label>
+        <select id="m-proseguimento"><option>Non richiesto</option><option>Da valutare</option><option>Richiesto</option><option>Accolto</option><option>Rigettato</option></select>
+      </div>
+      <div class="form-group"><label>Numero pratica / procedimento</label><input id="m-pratica" placeholder="es. 564/2024 MIN"></div>
+    </div>
+    <div class="form-group"><label>Note iniziali</label><textarea id="m-note" placeholder="Contesto, segnalazioni iniziali..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal(&#39;modal-minore&#39;)">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaMinore()">💾 Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EVENTO -->
+<div class="modal-overlay" id="modal-evento">
+  <div class="modal">
+    <h3>📅 Nuovo Appuntamento</h3>
+    <div class="form-group"><label>Titolo *</label><input id="ev-titolo" placeholder="es. Udienza Tribunale Minori"></div>
+    <div class="grid g2">
+      <div class="form-group"><label>Data *</label><input id="ev-data" type="date"></div>
+      <div class="form-group"><label>Ora</label><input id="ev-ora" type="time"></div>
+    </div>
+    <div class="form-group"><label>Tipo</label>
+      <select id="ev-tipo"><option>Udienza</option><option>Colloquio</option><option>Visita medica</option><option>Attività educativa</option><option>Riunione équipe</option><option>Permesso</option><option>Altro</option></select>
+    </div>
+    <div class="form-group"><label>Minore coinvolto</label>
+      <select id="ev-minore"><option value="">— Nessuno specifico —</option></select>
+    </div>
+    <div class="form-group"><label>Luogo</label><input id="ev-luogo" placeholder="es. Tribunale Minori Ancona"></div>
+    <div class="form-group"><label>Note</label><textarea id="ev-note" placeholder="Dettagli, documenti da portare..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal(&#39;modal-evento&#39;)">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaEvento()">💾 Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ATTIVITA -->
+<div class="modal-overlay" id="modal-attivita">
+  <div class="modal">
+    <h3>📋 Nuova Attività</h3>
+    <div class="form-group"><label>Nome attività *</label><input id="at-nome" placeholder="es. Laboratorio ceramica"></div>
+    <div class="grid g2">
+      <div class="form-group"><label>Data</label><input id="at-data" type="date"></div>
+      <div class="form-group"><label>Ora</label><input id="at-ora" type="time"></div>
+    </div>
+    <div class="form-group"><label>Categoria</label>
+      <select id="at-cat"><option>Educativa</option><option>Sportiva</option><option>Ricreativa</option><option>Lavoro/Stage</option><option>Scuola</option><option>Salute</option><option>Autonomia</option></select>
+    </div>
+    <div class="form-group"><label>Operatore responsabile</label><select id="at-op"></select></div>
+    <div class="form-group"><label>Note</label><textarea id="at-note" placeholder="Descrizione, obiettivi..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal(&#39;modal-attivita&#39;)">Annulla</button>
+      <button class="btn btn-success" onclick="salvaAttivita()">💾 Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL OPERATORE -->
+<div class="modal-overlay" id="modal-operatore">
+  <div class="modal">
+    <h3>👥 <span id="modal-op-title">Nuovo Operatore</span></h3>
+    <div class="grid g2">
+      <div class="form-group"><label>Nome *</label><input id="op-nome" placeholder="Nome"></div>
+      <div class="form-group"><label>Cognome *</label><input id="op-cognome" placeholder="Cognome"></div>
+    </div>
+    <div class="form-group"><label>Ruolo</label>
+      <select id="op-ruolo"><option>Educatore</option><option>Coordinatore</option><option>Psicologo</option><option>Assistente Sociale</option><option>Operatore notturno</option><option>Tirocinante</option><option>Borsista</option><option>Volontario</option></select>
+    </div>
+    <div class="grid g2">
+      <div class="form-group"><label>Telefono</label><input id="op-tel" placeholder="333 0000000"></div>
+      <div class="form-group"><label>Email</label><input id="op-email" type="email" placeholder="email@esempio.it"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal(&#39;modal-operatore&#39;)">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaOperatore()">💾 Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SCHEDA MINORE -->
+<div class="modal-overlay" id="modal-scheda">
+  <div class="modal modal-wide">
+    <h3 id="scheda-title">📂 Scheda Minore</h3>
+    <div id="scheda-content"></div>
+    <div class="modal-footer">
+      <button class="btn btn-pdf" onclick="stampaPDF()">📄 Salva PDF</button>
+      <button class="btn btn-ghost" onclick="closeModal(&#39;modal-scheda&#39;)">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NOTA/DOC -->
+<div class="modal-overlay" id="modal-nota">
+  <div class="modal">
+    <h3>📝 <span id="nota-modal-title">Aggiungi Documento</span></h3>
+    <input type="hidden" id="nota-minore-id">
+    <div class="form-group"><label>Tipo documento</label>
+      <select id="nota-tipo" onchange="togglePEI()">
+        <option>Nota operatore</option><option>Relazione</option><option>Verbale colloquio</option><option>Documento medico</option><option>Altro</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Titolo *</label><input id="nota-titolo" placeholder="Titolo documento"></div>
+    <div class="form-group"><label>Contenuto / Testo</label><textarea id="nota-testo" style="min-height:120px" placeholder="Testo del documento (opzionale se alleghi un file)..."></textarea></div>
+    <div class="form-group">
+      <label>Allega documento (PDF, immagine, Word…)</label>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
+        <label for="nota-file-input" style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;background:#f1f5f9;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:.86rem;font-weight:600;color:var(--text);">
+          📎 Carica documento
+        </label>
+        <input type="file" id="nota-file-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="display:none" onchange="aggiornaFileLabel(this)">
+        <span id="nota-file-label" style="font-size:.82rem;color:var(--muted);">Nessun file selezionato</span>
+      </div>
+      <div style="font-size:.75rem;color:var(--muted);margin-top:5px;">Il file viene salvato come riferimento. Formati: PDF, Word, JPG, PNG</div>
+    </div>
+    <div class="form-group"><label>Autore</label><input id="nota-autore" placeholder="Nome e cognome operatore"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal(&#39;modal-nota&#39;)">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaNota()">💾 Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PEI -->
+<div class="modal-overlay" id="modal-pei">
+  <div class="modal modal-wide">
+    <h3>🎯 <span id="pei-modal-title">Progetto Educativo Individualizzato (PEI)</span></h3>
+    <input type="hidden" id="pei-minore-id">
+    <input type="hidden" id="pei-edit-id">
+
+    <div class="pei-section">
+      <h4>📋 Dati generali</h4>
+      <div class="grid g2">
+        <div class="form-group"><label>Anno scolastico / Periodo</label><input id="pei-periodo" placeholder="es. 2025-2026"></div>
+        <div class="form-group"><label>Data compilazione</label><input id="pei-data" type="date"></div>
+        <div class="form-group"><label>Operatore responsabile PEI</label><input id="pei-operatore" placeholder="Nome operatore"></div>
+        <div class="form-group"><label>Fase progettuale</label>
+          <select id="pei-fase"><option>Accoglienza</option><option>Osservazione</option><option>Progettazione</option><option>Attuazione</option><option>Verifica</option><option>Dimissione</option></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="pei-section">
+      <h4>🔍 Analisi della situazione</h4>
+      <div class="form-group"><label>Contesto familiare e storia personale</label><textarea id="pei-contesto" style="min-height:100px" placeholder="Descrivere la situazione familiare, storia personale, eventi significativi..."></textarea></div>
+      <div class="form-group"><label>Risorse e punti di forza del minore</label><textarea id="pei-risorse" placeholder="Capacità, interessi, competenze, motivazioni..."></textarea></div>
+      <div class="form-group"><label>Aree di fragilità e bisogni</label><textarea id="pei-fragilita" placeholder="Difficoltà, bisogni educativi specifici, aree di intervento..."></textarea></div>
+    </div>
+
+    <div class="pei-section">
+      <h4>🎯 Obiettivi educativi</h4>
+      <div class="form-group"><label>Obiettivi a breve termine (0-3 mesi)</label><textarea id="pei-ob-breve" placeholder="Obiettivi specifici e verificabili..."></textarea></div>
+      <div class="form-group"><label>Obiettivi a medio termine (3-12 mesi)</label><textarea id="pei-ob-medio" placeholder="Obiettivi di sviluppo competenze..."></textarea></div>
+      <div class="form-group"><label>Obiettivi a lungo termine</label><textarea id="pei-ob-lungo" placeholder="Traguardi di autonomia, inserimento..."></textarea></div>
+    </div>
+
+    <div class="pei-section">
+      <h4>🛠️ Interventi e strumenti</h4>
+      <div class="form-group"><label>Area scolastica / formativa</label><textarea id="pei-scuola" placeholder="Percorso scolastico, supporto, attività formative..."></textarea></div>
+      <div class="form-group"><label>Area relazionale / emotiva</label><textarea id="pei-relazionale" placeholder="Colloqui, gruppi, interventi psicologici..."></textarea></div>
+      <div class="form-group"><label>Area dell'autonomia</label><textarea id="pei-autonomia" placeholder="Competenze pratiche, gestione quotidiano..."></textarea></div>
+      <div class="form-group"><label>Area legale / amministrativa</label><textarea id="pei-legale" placeholder="Permesso soggiorno, procedimenti, documenti..."></textarea></div>
+    </div>
+
+    <div class="pei-section">
+      <h4>📅 Verifiche e aggiornamenti</h4>
+      <div class="form-group"><label>Frequenza verifica PEI</label>
+        <select id="pei-freq-verifica"><option>Mensile</option><option>Bimestrale</option><option>Trimestrale</option><option>Semestrale</option></select>
+      </div>
+      <div class="form-group"><label>Note di verifica / aggiornamenti</label><textarea id="pei-note-verifica" placeholder="Progressi registrati, modifiche al progetto..."></textarea></div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal(&#39;modal-pei&#39;)">Annulla</button>
+      <button class="btn btn-pdf" onclick="stampaPEI()">📄 Salva PDF</button>
+      <button class="btn btn-primary" onclick="salvaPEI()">💾 Salva PEI</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RELAZIONE -->
+<div class="modal-overlay" id="modal-relazione">
+  <div class="modal modal-wide">
+    <h3>📝 <span id="rel-modal-title">Redigi Relazione</span></h3>
+    <input type="hidden" id="rel-minore-id">
+    <input type="hidden" id="rel-edit-id">
+
+    <div class="pei-section">
+      <h4>📋 Intestazione</h4>
+      <div class="grid g2">
+        <div class="form-group"><label>Tipo relazione</label>
+          <select id="rel-tipo"><option>Relazione di ingresso</option><option>Relazione trimestrale</option><option>Relazione semestrale</option><option>Relazione annuale</option><option>Relazione per il Tribunale</option><option>Relazione di dimissione</option><option>Relazione urgente</option></select>
+        </div>
+        <div class="form-group"><label>Data relazione</label><input id="rel-data" type="date"></div>
+        <div class="form-group"><label>Destinatario</label><input id="rel-dest" placeholder="es. Tribunale Minori delle Marche"></div>
+        <div class="form-group"><label>Redatta da</label><input id="rel-autore" placeholder="Nome operatore / équipe"></div>
+      </div>
+    </div>
+
+    <div class="pei-section">
+      <h4>👤 Situazione attuale</h4>
+      <div class="form-group"><label>Descrizione della situazione del minore</label><textarea id="rel-situazione" style="min-height:110px" placeholder="Situazione attuale, comportamento, relazioni con il gruppo..."></textarea></div>
+      <div class="form-group"><label>Percorso scolastico / formativo</label><textarea id="rel-scuola" placeholder="Frequenza, rendimento, rapporti con insegnanti..."></textarea></div>
+      <div class="form-group"><label>Salute fisica e psicologica</label><textarea id="rel-salute" placeholder="Condizioni di salute, eventuali follow-up..."></textarea></div>
+    </div>
+
+    <div class="pei-section">
+      <h4>📈 Progressi e osservazioni educative</h4>
+      <div class="form-group"><label>Progressi rispetto agli obiettivi del PEI</label><textarea id="rel-progressi" style="min-height:110px" placeholder="Obiettivi raggiunti, in corso, non raggiunti..."></textarea></div>
+      <div class="form-group"><label>Criticità e problematiche emerse</label><textarea id="rel-criticita" placeholder="Difficoltà, episodi critici, comportamenti problematici..."></textarea></div>
+    </div>
+
+    <div class="pei-section">
+      <h4>🔮 Prospettive e richieste</h4>
+      <div class="form-group"><label>Proposta educativa / Piano futuro</label><textarea id="rel-piano" placeholder="Interventi proposti, modifiche al progetto, obiettivi prossimi..."></textarea></div>
+      <div class="form-group"><label>Richieste al Tribunale / Servizi</label><textarea id="rel-richieste" placeholder="Autorizzazioni, interventi richiesti, valutazioni..."></textarea></div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal(&#39;modal-relazione&#39;)">Annulla</button>
+      <button class="btn btn-pdf" onclick="stampaRelazione()">📄 Salva PDF</button>
+      <button class="btn btn-primary" onclick="salvaRelazione()">💾 Salva Relazione</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script src="./eduCare - Gestionale Comunità Educative_files/supabase.min.js.download"></script>
+<script>
+const SUPA_URL = 'https://nvwqykhosumrjkdlejtb.supabase.co';
+const SUPA_KEY = 'sb_publishable_p1Bci_nIcTZWIemx-4EJ8Q_4LSlzQ2b';
+
+async function supa(path, opts={}) {
+  const res = await fetch(SUPA_URL + '/rest/v1/' + path, {
+    headers: {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer ' + SUPA_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': opts.prefer || 'return=representation',
+      ...opts.headers
+    },
+    ...opts
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+// ===================== SESSION =====================
+let SESSION = null; // { utente, comunita_id, comunita_nome }
+
+function getSession() {
+  try { return JSON.parse(sessionStorage.getItem('educare_session')) || null; } catch { return null; }
+}
+function setSession(s) {
+  SESSION = s;
+  sessionStorage.setItem('educare_session', JSON.stringify(s));
+}
+function clearSession() {
+  SESSION = null;
+  sessionStorage.removeItem('educare_session');
+}
+
+// ===================== LOGIN SCREEN =====================
+function mostraLogin() {
+  document.getElementById('welcomeScreen').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('mainApp').style.display = 'none';
+}
+
+function mostraApp() {
+  document.getElementById('welcomeScreen').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'flex';
+  // mostra nome comunità e utente in topbar
+  if (SESSION) {
+    document.getElementById('topbar-user').textContent = `${SESSION.utente.nome} ${SESSION.utente.cognome} (${SESSION.utente.ruolo}) · ${SESSION.comunita_nome}`;
+    document.getElementById('sidebar-user').innerHTML = `<b style="color:#cbd5e1">${SESSION.utente.nome} ${SESSION.utente.cognome}</b><br><span style="color:#4ade80">${SESSION.utente.ruolo}</span> · ${SESSION.comunita_nome}`;
+  }
+}
+
+function entraGestionale() {
+  // dal welcome screen → vai al login
+  mostraLogin();
+}
+
+async function doLogin() {
+  const comunita = document.getElementById('login-comunita').value.trim();
+  const email    = document.getElementById('login-email').value.trim().toLowerCase();
+  const password = document.getElementById('login-password').value;
+  const errEl    = document.getElementById('login-error');
+  const btn      = document.getElementById('login-btn');
+
+  errEl.textContent = '';
+  if (!comunita || !email || !password) { errEl.textContent = 'Compila tutti i campi.'; return; }
+
+  btn.textContent = 'Accesso in corso…';
+  btn.disabled = true;
+
+  try {
+    // 1. Trova comunità
+    const comList = await supa(`comunita?nome=ilike.${encodeURIComponent(comunita)}&limit=1`);
+    if (!comList || comList.length === 0) throw new Error('Comunità non trovata.');
+    const com = comList[0];
+
+    // 2. Trova utente
+    const utenti = await supa(`utenti?comunita_id=eq.${com.id}&email=eq.${encodeURIComponent(email)}&limit=1`);
+    if (!utenti || utenti.length === 0) throw new Error('Email non trovata per questa comunità.');
+    const utente = utenti[0];
+
+    // 3. Verifica password (hash SHA-256 semplice)
+    const pwHash = await sha256(password);
+    if (utente.password_hash !== pwHash) throw new Error('Password non corretta.');
+
+    setSession({ utente, comunita_id: com.id, comunita_nome: com.nome });
+    await DB.loadAll();
+    mostraApp();
+    showPage('dashboard');
+  } catch(e) {
+    errEl.textContent = e.message || 'Errore di accesso.';
+  } finally {
+    btn.textContent = 'Accedi';
+    btn.disabled = false;
+  }
+}
+
+function doLogout() {
+  if (!confirm('Vuoi uscire dalla sessione?')) return;
+  clearSession();
+  location.reload();
+}
+
+async function sha256(msg) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// ===================== STORAGE (Supabase) =====================
+const DB = {
+  _cache: {},
+
+  async loadAll() {
+    if (!SESSION) return;
+    const cid = SESSION.comunita_id;
+    const tables = ['minori','note','pei','relazioni','eventi','attivita','operatori','diario','acquisti','equipe'];
+    await Promise.all(tables.map(async t => {
+      const rows = await supa(`${t}?comunita_id=eq.${cid}&select=id,data`);
+      this._cache[t] = (rows||[]).map(r => ({...r.data, _row_id: r.id}));
+    }));
+    const turniRows = await supa(`turni?comunita_id=eq.${cid}&limit=1&select=id,data`);
+    this._cache['turni'] = turniRows && turniRows.length ? turniRows[0].data : {};
+    this._cache['turni_row_id'] = turniRows && turniRows.length ? turniRows[0].id : null;
+    const mansioniRows = await supa(`mansioni?comunita_id=eq.${cid}&limit=1&select=id,data`);
+    this._cache['mansioni'] = mansioniRows && mansioniRows.length ? mansioniRows[0].data : {};
+    this._cache['mansioni_row_id'] = mansioniRows && mansioniRows.length ? mansioniRows[0].id : null;
+    const menuRows = await supa(`menu?comunita_id=eq.${cid}&limit=1&select=id,data`);
+    this._cache['menu'] = menuRows && menuRows.length ? menuRows[0].data : {};
+    this._cache['menu_row_id'] = menuRows && menuRows.length ? menuRows[0].id : null;
+  },
+
+  get(k) { return this._cache[k] || []; },
+
+  set(k, arr) {
+    this._cache[k] = arr;
+    if (!SESSION) return;
+    const cid = SESSION.comunita_id;
+    // Salva in background
+    (async () => {
+      try {
+        // DELETE
+        await fetch(`${SUPA_URL}/rest/v1/${k}?comunita_id=eq.${cid}`, {
+          method: 'DELETE',
+          headers: {
+            'apikey': SUPA_KEY,
+            'Authorization': 'Bearer ' + SUPA_KEY,
+            'Content-Type': 'application/json'
+          }
+        });
+        // INSERT
+        if (arr.length > 0) {
+          const rows = arr.map(item => ({ comunita_id: cid, data: item }));
+          await fetch(`${SUPA_URL}/rest/v1/${k}`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPA_KEY,
+              'Authorization': 'Bearer ' + SUPA_KEY,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify(rows)
+          });
+        }
+      } catch(e) { console.error('DB.set error:', k, e); }
+    })();
+  },
+
+  getObj(k, def={}) { return this._cache[k] || def; },
+
+  setObj(k, obj) {
+    this._cache[k] = obj;
+    if (!SESSION) return;
+    const cid = SESSION.comunita_id;
+    const rowId = this._cache[k+'_row_id'];
+    (async () => {
+      try {
+        if (rowId) {
+          await fetch(`${SUPA_URL}/rest/v1/${k}?id=eq.${rowId}`, {
+            method: 'PATCH',
+            headers: {
+              'apikey': SUPA_KEY,
+              'Authorization': 'Bearer ' + SUPA_KEY,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({ data: obj })
+          });
+        } else {
+          const res = await fetch(`${SUPA_URL}/rest/v1/${k}`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPA_KEY,
+              'Authorization': 'Bearer ' + SUPA_KEY,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=representation'
+            },
+            body: JSON.stringify({ comunita_id: cid, data: obj })
+          });
+          const data = await res.json();
+          if (data && data[0]) this._cache[k+'_row_id'] = data[0].id;
+        }
+      } catch(e) { console.error('DB.setObj error:', k, e); }
+    })();
+  }
+};
+
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+
+let currentPage='dashboard';
+let calYear,calMonth;
+let _schedaMinoreId=null;
+
+// ===================== NAVIGATION =====================
+function showPage(p){
+  currentPage=p;
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const map={dashboard:0,diario:1,chat:2,minori:3,calendario:4,turni:5,mansioni:6,menu:7,acquisti:8,equipe:9,attivita:10,operatori:11};
+  const items=document.querySelectorAll('.nav-item');
+  if(items[map[p]])items[map[p]].classList.add('active');
+  const titles={dashboard:'Dashboard',diario:'Diario di bordo',chat:'Chat équipe',minori:'Cartelle Minori',calendario:'Calendario Appuntamenti',turni:'Turni Operatori',mansioni:'Mansioni Minori',menu:'Menù settimanale',acquisti:'Acquisti',equipe:'Agenda riunione équipe',attivita:'Attività',operatori:'Operatori'};
+  document.getElementById('page-title').textContent=titles[p]||p;
+  if(p==='chat'){renderChat();return;}
+  ({dashboard:renderDashboard,diario:renderDiario,minori:renderMinori,calendario:renderCalendario,turni:renderTurni,mansioni:renderMansioni,menu:renderMenu,acquisti:renderAcquisti,equipe:renderEquipe,attivita:renderAttivita,operatori:renderOperatori}[p]||renderDashboard)();
+}
+
+// ===================== DASHBOARD =====================
+function renderDashboard(){
+  const minori=DB.get('minori'),eventi=DB.get('eventi'),att=DB.get('attivita'),op=DB.get('operatori');
+  const oggi=new Date().toISOString().split('T')[0];
+  const prox=eventi.filter(e=>e.data>oggi).sort((a,b)=>a.data.localeCompare(b.data)).slice(0,5);
+  const inCom=minori.filter(m=>m.stato==='In comunità').length;
+  const scadenzeLegali=minori.flatMap(m=>getScadenzeMinore(m)).sort((a,b)=>a.data.localeCompare(b.data));
+  const scadenze30=scadenzeLegali.filter(s=>giorniAllaData(s.data)>=0 && giorniAllaData(s.data)<=30);
+
+  // Appuntamenti di oggi divisi mattina/pomeriggio
+  const oggiEv=eventi.filter(e=>e.data===oggi).sort((a,b)=>(a.ora||'').localeCompare(b.ora||''));
+  const mattina=oggiEv.filter(e=>!e.ora||(e.ora<'14:30'));
+  const pomeriggio=oggiEv.filter(e=>e.ora&&e.ora>='14:30');
+
+  function evRow(e){
+    const m=minori.find(x=>x.id===e.minoreId);
+    return`<div style="display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
+      <div style="flex-shrink:0;min-width:44px;text-align:center;background:#eff6ff;border-radius:6px;padding:3px 6px;">
+        <div style="font-weight:800;font-size:.9rem;color:var(--accent)">${e.ora||'—'}</div>
+      </div>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:.84rem">${e.titolo}</div>
+        <div style="font-size:.74rem;color:var(--muted)">${m?m.nome+' '+m.cognome:''} ${e.luogo?'· '+e.luogo:''}</div>
+      </div>
+      <span class="badge ${tipoColor(e.tipo)}">${e.tipo}</span>
+    </div>`;
+  }
+
+  document.getElementById('content').innerHTML=`
+  <div class="grid g4" style="margin-bottom:20px">
+    <div class="card"><div class="card-title">Minori presenti</div><div class="stat-big" style="color:var(--accent)">${inCom}</div><div class="stat-sub">${minori.length} totali registrati</div></div>
+    <div class="card"><div class="card-title">Operatori</div><div class="stat-big" style="color:var(--accent2)">${op.length}</div><div class="stat-sub">in organico</div></div>
+    <div class="card"><div class="card-title">Appuntamenti oggi</div><div class="stat-big" style="color:var(--warn)">${oggiEv.length}</div><div class="stat-sub">${mattina.length} mattina · ${pomeriggio.length} pomeriggio</div></div>
+    <div class="card"><div class="card-title">Scadenze legali 30 gg</div><div class="stat-big" style="color:var(--danger)">${scadenze30.length}</div><div class="stat-sub">permessi, udienze, tutele</div></div>
+  </div>
+  <div class="card" style="margin-bottom:20px;background:linear-gradient(135deg,#1e3a5f 0%,#065f46 100%);border:none;cursor:pointer" onclick="showPage('diario')">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="color:rgba(255,255,255,.7);font-size:.76rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">📓 Diario di bordo</div>
+        <div style="color:#fff;font-size:1rem;font-weight:700">Scrivi il diario del tuo turno</div>
+        <div style="color:rgba(255,255,255,.6);font-size:.8rem;margin-top:2px">Turno corrente: ${(()=>{const h=new Date().getHours();return h>=8&&h<14?'☀️ Mattina':h>=14&&h<20?'🌤 Pomeriggio':'🌙 Notte';})()}</div>
+      </div>
+      <div style="font-size:2.5rem;opacity:.7">→</div>
+    </div>
+  </div>
+
+  <div class="grid g2" style="margin-bottom:20px">
+    <div class="card">
+      <div class="sec-header" style="margin-bottom:10px"><h2>☀️ Mattina oggi <span style="font-weight:400;font-size:.8rem;color:var(--muted)">08:30–14:30</span></h2><button class="btn btn-sm btn-primary" onclick="showPage('calendario')">+ Nuovo</button></div>
+      ${mattina.length?mattina.map(evRow).join(''):`<div class="empty-state" style="padding:20px"><div class="es-icon">☕</div><p>Nessun appuntamento in mattinata</p></div>`}
+    </div>
+    <div class="card">
+      <div class="sec-header" style="margin-bottom:10px"><h2>🌤 Pomeriggio oggi <span style="font-weight:400;font-size:.8rem;color:var(--muted)">14:30–20:30</span></h2><button class="btn btn-sm btn-primary" onclick="showPage('calendario')">+ Nuovo</button></div>
+      ${pomeriggio.length?pomeriggio.map(evRow).join(''):`<div class="empty-state" style="padding:20px"><div class="es-icon">🌅</div><p>Nessun appuntamento nel pomeriggio</p></div>`}
+    </div>
+  </div>
+
+  <div class="grid g2">
+    <div class="card">
+      <div class="sec-header"><h2>Prossimi appuntamenti</h2><button class="btn btn-sm btn-ghost" onclick="showPage('calendario')">Vedi calendario</button></div>
+      ${prox.length?prox.map(e=>{const m=minori.find(x=>x.id===e.minoreId);return`
+        <div style="display:flex;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)">
+          <div style="width:42px;text-align:center;background:#eff6ff;border-radius:6px;padding:4px;flex-shrink:0">
+            <div style="font-size:.65rem;color:var(--muted)">${fmtMese(e.data)}</div>
+            <div style="font-weight:800;font-size:1.1rem;color:var(--accent)">${e.data.split('-')[2]}</div>
+          </div>
+          <div style="flex:1"><div style="font-weight:600;font-size:.86rem">${e.titolo}</div><div style="font-size:.76rem;color:var(--muted)">${e.ora||''} ${m?'• '+m.nome+' '+m.cognome:''} ${e.luogo?'• '+e.luogo:''}</div></div>
+          <span class="badge ${tipoColor(e.tipo)}">${e.tipo}</span>
+        </div>`}).join(''):`<div class="empty-state"><div class="es-icon">📅</div><p>Nessun appuntamento futuro</p></div>`}
+    </div>
+    <div class="card">
+      <div class="sec-header"><h2>Scadenze legali</h2><button class="btn btn-sm btn-ghost" onclick="showPage('minori')">Apri cartelle</button></div>
+      ${scadenzeLegali.length?scadenzeLegali.slice(0,6).map(s=>`
+        <div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="apriScheda('${s.minoreId}')">
+          <div style="width:42px;text-align:center;background:#fff1f2;border-radius:6px;padding:4px;flex-shrink:0">
+            <div style="font-size:.65rem;color:var(--muted)">${fmtMese(s.data)}</div>
+            <div style="font-weight:800;font-size:1.1rem;color:var(--danger)">${s.data.split('-')[2]}</div>
+          </div>
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:.86rem">${s.label}</div>
+            <div style="font-size:.76rem;color:var(--muted)">${s.nome}</div>
+          </div>
+          <span class="badge ${badgeScadenza(s.data)}">${testoGiorniScadenza(s.data)}</span>
+        </div>`).join(''):`<div class="empty-state"><div class="es-icon">⚖️</div><p>Nessuna scadenza legale registrata</p></div>`}
+    </div>
+  </div>`;
+}
+
+// ===================== DIARIO DI BORDO =====================
+function renderDiario(){
+  const diario=DB.get('diario');
+  const op=DB.get('operatori');
+  const oggi=new Date().toISOString().split('T')[0];
+  const turnoOggi=()=>{
+    const ora=new Date().getHours();
+    if(ora>=8&&ora<14)return'Mattina (08:30–14:30)';
+    if(ora>=14&&ora<20)return'Pomeriggio (14:30–20:30)';
+    return'Notte (20:30–08:30)';
+  };
+  document.getElementById('content').innerHTML=`
+  <div class="grid g2" style="align-items:start">
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">✍️ Scrivi diario di bordo</div>
+        <div class="form-group">
+          <label>Data</label>
+          <input type="date" id="db-data" value="${oggi}">
+        </div>
+        <div class="form-group">
+          <label>Turno</label>
+          <select id="db-turno">
+            <option>Mattina (08:30–14:30)</option>
+            <option>Pomeriggio (14:30–20:30)</option>
+            <option>Notte (20:30–08:30)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Operatore</label>
+          <select id="db-operatore">
+            ${op.map(o=>`<option value="${o.id}">${o.nome} ${o.cognome}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Diario del turno *</label>
+          <textarea id="db-testo" style="min-height:180px" placeholder="Descrivi l'andamento del turno: comportamenti, episodi significativi, attività svolte, comunicazioni importanti..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Episodi critici / segnalazioni</label>
+          <textarea id="db-criticita" style="min-height:80px" placeholder="Eventuali episodi critici, conflitti, malesseri, comunicazioni urgenti al coordinatore..."></textarea>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="salvaDiario()">💾 Salva diario</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="sec-header"><h2>Diari recenti</h2></div>
+      <div style="max-height:600px;overflow-y:auto">
+        ${diario.length?[...diario].reverse().slice(0,20).map(d=>{
+          const oper=op.find(o=>o.id===d.opId);
+          const hasCrit=d.criticita&&d.criticita.trim();
+          return`<div style="padding:12px 0;border-bottom:1px solid var(--border)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span class="badge ${d.turno.startsWith('Mattina')?'badge-blue':d.turno.startsWith('Pomeriggio')?'badge-yellow':'badge-gray'}">${d.turno.split(' ')[0]}</span>
+                <b style="font-size:.86rem">${fmtData(d.data)}</b>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px">
+                ${hasCrit?`<span class="badge badge-red">⚠️ Segnalazione</span>`:''}
+                <button class="btn btn-sm btn-danger" onclick="eliminaDiario('${d.id}')">🗑</button>
+              </div>
+            </div>
+            <div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">✍️ ${oper?oper.nome+' '+oper.cognome:'—'}</div>
+            <div style="font-size:.84rem;white-space:pre-wrap;background:#f8fafc;border-radius:6px;padding:10px">${d.testo}</div>
+            ${hasCrit?`<div style="font-size:.82rem;white-space:pre-wrap;background:#fff1f2;border:1px solid #fecaca;border-radius:6px;padding:8px;margin-top:6px"><b>⚠️ Segnalazione:</b> ${d.criticita}</div>`:''}
+          </div>`;
+        }).join(''):`<div class="empty-state"><div class="es-icon">📓</div><p>Nessun diario ancora scritto.</p></div>`}
+      </div>
+    </div>
+  </div>`;
+  // Preseleziona turno corrente
+  document.getElementById('db-turno').value=turnoOggi();
+}
+
+function salvaDiario(){
+  const testo=document.getElementById('db-testo').value.trim();
+  if(!testo){alert('Il testo del diario è obbligatorio');return;}
+  const diario=DB.get('diario');
+  diario.push({
+    id:uid(),
+    data:document.getElementById('db-data').value,
+    turno:document.getElementById('db-turno').value,
+    opId:document.getElementById('db-operatore').value,
+    testo,
+    criticita:document.getElementById('db-criticita').value.trim()
+  });
+  DB.set('diario',diario);
+  document.getElementById('db-testo').value='';
+  document.getElementById('db-criticita').value='';
+  renderDiario();
+}
+
+function eliminaDiario(id){
+  if(!confirm('Eliminare questo diario?'))return;
+  DB.set('diario',DB.get('diario').filter(x=>x.id!==id));
+  renderDiario();
+}
+
+// ===================== MANSIONI MINORI =====================
+let mansioniAnno=new Date().getFullYear(), mansioniMese=new Date().getMonth();
+
+const M_CICLO=['C','B','G','L',''];
+const M_LABEL={'C':'Cucina','B':'Bagni','G':'Giardinaggio','L':'Lavanderia'};
+const M_BG={'C':'#fef3c7','B':'#d1fae5','G':'#dcfce7','L':'#ede9fe'};
+const M_COLOR={'C':'#92400e','B':'#065f46','G':'#14532d','L':'#5b21b6'};
+const M_BORDER={'C':'#fde68a','B':'#6ee7b7','G':'#86efac','L':'#c4b5fd'};
+const M_EMOJI={'C':'🍳','B':'🚿','G':'🌿','L':'👕'};
+
+function renderMansioni(){
+  const minori=DB.get('minori').filter(m=>m.stato==='In comunità');
+  const mansioni=DB.getObj('mansioni');
+  const mesiIT=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  const giorniBrevi=['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+  const isCoord=SESSION?.utente?.ruolo==='Coordinatore';
+
+  // Genera settimane del mese
+  const primoGiorno=new Date(mansioniAnno,mansioniMese,1);
+  const ultimoGiorno=new Date(mansioniAnno,mansioniMese+1,0);
+  const settimane=[];
+  let cur=new Date(primoGiorno);
+  const dow=cur.getDay()||7; cur.setDate(cur.getDate()-(dow-1));
+  while(cur<=ultimoGiorno){
+    const sett=[];
+    for(let i=0;i<7;i++){sett.push(new Date(cur));cur.setDate(cur.getDate()+1);}
+    settimane.push(sett);
+  }
+
+  // Legenda
+  const legendHTML=Object.entries(M_LABEL).map(([k,v])=>`
+    <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:4px;font-size:.74rem;font-weight:700;background:${M_BG[k]};color:${M_COLOR[k]};border:1px solid ${M_BORDER[k]}">
+      ${M_EMOJI[k]} ${k} = ${v}
+    </span>`).join('');
+
+  let setHTML='';
+  settimane.forEach((sett,si)=>{
+    let header=`<div style="background:#f1f5f9;padding:7px;border-radius:4px;font-size:.76rem;font-weight:700;">Minore</div>`;
+    sett.forEach(d=>{
+      const inMese=d.getMonth()===mansioniMese;
+      const isOggi=d.toDateString()===new Date().toDateString();
+      header+=`<div style="background:${isOggi?'#dbeafe':'#f1f5f9'};padding:6px 4px;border-radius:4px;text-align:center;font-size:.72rem;font-weight:700;color:${inMese?(isOggi?'#1d4ed8':'#334155'):'#94a3b8'}">
+        ${giorniBrevi[d.getDay()===0?6:d.getDay()-1]}<br>${d.getDate()}
+      </div>`;
+    });
+
+    let righe='';
+    minori.forEach(m=>{
+      righe+=`<div style="padding:5px 7px;background:#f8fafc;border-radius:4px;font-size:.8rem;font-weight:600;display:flex;align-items:center;gap:5px;">
+        <div class="avatar" style="width:20px;height:20px;font-size:.55rem;flex-shrink:0">${m.nome[0]}${m.cognome[0]}</div>${m.nome} ${m.cognome[0]}.
+      </div>`;
+      sett.forEach(d=>{
+        const inMese=d.getMonth()===mansioniMese;
+        const key=`${d.toISOString().split('T')[0]}__${m.id}`;
+        const val=mansioni[key]||'';
+        if(inMese){
+          const bg=val?M_BG[val]:'#fff';
+          const color=val?M_COLOR[val]:'#cbd5e1';
+          const border=val?M_BORDER[val]:'#e2e8f0';
+          const label=val?M_EMOJI[val]+' '+val:'+';
+          righe+=`<div onclick="${isCoord?`cicloMansione('${key}')`:'return'}"
+            style="border-radius:4px;min-height:34px;display:flex;align-items:center;justify-content:center;cursor:${isCoord?'pointer':'default'};
+            background:${bg};border:1px solid ${border};color:${color};font-size:.7rem;font-weight:800;transition:.1s;text-align:center;padding:2px;">
+            ${label}
+          </div>`;
+        } else {
+          righe+=`<div style="background:#f9fafb;border:1px dashed #e2e8f0;border-radius:4px;min-height:34px;"></div>`;
+        }
+      });
+    });
+
+    setHTML+=`<div class="card" style="margin-bottom:14px;overflow-x:auto;">
+      <div style="font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:8px;">Settimana ${si+1}</div>
+      <div style="display:grid;grid-template-columns:130px repeat(7,1fr);gap:3px;min-width:580px;">
+        ${header}${righe}
+      </div>
+    </div>`;
+  });
+
+  document.getElementById('content').innerHTML=`
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div style="display:flex;align-items:center;gap:10px">
+          <button class="btn btn-ghost btn-sm" onclick="mansioniNav(-1)">◀</button>
+          <h2 style="font-size:1rem;font-weight:800">${mesiIT[mansioniMese]} ${mansioniAnno}</h2>
+          <button class="btn btn-ghost btn-sm" onclick="mansioniNav(1)">▶</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          ${legendHTML}
+          ${isCoord?'<span style="font-size:.73rem;color:var(--muted);margin-left:4px;">Clicca per cambiare mansione</span>':'<span class="badge badge-gray">👁 Solo lettura</span>'}
+        </div>
+      </div>
+    </div>
+    ${minori.length?setHTML:`<div class="card"><div class="empty-state"><div class="es-icon">🧹</div><p>Nessun minore presente in comunità.</p></div></div>`}`;
+}
+
+function cicloMansione(key){
+  if(SESSION?.utente?.ruolo!=='Coordinatore')return;
+  const mansioni=DB.getObj('mansioni');
+  const cur=mansioni[key]||'';
+  mansioni[key]=M_CICLO[(M_CICLO.indexOf(cur)+1)%M_CICLO.length];
+  DB.setObj('mansioni',mansioni);
+  renderMansioni();
+}
+
+function mansioniNav(dir){
+  mansioniMese+=dir;
+  if(mansioniMese<0){mansioniMese=11;mansioniAnno--;}
+  if(mansioniMese>11){mansioniMese=0;mansioniAnno++;}
+  renderMansioni();
+}
+
+// ===================== CHAT ÉQUIPE =====================
+let _chatRealtime=null;
+let _chatTab='gruppo';
+
+async function renderChat(){
+  const op=DB.get('operatori');
+  const me=SESSION.utente;
+  const isMobile=window.innerWidth<=768;
+
+  document.getElementById('content').innerHTML=`
+  <div id="chat-wrap" style="display:flex;height:calc(100vh - ${isMobile?'130':'110'}px);border-radius:10px;overflow:hidden;border:1px solid var(--border);">
+
+    ${!isMobile?`<!-- Sidebar verticale SOLO DESKTOP -->
+    <div style="width:200px;background:#1a2540;flex-shrink:0;overflow-y:auto;">
+      <div style="padding:12px;">
+        <div style="color:#94a3b8;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Conversazioni</div>
+        <div id="chat-tab-gruppo" onclick="switchChat('gruppo')" style="padding:8px 10px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:8px;background:rgba(59,130,246,.2);color:#fff;font-size:.84rem;font-weight:600;margin-bottom:4px;">
+          <span>👥</span> Gruppo équipe
+        </div>
+        ${op.filter(o=>o.id!==me.id).map(o=>`
+        <div id="chat-tab-${o.id}" onclick="switchChat('${o.id}')" style="padding:8px 10px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:8px;color:#94a3b8;font-size:.82rem;margin-bottom:2px;">
+          <div style="width:28px;height:28px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:800;color:#fff;flex-shrink:0">${o.nome[0]}${o.cognome[0]}</div>
+          <span>${o.nome}</span>
+        </div>`).join('')}
+      </div>
+    </div>`:''}
+
+    <!-- Area messaggi -->
+    <div style="flex:1;display:flex;flex-direction:column;background:#fff;min-width:0;">
+
+      ${isMobile?`<!-- Tab orizzontali SOLO MOBILE -->
+      <div style="background:#1a2540;padding:8px 10px;overflow-x:auto;display:flex;gap:6px;flex-shrink:0;-webkit-overflow-scrolling:touch;">
+        <button id="chat-tab-gruppo" onclick="switchChat('gruppo')"
+          style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:none;background:rgba(59,130,246,.4);color:#fff;font-size:.78rem;font-weight:700;cursor:pointer;">
+          👥 Gruppo
+        </button>
+        ${op.filter(o=>o.id!==me.id).map(o=>`
+        <button id="chat-tab-${o.id}" onclick="switchChat('${o.id}')"
+          style="flex-shrink:0;padding:6px 12px;border-radius:20px;border:none;background:rgba(255,255,255,.1);color:#94a3b8;font-size:.78rem;cursor:pointer;display:flex;align-items:center;gap:5px;">
+          <div style="width:18px;height:18px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:.5rem;font-weight:800;color:#fff;">${o.nome[0]}${o.cognome[0]}</div>
+          ${o.nome}
+        </button>`).join('')}
+      </div>`:''}
+
+      <div id="chat-header" style="padding:10px 14px;border-bottom:1px solid var(--border);font-weight:700;font-size:.88rem;background:#f8fafc;flex-shrink:0;">👥 Chat gruppo équipe</div>
+      <div id="chat-messaggi" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;"></div>
+      <div style="padding:8px 10px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0;">
+        <input id="chat-input" placeholder="Scrivi un messaggio…"
+          style="flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:20px;font-size:.88rem;outline:none;font-family:inherit;"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();inviaMessaggio();}">
+        <button onclick="inviaMessaggio()" class="btn btn-primary" style="border-radius:20px;padding:10px 16px;flex-shrink:0;">➤</button>
+      </div>
+    </div>
+  </div>`;
+
+  await caricaMessaggi();
+  avviaRealtime();
+}
+
+async function caricaMessaggi(){
+  const cid=SESSION.comunita_id;
+  const me=SESSION.utente;
+  let url;
+  if(_chatTab==='gruppo'){
+    url=`messaggi?comunita_id=eq.${cid}&destinatario_id=is.null&order=created_at.asc&limit=100`;
+  } else {
+    url=`messaggi?comunita_id=eq.${cid}&or=(and(mittente_id.eq.${me.id},destinatario_id.eq.${_chatTab}),and(mittente_id.eq.${_chatTab},destinatario_id.eq.${me.id}))&order=created_at.asc&limit=100`;
+  }
+  const msgs=await supa(url+'&select=*,mittente:utenti!mittente_id(nome,cognome)');
+  renderMessaggi(msgs||[]);
+}
+
+function renderMessaggi(msgs){
+  const me=SESSION.utente;
+  const el=document.getElementById('chat-messaggi');
+  if(!el)return;
+  el.innerHTML=msgs.length?msgs.map(m=>{
+    const isMio=m.mittente_id===me.id;
+    const nome=m.mittente?`${m.mittente.nome} ${m.mittente.cognome}`:'—';
+    const ora=new Date(m.created_at).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+    const data=new Date(m.created_at).toLocaleDateString('it-IT',{day:'numeric',month:'short'});
+    return`<div style="display:flex;flex-direction:column;align-items:${isMio?'flex-end':'flex-start'};max-width:70%;align-self:${isMio?'flex-end':'flex-start'}">
+      ${!isMio?`<div style="font-size:.72rem;color:var(--muted);margin-bottom:2px;padding-left:4px;">${nome}</div>`:''}
+      <div style="padding:10px 14px;border-radius:${isMio?'16px 4px 16px 16px':'4px 16px 16px 16px'};background:${isMio?'#3b82f6':'#f1f5f9'};color:${isMio?'#fff':'var(--text)'};font-size:.86rem;line-height:1.4;word-break:break-word;">
+        ${m.testo}
+      </div>
+      <div style="font-size:.68rem;color:var(--muted);margin-top:2px;padding:0 4px;">${data} ${ora}</div>
+    </div>`;
+  }).join(''):`<div style="text-align:center;color:var(--muted);font-size:.86rem;margin:auto;">Nessun messaggio ancora. Di' qualcosa! 👋</div>`;
+  el.scrollTop=el.scrollHeight;
+}
+
+async function inviaMessaggio(){
+  const input=document.getElementById('chat-input');
+  const testo=input?.value?.trim();
+  if(!testo)return;
+  input.value='';
+  const cid=SESSION.comunita_id;
+  const me=SESSION.utente;
+  await fetch(`${SUPA_URL}/rest/v1/messaggi`,{
+    method:'POST',
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+    body:JSON.stringify({comunita_id:cid,mittente_id:me.id,destinatario_id:_chatTab==='gruppo'?null:_chatTab,testo})
+  });
+}
+
+function avviaRealtime(){
+  if(_chatRealtime){try{_chatRealtime.unsubscribe();}catch(e){}}
+  try{
+    const client=window.supabase.createClient(SUPA_URL,SUPA_KEY);
+    _chatRealtime=client.channel('chat-'+SESSION.comunita_id)
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messaggi',filter:`comunita_id=eq.${SESSION.comunita_id}`},()=>{
+        if(currentPage==='chat')caricaMessaggi();
+      }).subscribe();
+  }catch(e){console.warn('Realtime non disponibile:',e);}
+}
+
+async function switchChat(tab){
+  _chatTab=tab;
+  // Resetta tutti i tab
+  document.querySelectorAll('[id^="chat-tab-"]').forEach(el=>{
+    const isMobile=window.innerWidth<=768;
+    el.style.background=isMobile?'rgba(255,255,255,.1)':'';
+    el.style.color=isMobile?'#94a3b8':'#94a3b8';
+  });
+  // Attiva tab selezionato
+  const active=document.getElementById('chat-tab-'+tab);
+  if(active){
+    const isMobile=window.innerWidth<=768;
+    active.style.background=isMobile?'rgba(59,130,246,.5)':'rgba(59,130,246,.2)';
+    active.style.color='#fff';
+  }
+  const header=document.getElementById('chat-header');
+  if(tab==='gruppo'){if(header)header.textContent='👥 Chat gruppo équipe';}
+  else{
+    const op=DB.get('operatori').find(o=>o.id===tab);
+    if(header&&op)header.textContent=`💬 ${op.nome} ${op.cognome}`;
+  }
+  await caricaMessaggi();
+}
+
+// ===================== MENÙ SETTIMANALE =====================
+let menuSettimana=0; // offset settimane da oggi
+
+function getSettimanaDate(offset){
+  const oggi=new Date();
+  const dow=oggi.getDay()||7;
+  const lun=new Date(oggi);
+  lun.setDate(oggi.getDate()-(dow-1)+(offset*7));
+  return Array.from({length:7},(_,i)=>{const d=new Date(lun);d.setDate(lun.getDate()+i);return d;});
+}
+
+function renderMenu(){
+  const giorni=getSettimanaDate(menuSettimana);
+  const giorniL=['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'];
+  const menu=DB.getObj('menu');
+  const dal=giorni[0].toLocaleDateString('it-IT',{day:'numeric',month:'long'});
+  const al=giorni[6].toLocaleDateString('it-IT',{day:'numeric',month:'long',year:'numeric'});
+
+  const righe=giorni.map((d,i)=>{
+    const key=d.toISOString().split('T')[0];
+    const pranzo=menu[key+'_pranzo']||'';
+    const cena=menu[key+'_cena']||'';
+    const isOggi=d.toDateString()===new Date().toDateString();
+    return`<tr style="${isOggi?'background:#eff6ff;':''}">
+      <td style="font-weight:700;white-space:nowrap;${isOggi?'color:#1d4ed8;':''}">${giorniL[i]}<br><span style="font-weight:400;font-size:.75rem;color:var(--muted)">${d.toLocaleDateString('it-IT',{day:'numeric',month:'short'})}</span></td>
+      <td><input value="${pranzo}" placeholder="Pranzo…" onchange="salvaMenu('${key}_pranzo',this.value)"
+        style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:.86rem;font-family:inherit;"></td>
+      <td><input value="${cena}" placeholder="Cena…" onchange="salvaMenu('${key}_cena',this.value)"
+        style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:.86rem;font-family:inherit;"></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('content').innerHTML=`
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="btn btn-ghost btn-sm" onclick="menuNav(-1)">◀</button>
+        <h2 style="font-size:.95rem;font-weight:800;">Dal ${dal} al ${al}</h2>
+        <button class="btn btn-ghost btn-sm" onclick="menuNav(1)">▶</button>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="menuSettimana=0;renderMenu()">Settimana corrente</button>
+    </div>
+    <table>
+      <thead><tr><th style="width:110px;">Giorno</th><th>🍽️ Pranzo</th><th>🌙 Cena</th></tr></thead>
+      <tbody>${righe}</tbody>
+    </table>
+    <div style="margin-top:14px;font-size:.78rem;color:var(--muted);">Premi Tab o clicca fuori dal campo per salvare automaticamente.</div>
+  </div>`;
+}
+
+function salvaMenu(key,val){
+  const menu=DB.getObj('menu');
+  menu[key]=val;
+  DB.setObj('menu',menu);
+}
+function menuNav(dir){menuSettimana+=dir;renderMenu();}
+
+// ===================== ACQUISTI =====================
+function renderAcquisti(){
+  const acquisti=DB.get('acquisti');
+  const ruolo=SESSION?.utente?.ruolo;
+  const isCoord=ruolo==='Coordinatore';
+  const isAdmin=ruolo==='Amministratore';
+  const cat=['🥕 Alimentari','🧼 Pulizie','💊 Farmacia','🔧 Manutenzione','📦 Altro'];
+  const catColors={'🥕 Alimentari':'badge-yellow','🧼 Pulizie':'badge-blue','💊 Farmacia':'badge-red','🔧 Manutenzione':'badge-gray','📦 Altro':'badge-gray'};
+
+  // Stati: richiesto → approvato_coord → approvato_admin → completato
+  const richiesti=acquisti.filter(a=>a.stato==='richiesto');
+  const approvazioneAdmin=acquisti.filter(a=>a.stato==='approvato_coord');
+  const approvati=acquisti.filter(a=>a.stato==='approvato_admin');
+  const completati=acquisti.filter(a=>a.stato==='completato');
+
+  function statoBadge(a){
+    if(a.stato==='richiesto') return`<span class="badge badge-yellow">⏳ Attende Coordinatore</span>`;
+    if(a.stato==='approvato_coord') return`<span class="badge badge-blue">✓ Coord · Attende Amministrazione</span>`;
+    if(a.stato==='approvato_admin') return`<span class="badge badge-green">✓✓ Approvato</span>`;
+    if(a.stato==='completato') return`<span class="badge badge-gray">☑️ Completato</span>`;
+    return'';
+  }
+
+  function acqCard(a, showActions=true){
+    return`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">
+      ${a.stato==='approvato_admin'||a.stato==='completato'?`<input type="checkbox" ${a.stato==='completato'?'checked':''} onchange="toggleAcquisto('${a.id}')" style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">`:
+      `<div style="width:18px;height:18px;border-radius:3px;border:2px solid #e2e8f0;flex-shrink:0;"></div>`}
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:.86rem;${a.stato==='completato'?'text-decoration:line-through;color:var(--muted);':''}">${a.nome}${a.quantita?` <span style="font-weight:400;color:var(--muted);">(${a.quantita})</span>`:''}</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:2px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <span class="badge ${catColors[a.categoria]||'badge-gray'}" style="font-size:.66rem;">${a.categoria}</span>
+          <span>✍️ ${a.autore||'—'}</span>
+          ${statoBadge(a)}
+        </div>
+        ${a.note?`<div style="font-size:.72rem;color:var(--muted);margin-top:2px;font-style:italic;">${a.note}</div>`:''}
+      </div>
+      ${showActions?`<div style="display:flex;gap:4px;flex-shrink:0;flex-direction:column;align-items:flex-end;">
+        ${isCoord&&a.stato==='richiesto'?`<button class="btn btn-sm btn-success" onclick="approvaAcquistoCoord('${a.id}')">✓ Approva</button>`:''}
+        ${isAdmin&&a.stato==='approvato_coord'?`<button class="btn btn-sm btn-primary" onclick="approvaAcquistoAdmin('${a.id}')">✓✓ Autorizza</button>`:''}
+        <button class="btn btn-sm btn-danger" onclick="eliminaAcquisto('${a.id}')">🗑</button>
+      </div>`:''}
+    </div>`;
+  }
+
+  document.getElementById('content').innerHTML=`
+  <div class="grid g2" style="align-items:start;">
+    <!-- Form -->
+    <div class="card">
+      <div class="card-title">📝 Nuova richiesta acquisto</div>
+      <div class="grid g2" style="margin-bottom:10px;">
+        <div class="form-group" style="margin-bottom:0"><label>Categoria</label>
+          <select id="acq-cat">${cat.map(c=>`<option>${c}</option>`).join('')}</select>
+        </div>
+        <div class="form-group" style="margin-bottom:0"><label>Note</label>
+          <input id="acq-note" placeholder="Urgenza, marca…">
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:6px;padding:6px 0;border-bottom:1px solid var(--border);">
+        <div style="flex:2;font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;">Articolo</div>
+        <div style="flex:1;font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;">Quantità</div>
+      </div>
+      <div id="acq-righe"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-ghost btn-sm" onclick="aggiungiRigaAcquisto()">+ Riga</button>
+        <button class="btn btn-primary" style="flex:1" onclick="salvaAcquisti()">📤 Invia richiesta</button>
+      </div>
+      <div style="margin-top:8px;padding:10px;background:#eff6ff;border-radius:6px;font-size:.76rem;color:#1d4ed8;">
+        <b>Flusso approvazione:</b><br>
+        1️⃣ Educatore invia richiesta<br>
+        2️⃣ <b>Coordinatore</b> approva<br>
+        3️⃣ <b>Amministrazione</b> autorizza<br>
+        4️⃣ Si può acquistare ✓
+      </div>
+    </div>
+
+    <!-- Liste -->
+    <div>
+      ${richiesti.length?`<div class="card" style="margin-bottom:14px;border-left:3px solid var(--warn);">
+        <div class="card-title" style="color:var(--warn);">⏳ In attesa del Coordinatore (${richiesti.length})</div>
+        ${richiesti.map(a=>acqCard(a,true)).join('')}
+      </div>`:''}
+
+      ${approvazioneAdmin.length?`<div class="card" style="margin-bottom:14px;border-left:3px solid var(--accent);">
+        <div class="card-title" style="color:var(--accent);">🔄 In attesa dell'Amministrazione (${approvazioneAdmin.length})</div>
+        ${approvazioneAdmin.map(a=>acqCard(a,true)).join('')}
+      </div>`:''}
+
+      <div class="card" style="margin-bottom:14px;">
+        <div class="sec-header" style="margin-bottom:10px;"><h2>✅ Lista spesa autorizzata (${approvati.length})</h2></div>
+        ${approvati.length?approvati.map(a=>acqCard(a,true)).join(''):`<div class="empty-state" style="padding:16px"><p>Nessun acquisto ancora autorizzato</p></div>`}
+      </div>
+
+      ${completati.length?`<div class="card">
+        <div class="card-title" style="color:var(--muted);">☑️ Completati (${completati.length})</div>
+        ${completati.map(a=>acqCard(a,false)).join('')}
+      </div>`:''}
+    </div>
+  </div>`;
+
+  // Inizializza 10 righe
+  window._acqRighe=0;
+  for(let i=0;i<10;i++) aggiungiRigaAcquisto();
+}
+
+function aggiungiRigaAcquisto(){
+  const n=window._acqRighe||0;
+  const cont=document.getElementById('acq-righe');
+  if(!cont)return;
+  const div=document.createElement('div');
+  div.style.cssText='display:flex;gap:6px;margin-bottom:5px;';
+  div.id=`acq-riga-${n}`;
+  div.innerHTML=`
+    <input placeholder="Articolo…" id="acq-nome-${n}"
+      style="flex:2;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:.85rem;font-family:inherit;"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();focusNextAcqRow(${n});}">
+    <input placeholder="Qtà" id="acq-qta-${n}"
+      style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:.85rem;font-family:inherit;">`;
+  cont.appendChild(div);
+  window._acqRighe=n+1;
+  if(n>0 && document.getElementById(`acq-nome-${n}`))
+    document.getElementById(`acq-nome-${n}`).focus();
+}
+
+function focusNextAcqRow(i){
+  const next=document.getElementById(`acq-nome-${i+1}`);
+  if(next)next.focus();
+  else aggiungiRigaAcquisto();
+}
+
+function salvaAcquisti(){
+  const cat=document.getElementById('acq-cat').value;
+  const note=document.getElementById('acq-note').value;
+  const autore=SESSION.utente.nome+' '+SESSION.utente.cognome;
+  const acq=DB.get('acquisti');
+  const n=window._acqRighe||10;
+  let aggiunti=0;
+  for(let i=0;i<n;i++){
+    const nome=(document.getElementById(`acq-nome-${i}`)?.value||'').trim();
+    const qta=(document.getElementById(`acq-qta-${i}`)?.value||'').trim();
+    if(nome){
+      acq.push({id:uid(),nome,quantita:qta,categoria:cat,note,autore,stato:'richiesto',data:new Date().toISOString().split('T')[0]});
+      aggiunti++;
+    }
+  }
+  if(!aggiunti){alert('Inserisci almeno un articolo');return;}
+  DB.set('acquisti',acq);
+  renderAcquisti();
+}
+
+function approvaAcquistoCoord(id){
+  if(SESSION?.utente?.ruolo!=='Coordinatore')return;
+  const acq=DB.get('acquisti');
+  const i=acq.findIndex(x=>x.id===id);
+  if(i>=0)acq[i].stato='approvato_coord';
+  DB.set('acquisti',acq);renderAcquisti();
+}
+
+function approvaAcquistoAdmin(id){
+  if(SESSION?.utente?.ruolo!=='Amministratore')return;
+  const acq=DB.get('acquisti');
+  const i=acq.findIndex(x=>x.id===id);
+  if(i>=0)acq[i].stato='approvato_admin';
+  DB.set('acquisti',acq);renderAcquisti();
+}
+
+function toggleAcquisto(id){
+  const acq=DB.get('acquisti');
+  const i=acq.findIndex(x=>x.id===id);
+  if(i>=0)acq[i].stato=acq[i].stato==='completato'?'approvato_admin':'completato';
+  DB.set('acquisti',acq);renderAcquisti();
+}
+
+function eliminaAcquisto(id){
+  if(!confirm('Eliminare?'))return;
+  DB.set('acquisti',DB.get('acquisti').filter(x=>x.id!==id));renderAcquisti();
+}
+
+// ===================== AGENDA ÉQUIPE =====================
+function renderEquipe(){
+  const argomenti=DB.get('equipe');
+  const isCoord=SESSION?.utente?.ruolo==='Coordinatore';
+  const priColor={'Alta':'badge-red','Media':'badge-yellow','Bassa':'badge-blue'};
+
+  // Prossimo lunedì come default riunione
+  const oggi=new Date();
+  const dow=oggi.getDay()||7;
+  const prossimoLun=new Date(oggi);
+  prossimoLun.setDate(oggi.getDate()+(dow===1?7:8-dow));
+  const defaultData=prossimoLun.toISOString().split('T')[0];
+
+  // Raggruppa per data riunione
+  const perRiunione={};
+  argomenti.forEach(a=>{
+    const k=a.riunione||'senza_data';
+    if(!perRiunione[k])perRiunione[k]=[];
+    perRiunione[k].push(a);
+  });
+  const riunioniOrdinate=Object.keys(perRiunione).sort();
+
+  function argCard(a){
+    const votiCount=a.voti?.length||0;
+    const hoVotato=a.voti?.includes(SESSION.utente.id);
+    return`<div style="padding:10px 0;border-bottom:1px solid var(--border);${a.discusso?'opacity:.55;':''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap;">
+            <span class="badge ${priColor[a.priorita]||'badge-gray'}">${a.priorita}</span>
+            <b style="font-size:.88rem;">${a.titolo}</b>
+          </div>
+          ${a.descrizione?`<div style="font-size:.81rem;color:var(--muted);margin-bottom:4px;">${a.descrizione}</div>`:''}
+          <div style="font-size:.72rem;color:var(--muted);">Proposto da: ${a.autore||'—'}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;flex-shrink:0;">
+          <button onclick="votaArgomento('${a.id}')" class="btn btn-sm ${hoVotato?'btn-primary':'btn-ghost'}" style="font-size:.73rem;">👍 ${votiCount}</button>
+          ${isCoord&&!a.discusso?`<button onclick="segnaDiscusso('${a.id}')" class="btn btn-sm btn-success" style="font-size:.73rem;">✓ Discusso</button>`:''}
+          ${a.discusso?`<span class="badge badge-green" style="font-size:.7rem;">✓ Discusso</span>`:''}
+          <button onclick="eliminaArgomento('${a.id}')" class="btn btn-sm btn-danger">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  const riunioniHTML=riunioniOrdinate.length?riunioniOrdinate.map(k=>{
+    const items=perRiunione[k];
+    const aperti=items.filter(a=>!a.discusso).sort((a,b)=>({'Alta':0,'Media':1,'Bassa':2}[a.priorita]||1)-({'Alta':0,'Media':1,'Bassa':2}[b.priorita]||1));
+    const discussi=items.filter(a=>a.discusso);
+    const label=k==='senza_data'?'📋 Senza data assegnata':`📅 Riunione del ${fmtData(k)}`;
+    const isPassata=k!=='senza_data'&&k<new Date().toISOString().split('T')[0];
+    return`<div class="card" style="margin-bottom:14px;${isPassata?'opacity:.7;':''}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-weight:800;font-size:.92rem;">${label}</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          ${aperti.length?`<span class="badge badge-yellow">${aperti.length} da discutere</span>`:''}
+          ${discussi.length===items.length&&items.length?`<span class="badge badge-green">✓ Completata</span>`:''}
+        </div>
+      </div>
+      ${aperti.map(argCard).join('')}
+      ${discussi.length?`<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);">${discussi.map(argCard).join('')}</div>`:''}
+    </div>`;
+  }).join(''):`<div class="card"><div class="empty-state"><div class="es-icon">📋</div><p>Nessun argomento in agenda.</p></div></div>`;
+
+  document.getElementById('content').innerHTML=`
+  <div class="grid g2" style="align-items:start;">
+    <div class="card">
+      <div class="card-title">📌 Proponi argomento</div>
+      <div class="form-group"><label>Titolo *</label><input id="eq-titolo" placeholder="es. Revisione PEI, Organizzazione uscita…"></div>
+      <div class="form-group"><label>Descrizione</label><textarea id="eq-desc" style="min-height:70px" placeholder="Dettagli, cosa si vuole discutere…"></textarea></div>
+      <div class="grid g2">
+        <div class="form-group"><label>Priorità</label>
+          <select id="eq-priorita"><option>Media</option><option>Alta</option><option>Bassa</option></select>
+        </div>
+        <div class="form-group"><label>📅 Data riunione</label>
+          <input type="date" id="eq-riunione" value="${defaultData}">
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;" onclick="salvaArgomento()">📌 Aggiungi all'agenda</button>
+    </div>
+    <div>${riunioniHTML}</div>
+  </div>`;
+}
+
+function salvaArgomento(){
+  const titolo=document.getElementById('eq-titolo').value.trim();
+  if(!titolo){alert('Titolo obbligatorio');return;}
+  const eq=DB.get('equipe');
+  eq.push({id:uid(),titolo,descrizione:document.getElementById('eq-desc').value,priorita:document.getElementById('eq-priorita').value,riunione:document.getElementById('eq-riunione').value,autore:SESSION.utente.nome+' '+SESSION.utente.cognome,data:new Date().toISOString().split('T')[0],voti:[],discusso:false});
+  DB.set('equipe',eq);
+  ['eq-titolo','eq-desc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  renderEquipe();
+}
+function votaArgomento(id){
+  const eq=DB.get('equipe');
+  const i=eq.findIndex(x=>x.id===id);
+  if(i<0)return;
+  if(!eq[i].voti)eq[i].voti=[];
+  const uid_me=SESSION.utente.id;
+  if(eq[i].voti.includes(uid_me))eq[i].voti=eq[i].voti.filter(v=>v!==uid_me);
+  else eq[i].voti.push(uid_me);
+  DB.set('equipe',eq);renderEquipe();
+}
+function segnaDiscusso(id){
+  if(SESSION?.utente?.ruolo!=='Coordinatore')return;
+  const eq=DB.get('equipe');
+  const i=eq.findIndex(x=>x.id===id);
+  if(i>=0)eq[i].discusso=true;
+  DB.set('equipe',eq);renderEquipe();
+}
+function eliminaArgomento(id){
+  if(!confirm('Eliminare questo argomento?'))return;
+  DB.set('equipe',DB.get('equipe').filter(x=>x.id!==id));renderEquipe();
+}
+
+// ===================== MINORI =====================
+function renderMinori(){
+  const minori=DB.get('minori');
+  document.getElementById('content').innerHTML=`
+  <div class="sec-header"><h2>${minori.length} minori registrati</h2><button class="btn btn-primary" onclick="openModalMinore(null)">+ Nuovo minore</button></div>
+  ${minori.length?`<div class="card" style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Minore</th><th>Nazionalità</th><th>Ingresso</th><th>Tutore/Ref.</th><th>Stato</th><th>Azioni</th></tr></thead>
+      <tbody>${minori.map(m=>`<tr>
+        <td><div style="display:flex;align-items:center;gap:10px"><div class="avatar">${m.nome[0]}${m.cognome[0]}</div><div><div style="font-weight:700">${m.nome} ${m.cognome}</div><div style="font-size:.75rem;color:var(--muted)">${calcolaEta(m.dob)} anni</div></div></div></td>
+        <td>${m.naz||'—'}</td>
+        <td>${fmtData(m.ingresso)}</td>
+        <td style="font-size:.8rem;max-width:150px">${m.tutore||'—'}</td>
+        <td><span class="badge ${statoColor(m.stato)}">${m.stato}</span></td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-sm btn-ghost" onclick="apriScheda('${m.id}')">📂 Scheda</button>
+          <button class="btn btn-sm btn-ghost" onclick="openModalMinore('${m.id}')">✏️</button>
+          <button class="btn btn-sm btn-danger" onclick="eliminaMinore('${m.id}')">🗑</button>
+        </td>
+      </tr>`).join('')}</tbody>
+    </table>
+  </div>`:`<div class="card"><div class="empty-state"><div class="es-icon">👤</div><p>Nessun minore registrato.<br>Clicca "+ Nuovo minore" per iniziare.</p></div></div>`}`;
+}
+
+function apriScheda(id){
+  _schedaMinoreId=id;
+  const m=DB.get('minori').find(x=>x.id===id);
+  if(!m)return;
+  const note=DB.get('note').filter(n=>n.minoreId===id);
+  const pei=DB.get('pei').filter(p=>p.minoreId===id);
+  const relazioni=DB.get('relazioni').filter(r=>r.minoreId===id);
+  const eventi=DB.get('eventi').filter(e=>e.minoreId===id);
+
+  document.getElementById('scheda-title').textContent=`📂 ${m.nome} ${m.cognome}`;
+  document.getElementById('scheda-content').innerHTML=`
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('t-info')">Anagrafica</div>
+      <div class="tab" onclick="switchTab('t-legale')">Legale</div>
+      <div class="tab" onclick="switchTab('t-pei')">PEI (${pei.length})</div>
+      <div class="tab" onclick="switchTab('t-relazioni')">Relazioni (${relazioni.length})</div>
+      <div class="tab" onclick="switchTab('t-docs')">Note/Doc (${note.length})</div>
+      <div class="tab" onclick="switchTab('t-eventi')">Appuntamenti (${eventi.length})</div>
+    </div>
+
+    <div id="t-info" class="tab-pane active">
+      <div class="grid g2" style="margin-bottom:12px">
+        <div><b>Nome completo:</b> ${m.nome} ${m.cognome}</div>
+        <div><b>Data nascita:</b> ${fmtData(m.dob)} (${calcolaEta(m.dob)} anni)</div>
+        <div><b>Nazionalità:</b> ${m.naz||'—'}</div>
+        <div><b>Ingresso comunità:</b> ${fmtData(m.ingresso)}</div>
+        <div><b>Codice fiscale:</b> ${m.cf||'—'}</div>
+        <div><b>Stato:</b> <span class="badge ${statoColor(m.stato)}">${m.stato}</span></div>
+        <div><b>Status giuridico:</b> ${m.statusGiuridico||'—'}</div>
+        <div><b>Proseguimento amministrativo:</b> ${m.proseguimento||'—'}</div>
+        <div style="grid-column:span 2"><b>Tutore/Riferimento legale:</b> ${m.tutore||'—'}</div>
+      </div>
+      ${m.note?`<div style="background:#f8fafc;border-radius:6px;padding:12px;font-size:.86rem">${m.note}</div>`:''}
+    </div>
+
+    <div id="t-legale" class="tab-pane">
+      <div class="grid g2" style="margin-bottom:12px">
+        <div><b>Permesso / titolo:</b> ${m.permesso||'—'}</div>
+        <div><b>Scadenza permesso:</b> ${fmtData(m.scadPermesso)}</div>
+        <div><b>Procedura tutela:</b> ${m.tutela||'—'}</div>
+        <div><b>Scadenza legale / udienza:</b> ${fmtData(m.scadLegale)}</div>
+        <div><b>Numero pratica:</b> ${m.pratica||'—'}</div>
+        <div><b>Alert attivi:</b> ${renderAlertLegali(m)}</div>
+      </div>
+      <div style="background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:12px;font-size:.84rem">
+        <b>Promemoria operativo</b><br>
+        Usa questa sezione per tenere sotto controllo permesso di soggiorno, tutela, proseguimento amministrativo e scadenze con Tribunale, Questura o Prefettura.
+      </div>
+    </div>
+
+    <div id="t-pei" class="tab-pane">
+      ${SESSION?.utente?.ruolo==='Coordinatore'?`<div style="margin-bottom:14px"><button class="btn btn-sm btn-success" onclick="apriPEI('${id}',null)">+ Nuovo PEI</button></div>`:`<div style="margin-bottom:14px"><span class="badge badge-gray">👁 Solo lettura — solo il Coordinatore può modificare i PEI</span></div>`}
+      ${pei.length?pei.map(p=>`
+        <div class="nota-card tipo-PEI">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div><span class="badge badge-green">PEI</span> <b style="margin-left:6px">${p.periodo||''} — ${p.fase||''}</b></div>
+            <div style="display:flex;gap:6px">
+              ${SESSION?.utente?.ruolo==='Coordinatore'?`<button class="btn btn-sm btn-ghost" onclick="apriPEI('${id}','${p.id}')">✏️ Modifica</button>`:`<button class="btn btn-sm btn-ghost" onclick="apriPEI('${id}','${p.id}',true)">👁 Leggi</button>`}
+              <button class="btn btn-sm btn-pdf" onclick="stampaPEIid('${p.id}')">📄 PDF</button>
+              ${SESSION?.utente?.ruolo==='Coordinatore'?`<button class="btn btn-sm btn-danger" onclick="eliminaPEI('${p.id}','${id}')">🗑</button>`:''}
+            </div>
+          </div>
+          <div style="margin-top:8px;font-size:.8rem;color:var(--muted)">Redatto da: ${p.operatore||'—'} • ${fmtData(p.data)}</div>
+          ${p.obBreve?`<div style="margin-top:6px;font-size:.82rem"><b>Obiettivi breve termine:</b> ${p.obBreve.substring(0,120)}${p.obBreve.length>120?'...':''}</div>`:''}
+        </div>`).join(''):`<div class="empty-state"><div class="es-icon">🎯</div><p>Nessun PEI presente.${SESSION?.utente?.ruolo==='Coordinatore'?'<br>Clicca "+ Nuovo PEI" per crearne uno.':''}</p></div>`}
+    </div>
+
+    <div id="t-relazioni" class="tab-pane">
+      ${SESSION?.utente?.ruolo==='Coordinatore'?`<div style="margin-bottom:14px"><button class="btn btn-sm btn-warn" onclick="apriRelazione('${id}',null)">+ Nuova Relazione</button></div>`:`<div style="margin-bottom:14px"><span class="badge badge-gray">👁 Solo lettura — solo il Coordinatore può redigere relazioni</span></div>`}
+      ${relazioni.length?relazioni.map(r=>`
+        <div class="nota-card tipo-Relazione">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div><span class="badge badge-yellow">${r.tipo}</span> <b style="margin-left:6px">${r.dest||''}</b></div>
+            <div style="display:flex;gap:6px">
+              ${SESSION?.utente?.ruolo==='Coordinatore'?`<button class="btn btn-sm btn-ghost" onclick="apriRelazione('${id}','${r.id}')">✏️ Modifica</button>`:`<button class="btn btn-sm btn-ghost" onclick="apriRelazione('${id}','${r.id}',true)">👁 Leggi</button>`}
+              <button class="btn btn-sm btn-pdf" onclick="stampaRelazioneid('${r.id}')">📄 PDF</button>
+              ${SESSION?.utente?.ruolo==='Coordinatore'?`<button class="btn btn-sm btn-danger" onclick="eliminaRelazione('${r.id}','${id}')">🗑</button>`:''}
+            </div>
+          </div>
+          <div style="margin-top:8px;font-size:.8rem;color:var(--muted)">Redatta da: ${r.autore||'—'} • ${fmtData(r.data)}</div>
+          ${r.situazione?`<div style="margin-top:6px;font-size:.82rem">${r.situazione.substring(0,120)}${r.situazione.length>120?'...':''}</div>`:''}
+        </div>`).join(''):`<div class="empty-state"><div class="es-icon">📝</div><p>Nessuna relazione presente.${SESSION?.utente?.ruolo==='Coordinatore'?'<br>Clicca "+ Nuova Relazione" per iniziare.':''}</p></div>`}
+    </div>
+
+    <div id="t-docs" class="tab-pane">
+      <div style="margin-bottom:14px"><button class="btn btn-sm btn-primary" onclick="apriNota('${id}')">+ Aggiungi nota / documento</button></div>
+      ${note.length?note.map(n=>`
+        <div class="nota-card">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div><span class="badge badge-blue">${n.tipo}</span> <b style="margin-left:6px">${n.titolo}</b></div>
+            <button class="btn btn-sm btn-danger" onclick="eliminaNota('${n.id}','${id}')">🗑</button>
+          </div>
+          <p style="margin-top:8px;font-size:.84rem;white-space:pre-wrap">${n.testo}</p>
+          <div class="nota-meta">✍️ ${n.autore||'—'} • ${fmtData(n.data)}</div>
+        </div>`).join(''):`<div class="empty-state"><div class="es-icon">📄</div><p>Nessuna nota presente.</p></div>`}
+    </div>
+
+    <div id="t-eventi" class="tab-pane">
+      ${eventi.length?`<div class="timeline">${eventi.sort((a,b)=>a.data.localeCompare(b.data)).map(e=>`
+        <div class="tl-item">
+          <div class="tl-date">${fmtData(e.data)} ${e.ora||''}</div>
+          <div class="tl-text"><b>${e.titolo}</b> <span class="badge ${tipoColor(e.tipo)}">${e.tipo}</span></div>
+          ${e.luogo?`<div style="font-size:.78rem;color:var(--muted)">📍 ${e.luogo}</div>`:''}
+          ${e.note?`<div style="font-size:.78rem;color:var(--muted);margin-top:2px">${e.note}</div>`:''}
+        </div>`).join('')}</div>`:`<div class="empty-state"><div class="es-icon">📅</div><p>Nessun appuntamento registrato.</p></div>`}
+    </div>`;
+  document.getElementById('modal-scheda').classList.add('open');
+}
+
+function switchTab(tabId){
+  const cont=document.getElementById('scheda-content');
+  cont.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  cont.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  const map={'t-info':0,'t-legale':1,'t-pei':2,'t-relazioni':3,'t-docs':4,'t-eventi':5};
+  cont.querySelectorAll('.tab')[map[tabId]]?.classList.add('active');
+}
+
+// ===================== PEI =====================
+function apriPEI(minoreId,editId,readonly){
+  document.getElementById('pei-minore-id').value=minoreId;
+  document.getElementById('pei-edit-id').value=editId||'';
+  const m=DB.get('minori').find(x=>x.id===minoreId);
+  const solaLettura=readonly||SESSION?.utente?.ruolo!=='Coordinatore';
+  document.getElementById('pei-modal-title').textContent=`${solaLettura?'👁 ':''}PEI — ${m?m.nome+' '+m.cognome:''}`;
+  const fields=['periodo','data','operatore','fase','contesto','risorse','fragilita','ob-breve','ob-medio','ob-lungo','scuola','relazionale','autonomia','legale','freq-verifica','note-verifica'];
+  if(editId){
+    const p=DB.get('pei').find(x=>x.id===editId);
+    if(p){
+      sv('pei-periodo',p.periodo);sv('pei-data',p.data);sv('pei-operatore',p.operatore);sv('pei-fase',p.fase);
+      sv('pei-contesto',p.contesto);sv('pei-risorse',p.risorse);sv('pei-fragilita',p.fragilita);
+      sv('pei-ob-breve',p.obBreve);sv('pei-ob-medio',p.obMedio);sv('pei-ob-lungo',p.obLungo);
+      sv('pei-scuola',p.scuola);sv('pei-relazionale',p.relazionale);sv('pei-autonomia',p.autonomia);
+      sv('pei-legale',p.legale);sv('pei-freq-verifica',p.freqVerifica);sv('pei-note-verifica',p.noteVerifica);
+    }
+  } else {
+    fields.forEach(f=>{const el=document.getElementById('pei-'+f);if(el)el.value='';});
+    document.getElementById('pei-data').value=new Date().toISOString().split('T')[0];
+  }
+  // Blocca/sblocca campi
+  document.querySelectorAll('#modal-pei input,#modal-pei select,#modal-pei textarea').forEach(el=>el.disabled=solaLettura);
+  const footer=document.querySelector('#modal-pei .modal-footer');
+  if(solaLettura){footer.innerHTML=`<button class="btn btn-ghost" onclick="closeModal('modal-pei')">Chiudi</button>`;}
+  else{footer.innerHTML=`<button class="btn btn-ghost" onclick="closeModal('modal-pei')">Annulla</button><button class="btn btn-pdf" onclick="stampaPEI()">📄 PDF</button><button class="btn btn-primary" onclick="salvaPEI()">💾 Salva PEI</button>`;}
+  closeModal('modal-scheda');
+  document.getElementById('modal-pei').classList.add('open');
+}
+
+function salvaPEI(){
+  const mid=v('pei-minore-id'),eid=v('pei-edit-id');
+  const arr=DB.get('pei');
+  const obj={id:eid||uid(),minoreId:mid,periodo:v('pei-periodo'),data:v('pei-data'),operatore:v('pei-operatore'),fase:v('pei-fase'),
+    contesto:v('pei-contesto'),risorse:v('pei-risorse'),fragilita:v('pei-fragilita'),
+    obBreve:v('pei-ob-breve'),obMedio:v('pei-ob-medio'),obLungo:v('pei-ob-lungo'),
+    scuola:v('pei-scuola'),relazionale:v('pei-relazionale'),autonomia:v('pei-autonomia'),legale:v('pei-legale'),
+    freqVerifica:v('pei-freq-verifica'),noteVerifica:v('pei-note-verifica')};
+  if(eid){const i=arr.findIndex(x=>x.id===eid);if(i>=0)arr[i]=obj;else arr.push(obj);}else arr.push(obj);
+  DB.set('pei',arr);
+  closeModal('modal-pei');apriScheda(mid);
+}
+
+function eliminaPEI(id,mid){if(!confirm('Eliminare questo PEI?'))return;DB.set('pei',DB.get('pei').filter(x=>x.id!==id));apriScheda(mid);}
+
+// ===================== RELAZIONI =====================
+function apriRelazione(minoreId,editId,readonly){
+  document.getElementById('rel-minore-id').value=minoreId;
+  document.getElementById('rel-edit-id').value=editId||'';
+  const m=DB.get('minori').find(x=>x.id===minoreId);
+  const solaLettura=readonly||SESSION?.utente?.ruolo!=='Coordinatore';
+  document.getElementById('rel-modal-title').textContent=`${solaLettura?'👁 ':''}Relazione — ${m?m.nome+' '+m.cognome:''}`;
+  const fields=['tipo','data','dest','autore','situazione','scuola','salute','progressi','criticita','piano','richieste'];
+  if(editId){
+    const r=DB.get('relazioni').find(x=>x.id===editId);
+    if(r){
+      sv('rel-tipo',r.tipo);sv('rel-data',r.data);sv('rel-dest',r.dest);sv('rel-autore',r.autore);
+      sv('rel-situazione',r.situazione);sv('rel-scuola',r.scuola);sv('rel-salute',r.salute);
+      sv('rel-progressi',r.progressi);sv('rel-criticita',r.criticita);sv('rel-piano',r.piano);sv('rel-richieste',r.richieste);
+    }
+  } else {
+    fields.forEach(f=>{const el=document.getElementById('rel-'+f);if(el)el.value='';});
+    document.getElementById('rel-data').value=new Date().toISOString().split('T')[0];
+  }
+  document.querySelectorAll('#modal-relazione input,#modal-relazione select,#modal-relazione textarea').forEach(el=>el.disabled=solaLettura);
+  const footer=document.querySelector('#modal-relazione .modal-footer');
+  if(solaLettura){footer.innerHTML=`<button class="btn btn-ghost" onclick="closeModal('modal-relazione')">Chiudi</button>`;}
+  else{footer.innerHTML=`<button class="btn btn-ghost" onclick="closeModal('modal-relazione')">Annulla</button><button class="btn btn-pdf" onclick="stampaRelazione()">📄 Salva PDF</button><button class="btn btn-primary" onclick="salvaRelazione()">💾 Salva Relazione</button>`;}
+  closeModal('modal-scheda');
+  document.getElementById('modal-relazione').classList.add('open');
+}
+
+function salvaRelazione(){
+  const mid=v('rel-minore-id'),eid=v('rel-edit-id');
+  const arr=DB.get('relazioni');
+  const obj={id:eid||uid(),minoreId:mid,tipo:v('rel-tipo'),data:v('rel-data'),dest:v('rel-dest'),autore:v('rel-autore'),
+    situazione:v('rel-situazione'),scuola:v('rel-scuola'),salute:v('rel-salute'),
+    progressi:v('rel-progressi'),criticita:v('rel-criticita'),piano:v('rel-piano'),richieste:v('rel-richieste')};
+  if(eid){const i=arr.findIndex(x=>x.id===eid);if(i>=0)arr[i]=obj;else arr.push(obj);}else arr.push(obj);
+  DB.set('relazioni',arr);
+  closeModal('modal-relazione');apriScheda(mid);
+}
+
+function eliminaRelazione(id,mid){if(!confirm('Eliminare questa relazione?'))return;DB.set('relazioni',DB.get('relazioni').filter(x=>x.id!==id));apriScheda(mid);}
+
+// ===================== PDF =====================
+function stampaPDF(){
+  if(!_schedaMinoreId)return;
+  const m=DB.get('minori').find(x=>x.id===_schedaMinoreId);
+  if(!m)return;
+  const note=DB.get('note').filter(n=>n.minoreId===_schedaMinoreId);
+  const pei=DB.get('pei').filter(p=>p.minoreId===_schedaMinoreId);
+  const relazioni=DB.get('relazioni').filter(r=>r.minoreId===_schedaMinoreId);
+  const eventi=DB.get('eventi').filter(e=>e.minoreId===_schedaMinoreId);
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Scheda ${m.nome} ${m.cognome}</title>
+  <style>body{font-family:Arial,sans-serif;font-size:11pt;color:#000;max-width:700px;margin:0 auto;padding:20px}
+  h1{font-size:16pt;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:16px}
+  h2{font-size:13pt;margin-top:20px;border-bottom:1px solid #ccc;padding-bottom:4px}
+  h3{font-size:11pt;margin-top:14px}.row{display:flex;gap:20px;margin-bottom:6px}
+  .lbl{font-weight:bold;min-width:160px}.val{flex:1}
+  .doc-card{border:1px solid #ccc;border-radius:4px;padding:12px;margin-top:10px}
+  .meta{font-size:9pt;color:#666;margin-top:6px}
+  @media print{body{padding:0}}</style></head><body>
+  <h1>eduCare — Cartella Sociale</h1>
+  <h2>Anagrafica</h2>
+  <div class="row"><div class="lbl">Nome completo:</div><div class="val">${m.nome} ${m.cognome}</div></div>
+  <div class="row"><div class="lbl">Data di nascita:</div><div class="val">${fmtData(m.dob)}</div></div>
+  <div class="row"><div class="lbl">Nazionalità:</div><div class="val">${m.naz||'—'}</div></div>
+  <div class="row"><div class="lbl">Ingresso comunità:</div><div class="val">${fmtData(m.ingresso)}</div></div>
+  <div class="row"><div class="lbl">Tutore/Referente:</div><div class="val">${m.tutore||'—'}</div></div>
+  <div class="row"><div class="lbl">Stato:</div><div class="val">${m.stato}</div></div>
+  ${m.note?`<div class="row"><div class="lbl">Note:</div><div class="val">${m.note}</div></div>`:''}
+  ${pei.length?`<h2>PEI (${pei.length})</h2>${pei.map(p=>`<div class="doc-card"><h3>${p.periodo||''} — ${p.fase||''}</h3>
+  ${p.obBreve?`<div class="row"><div class="lbl">Obiettivi breve:</div><div class="val">${p.obBreve}</div></div>`:''}
+  ${p.obMedio?`<div class="row"><div class="lbl">Obiettivi medio:</div><div class="val">${p.obMedio}</div></div>`:''}
+  ${p.obLungo?`<div class="row"><div class="lbl">Obiettivi lungo:</div><div class="val">${p.obLungo}</div></div>`:''}
+  <div class="meta">Redatto da: ${p.operatore||'—'} • ${fmtData(p.data)}</div></div>`).join('')}`:''}
+  ${relazioni.length?`<h2>Relazioni (${relazioni.length})</h2>${relazioni.map(r=>`<div class="doc-card"><h3>${r.tipo}</h3>
+  ${r.situazione?`<p>${r.situazione}</p>`:''}${r.progressi?`<p><b>Progressi:</b> ${r.progressi}</p>`:''}
+  <div class="meta">Redatta da: ${r.autore||'—'} • Destinatario: ${r.dest||'—'} • ${fmtData(r.data)}</div></div>`).join('')}`:''}
+  ${note.length?`<h2>Note e Documenti</h2>${note.map(n=>`<div class="doc-card"><b>[${n.tipo}] ${n.titolo}</b><p style="margin-top:6px;white-space:pre-wrap">${n.testo}</p><div class="meta">${n.autore||'—'} • ${fmtData(n.data)}</div></div>`).join('')}`:''}
+  <p style="margin-top:30px;font-size:9pt;color:#888">Documento generato da eduCare • ${new Date().toLocaleDateString('it-IT')}</p>
+  </body></html>`;
+  apriFinestaPDF(html,`scheda_${m.cognome}_${m.nome}`);
+}
+
+function stampaPEI(){
+  const mid=v('pei-minore-id');
+  const m=DB.get('minori').find(x=>x.id===mid);
+  const p={periodo:v('pei-periodo'),data:v('pei-data'),operatore:v('pei-operatore'),fase:v('pei-fase'),
+    contesto:v('pei-contesto'),risorse:v('pei-risorse'),fragilita:v('pei-fragilita'),
+    obBreve:v('pei-ob-breve'),obMedio:v('pei-ob-medio'),obLungo:v('pei-ob-lungo'),
+    scuola:v('pei-scuola'),relazionale:v('pei-relazionale'),autonomia:v('pei-autonomia'),legale:v('pei-legale'),
+    freqVerifica:v('pei-freq-verifica'),noteVerifica:v('pei-note-verifica')};
+  const fname=`PEI_${m?m.nome+'_'+m.cognome:''}_${new Date().toISOString().split('T')[0]}`;
+  apriFinestaPDF(buildPEIhtml(m,p),fname);
+}
+
+function stampaPEIid(id){
+  const p=DB.get('pei').find(x=>x.id===id);
+  const m=p?DB.get('minori').find(x=>x.id===p.minoreId):null;
+  if(p&&m)apriFinestaPDF(buildPEIhtml(m,p),`PEI_${m.cognome}`);
+}
+
+function buildPEIhtml(m,p){
+  const row=(l,v)=>v?`<div style="margin-bottom:10px"><b>${l}</b><p style="margin-top:4px;white-space:pre-wrap">${v}</p></div>`:'';
+  return`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>PEI</title>
+  <style>body{font-family:Arial,sans-serif;font-size:11pt;max-width:700px;margin:0 auto;padding:20px}
+  h1{font-size:15pt;border-bottom:2px solid #1d4ed8;color:#1d4ed8;padding-bottom:8px}
+  h2{font-size:12pt;color:#1d4ed8;margin-top:18px;border-bottom:1px solid #bfdbfe;padding-bottom:4px}
+  @media print{body{padding:0}}</style></head><body>
+  <h1>Progetto Educativo Individualizzato (PEI)</h1>
+  <p><b>Minore:</b> ${m?m.nome+' '+m.cognome:'—'} <b>| Periodo:</b> ${p.periodo||'—'} <b>| Fase:</b> ${p.fase||'—'}</p>
+  <p><b>Redatto da:</b> ${p.operatore||'—'} <b>| Data:</b> ${fmtData(p.data)}</p>
+  <h2>Analisi della situazione</h2>
+  ${row('Contesto familiare e storia personale',p.contesto)}
+  ${row('Risorse e punti di forza',p.risorse)}
+  ${row('Aree di fragilità e bisogni',p.fragilita)}
+  <h2>Obiettivi educativi</h2>
+  ${row('Breve termine (0-3 mesi)',p.obBreve)}
+  ${row('Medio termine (3-12 mesi)',p.obMedio)}
+  ${row('Lungo termine',p.obLungo)}
+  <h2>Interventi e strumenti</h2>
+  ${row('Area scolastica / formativa',p.scuola)}
+  ${row('Area relazionale / emotiva',p.relazionale)}
+  ${row('Area dell\'autonomia',p.autonomia)}
+  ${row('Area legale / amministrativa',p.legale)}
+  <h2>Verifiche</h2>
+  ${row('Frequenza verifica',p.freqVerifica)}
+  ${row('Note di verifica',p.noteVerifica)}
+  <p style="margin-top:30px;font-size:9pt;color:#888">eduCare • ${new Date().toLocaleDateString('it-IT')}</p>
+  </body></html>`;
+}
+
+function stampaRelazione(){
+  const mid=v('rel-minore-id');
+  const m=DB.get('minori').find(x=>x.id===mid);
+  const r={tipo:v('rel-tipo'),data:v('rel-data'),dest:v('rel-dest'),autore:v('rel-autore'),
+    situazione:v('rel-situazione'),scuola:v('rel-scuola'),salute:v('rel-salute'),
+    progressi:v('rel-progressi'),criticita:v('rel-criticita'),piano:v('rel-piano'),richieste:v('rel-richieste')};
+  apriFinestaPDF(buildRelazioneHtml(m,r),`Relazione_${m?m.cognome:''}`);
+}
+
+function stampaRelazioneid(id){
+  const r=DB.get('relazioni').find(x=>x.id===id);
+  const m=r?DB.get('minori').find(x=>x.id===r.minoreId):null;
+  if(r&&m)apriFinestaPDF(buildRelazioneHtml(m,r),`Relazione_${m.cognome}`);
+}
+
+function buildRelazioneHtml(m,r){
+  const row=(l,v)=>v?`<div style="margin-bottom:12px"><b>${l}</b><p style="margin-top:4px;white-space:pre-wrap">${v}</p></div>`:'';
+  return`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relazione</title>
+  <style>body{font-family:Arial,sans-serif;font-size:11pt;max-width:700px;margin:0 auto;padding:20px}
+  h1{font-size:15pt;border-bottom:2px solid #92400e;color:#92400e;padding-bottom:8px}
+  h2{font-size:12pt;color:#92400e;margin-top:18px;border-bottom:1px solid #fde68a;padding-bottom:4px}
+  @media print{body{padding:0}}</style></head><body>
+  <h1>${r.tipo||'Relazione'}</h1>
+  <p><b>Minore:</b> ${m?m.nome+' '+m.cognome:'—'}</p>
+  <p><b>Destinatario:</b> ${r.dest||'—'} <b>| Data:</b> ${fmtData(r.data)} <b>| Redatta da:</b> ${r.autore||'—'}</p>
+  <h2>Situazione attuale</h2>
+  ${row('Descrizione situazione',r.situazione)}
+  ${row('Percorso scolastico/formativo',r.scuola)}
+  ${row('Salute fisica e psicologica',r.salute)}
+  <h2>Progressi e osservazioni educative</h2>
+  ${row('Progressi rispetto al PEI',r.progressi)}
+  ${row('Criticità emerse',r.criticita)}
+  <h2>Prospettive e richieste</h2>
+  ${row('Proposta educativa / Piano futuro',r.piano)}
+  ${row('Richieste al Tribunale / Servizi',r.richieste)}
+  <br><br><div style="margin-top:40px;border-top:1px solid #ccc;padding-top:10px;font-size:10pt">
+  <p>Data: _________________ &nbsp;&nbsp;&nbsp; Firma: _________________</p></div>
+  <p style="margin-top:20px;font-size:9pt;color:#888">eduCare • ${new Date().toLocaleDateString('it-IT')}</p>
+  </body></html>`;
+}
+
+function apriFinestaPDF(html,nome){
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=(nome||'documento')+'.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),5000);
+}
+
+// ===================== CALENDARIO =====================
+function renderCalendario(){
+  const today=new Date();
+  if(calYear===undefined){calYear=today.getFullYear();calMonth=today.getMonth();}
+  const eventi=DB.get('eventi'),minori=DB.get('minori');
+  const firstDay=new Date(calYear,calMonth,1);
+  const lastDay=new Date(calYear,calMonth+1,0);
+  let startDow=firstDay.getDay();if(startDow===0)startDow=7;startDow--;
+  const mesiIT=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  const giorniIT=['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+  let days='';
+  for(let i=0;i<startDow;i++)days+=`<div class="cal-day other-month"><div class="cal-day-num">&nbsp;</div></div>`;
+  for(let d=1;d<=lastDay.getDate();d++){
+    const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dayEv=eventi.filter(e=>e.data===ds);
+    const isToday=ds===today.toISOString().split('T')[0];
+    days+=`<div class="cal-day${isToday?' today':''}" onclick="nuovoEventoData('${ds}')">
+      <div class="cal-day-num">${d}</div>
+      ${dayEv.map(e=>`<div class="cal-event ${e.tipo==='Udienza'?'ev-yellow':e.tipo==='Riunione équipe'?'ev-green':''}">${e.ora?e.ora+' ':''} ${e.titolo}</div>`).join('')}
+    </div>`;
+  }
+  const tuttiEv=eventi.sort((a,b)=>a.data.localeCompare(b.data));
+  document.getElementById('content').innerHTML=`
+  <div class="grid g2" style="align-items:start">
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <button class="btn btn-ghost btn-sm" onclick="calNav(-1)">◀</button>
+          <b>${mesiIT[calMonth]} ${calYear}</b>
+          <button class="btn btn-ghost btn-sm" onclick="calNav(1)">▶</button>
+        </div>
+        <div class="cal-grid">
+          ${giorniIT.map(g=>`<div class="cal-day-name">${g}</div>`).join('')}
+          ${days}
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="sec-header"><h2>Tutti gli eventi</h2><button class="btn btn-sm btn-primary" onclick="openModal('modal-evento',null)">+ Nuovo</button></div>
+      <div style="max-height:520px;overflow-y:auto">
+      ${tuttiEv.length?tuttiEv.map(e=>{const m=minori.find(x=>x.id===e.minoreId);return`
+        <div style="display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--border);align-items:flex-start">
+          <div style="flex-shrink:0;width:50px;background:#f8fafc;border-radius:6px;padding:4px;text-align:center">
+            <div style="font-size:.65rem;color:var(--muted)">${fmtMese(e.data)}</div>
+            <div style="font-weight:800;font-size:1rem;color:var(--accent)">${e.data.split('-')[2]}</div>
+            <div style="font-size:.65rem;color:var(--muted)">${e.ora||''}</div>
+          </div>
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:.86rem">${e.titolo}</div>
+            ${m?`<div style="font-size:.75rem;color:var(--muted)">👤 ${m.nome} ${m.cognome}</div>`:''}
+            ${e.luogo?`<div style="font-size:.75rem;color:var(--muted)">📍 ${e.luogo}</div>`:''}
+            ${e.note?`<div style="font-size:.75rem;color:var(--muted)">${e.note}</div>`:''}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+            <span class="badge ${tipoColor(e.tipo)}">${e.tipo}</span>
+            <button class="btn btn-sm btn-danger" onclick="eliminaEvento('${e.id}')">🗑</button>
+          </div>
+        </div>`}).join(''):`<div class="empty-state"><div class="es-icon">📅</div><p>Nessun evento</p></div>`}
+      </div>
+    </div>
+  </div>`;
+}
+function calNav(dir){calMonth+=dir;if(calMonth<0){calMonth=11;calYear--;}if(calMonth>11){calMonth=0;calYear++;}renderCalendario();}
+function nuovoEventoData(data){
+  populateSelect('ev-minore',DB.get('minori').map(m=>({value:m.id,label:m.nome+' '+m.cognome})),'— Nessuno specifico —');
+  ['titolo','note','luogo'].forEach(f=>{const el=document.getElementById('ev-'+f);if(el)el.value='';});
+  document.getElementById('ev-data').value=data;
+  document.getElementById('ev-ora').value='';
+  document.getElementById('modal-evento').classList.add('open');
+}
+
+// ===================== TURNI =====================
+let turniAnno=new Date().getFullYear(), turniMese=new Date().getMonth();
+
+function renderTurni(){
+  const operatori=DB.get('operatori');
+  const turni=DB.getObj('turni');
+  const isCoord=SESSION?.utente?.ruolo==='Coordinatore';
+  const mesiIT=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  const giorniBrevi=['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+  const legend={'M':'08:30–14:30','P':'14:30–20:30','N':'20:30–08:30','R':'Riposo'};
+  const slotLabel={'M':'M','P':'P','N':'N','R':'R'};
+
+  // Calcola tutte le settimane del mese
+  const primoGiorno=new Date(turniAnno,turniMese,1);
+  const ultimoGiorno=new Date(turniAnno,turniMese+1,0);
+  // Settimane: array di array di date (lun-dom)
+  const settimane=[];
+  let cur=new Date(primoGiorno);
+  // vai al lunedì precedente
+  const dow=cur.getDay()||7;
+  cur.setDate(cur.getDate()-(dow-1));
+  while(cur<=ultimoGiorno){
+    const sett=[];
+    for(let i=0;i<7;i++){
+      sett.push(new Date(cur));
+      cur.setDate(cur.getDate()+1);
+    }
+    settimane.push(sett);
+  }
+
+  const legendHTML=Object.entries(legend).map(([k,v])=>`
+    <span class="slot slot-${k}" style="padding:4px 10px;font-size:.75rem;border-radius:4px;">${k} = ${v}</span>`).join('');
+
+  let setHTML='';
+  settimane.forEach((sett,si)=>{
+    const numSett=si+1;
+    // intestazione giorni
+    let header=`<div style="grid-column:1;background:#f1f5f9;padding:8px;border-radius:4px;font-size:.78rem;font-weight:700;display:flex;align-items:center;">Operatore</div>`;
+    sett.forEach(d=>{
+      const inMese=d.getMonth()===turniMese;
+      const isOggi=d.toDateString()===new Date().toDateString();
+      header+=`<div style="background:${isOggi?'#dbeafe':'#f1f5f9'};padding:6px 4px;border-radius:4px;text-align:center;font-size:.74rem;font-weight:700;color:${inMese?(isOggi?'#1d4ed8':'#334155'):'#94a3b8'}">
+        ${giorniBrevi[d.getDay()===0?6:d.getDay()-1]}<br>${d.getDate()}
+      </div>`;
+    });
+
+    let righe='';
+    operatori.forEach((op,opIdx)=>{
+      if(!turni[op.id])turni[op.id]={};
+      righe+=`<div style="padding:4px 6px;background:#f8fafc;border-radius:4px;display:flex;align-items:center;font-size:.8rem;font-weight:600;gap:4px;">
+        ${isCoord?`<div style="display:flex;flex-direction:column;gap:1px;margin-right:2px;">
+          ${opIdx>0?`<button onclick="spostaOperatore(${opIdx},-1)" style="background:none;border:none;cursor:pointer;padding:0;font-size:.65rem;line-height:1;color:#94a3b8;" title="Sposta su">▲</button>`:'<span style="font-size:.65rem;line-height:1;opacity:0;">▲</span>'}
+          ${opIdx<operatori.length-1?`<button onclick="spostaOperatore(${opIdx},1)" style="background:none;border:none;cursor:pointer;padding:0;font-size:.65rem;line-height:1;color:#94a3b8;" title="Sposta giù">▼</button>`:'<span style="font-size:.65rem;line-height:1;opacity:0;">▼</span>'}
+        </div>`:''}
+        <div class="avatar" style="width:22px;height:22px;font-size:.58rem;flex-shrink:0">${op.nome[0]}${op.cognome[0]}</div>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${op.nome} ${op.cognome[0]}.</span>
+      </div>`;
+      sett.forEach(d=>{
+        const inMese=d.getMonth()===turniMese;
+        const key=d.toISOString().split('T')[0];
+        const val=turni[op.id][key]||'';
+        if(inMese && isCoord){
+          righe+=`<div class="slot slot-${val||'empty'}" onclick="cambiaTurnoData('${op.id}','${key}')" style="cursor:pointer;border-radius:4px;">${val||'+'}</div>`;
+        } else if(inMese){
+          righe+=`<div class="slot slot-${val||'empty'}" style="cursor:default;border-radius:4px;">${val||'—'}</div>`;
+        } else {
+          righe+=`<div style="background:#f9fafb;border:1px dashed #e2e8f0;border-radius:4px;min-height:34px;"></div>`;
+        }
+      });
+    });
+
+    setHTML+=`<div class="card" style="margin-bottom:14px;overflow-x:auto;">
+      <div style="font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:8px;">Settimana ${numSett}</div>
+      <div style="display:grid;grid-template-columns:130px repeat(7,1fr);gap:3px;min-width:600px;">
+        ${header}${righe}
+      </div>
+    </div>`;
+  });
+
+  document.getElementById('content').innerHTML=`
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button class="btn btn-ghost btn-sm" onclick="turniNav(-1)">◀</button>
+          <h2 style="font-size:1rem;font-weight:800;">${mesiIT[turniMese]} ${turniAnno}</h2>
+          <button class="btn btn-ghost btn-sm" onclick="turniNav(1)">▶</button>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          ${legendHTML}
+          ${isCoord?'<span style="font-size:.75rem;color:var(--muted);margin-left:4px;">Clicca su uno slot per cambiare turno</span>':'<span class="badge badge-gray">👁 Solo lettura</span>'}
+        </div>
+      </div>
+    </div>
+    ${operatori.length?setHTML:`<div class="card"><div class="empty-state"><div class="es-icon">👥</div><p>Nessun operatore registrato.<br>Vai in "Operatori" per aggiungerli.</p></div></div>`}
+    ${operatori.length?`<div class="card">
+      <div class="card-title">Riepilogo turni mensili</div>
+      ${operatori.map(op=>{
+        const t=turni[op.id]||{};
+        const M=Object.values(t).filter(v=>v==='M').length;
+        const P=Object.values(t).filter(v=>v==='P').length;
+        const N=Object.values(t).filter(v=>v==='N').length;
+        return`<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
+          <div class="avatar">${op.nome[0]}${op.cognome[0]}</div>
+          <div style="flex:1"><div style="font-weight:600;font-size:.86rem">${op.nome} ${op.cognome}</div>
+          <div style="font-size:.76rem;color:var(--muted);margin-top:2px;">
+            <span class="slot slot-M" style="padding:2px 8px;border-radius:3px;font-size:.7rem;">M×${M}</span>&nbsp;
+            <span class="slot slot-P" style="padding:2px 8px;border-radius:3px;font-size:.7rem;">P×${P}</span>&nbsp;
+            <span class="slot slot-N" style="padding:2px 8px;border-radius:3px;font-size:.7rem;">N×${N}</span>
+          </div></div>
+          <div style="font-size:.84rem;color:var(--muted)">${M+P+N} turni attivi</div>
+        </div>`;
+      }).join('')}
+    </div>`:''}`;
+}
+
+function turniNav(dir){
+  turniMese+=dir;
+  if(turniMese<0){turniMese=11;turniAnno--;}
+  if(turniMese>11){turniMese=0;turniAnno++;}
+  renderTurni();
+}
+
+function cambiaTurnoData(opId,data){
+  if(SESSION?.utente?.ruolo!=='Coordinatore')return;
+  const turni=DB.getObj('turni');
+  if(!turni[opId])turni[opId]={};
+  const ciclo=['M','P','N','R',''];
+  const cur=turni[opId][data]||'';
+  turni[opId][data]=ciclo[(ciclo.indexOf(cur)+1)%ciclo.length];
+  DB.setObj('turni',turni);renderTurni();
+}
+
+function spostaOperatore(idx,dir){
+  if(SESSION?.utente?.ruolo!=='Coordinatore')return;
+  const op=DB.get('operatori');
+  const newIdx=idx+dir;
+  if(newIdx<0||newIdx>=op.length)return;
+  [op[idx],op[newIdx]]=[op[newIdx],op[idx]];
+  DB.set('operatori',op);
+  renderTurni();
+}
+
+function cambiaTurno(opId,giorno){cambiaTurnoData(opId,giorno);}
+
+// ===================== ATTIVITÀ =====================
+function renderAttivita(){
+  const att=DB.get('attivita'),op=DB.get('operatori');
+  const catColors={'Educativa':'badge-blue','Sportiva':'badge-green','Ricreativa':'badge-yellow','Lavoro/Stage':'badge-purple','Scuola':'badge-blue','Salute':'badge-red','Autonomia':'badge-gray'};
+  document.getElementById('content').innerHTML=`
+  <div class="sec-header"><h2>${att.length} attività programmate</h2><button class="btn btn-success" onclick="openModal('modal-attivita',null)">+ Nuova attività</button></div>
+  ${att.length?`<div class="grid g3">
+    ${att.map(a=>{const oper=op.find(o=>o.id===a.opId);return`
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+          <span class="badge ${catColors[a.cat]||'badge-gray'}">${a.cat}</span>
+          <button class="btn btn-sm btn-danger" onclick="eliminaAttivita('${a.id}')">🗑</button>
+        </div>
+        <h3 style="font-size:.92rem;font-weight:700;margin-bottom:6px">${a.nome}</h3>
+        <div style="font-size:.8rem;color:var(--muted)">📅 ${fmtData(a.data)}${a.ora?' ore '+a.ora:''}</div>
+        ${oper?`<div style="font-size:.8rem;color:var(--muted);margin-top:3px">👤 ${oper.nome} ${oper.cognome}</div>`:''}
+        ${a.note?`<div style="font-size:.78rem;color:var(--muted);margin-top:6px;border-top:1px solid var(--border);padding-top:6px">${a.note}</div>`:''}
+      </div>`}).join('')}
+    <div class="card" style="border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;min-height:100px" onclick="openModal('modal-attivita',null)">
+      <span style="font-size:2rem;color:var(--muted)">+</span>
+    </div>
+  </div>`:`<div class="card"><div class="empty-state"><div class="es-icon">📋</div><p>Nessuna attività.<br>Clicca "+ Nuova attività" per aggiungerne una.</p></div></div>`}`;
+}
+
+// ===================== OPERATORI =====================
+function renderOperatori(){
+  const op=DB.get('operatori');
+  const meId=SESSION?.utente?.id;
+  document.getElementById('content').innerHTML=`
+
+  <!-- Il mio profilo -->
+  <div class="card" style="margin-bottom:20px;border-left:3px solid var(--accent);">
+    <div class="card-title">👤 Il mio profilo</div>
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+      <div class="avatar" style="width:52px;height:52px;font-size:1rem;">${SESSION.utente.nome[0]}${SESSION.utente.cognome[0]}</div>
+      <div>
+        <div style="font-weight:700;font-size:1rem;">${SESSION.utente.nome} ${SESSION.utente.cognome}</div>
+        <span class="badge badge-blue">${SESSION.utente.ruolo}</span>
+        <div style="font-size:.8rem;color:var(--muted);margin-top:4px;">📧 ${SESSION.utente.email} · 🏠 ${SESSION.comunita_nome}</div>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:14px;">
+      <div style="font-size:.82rem;font-weight:700;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em;">Cambia password</div>
+      <div class="grid g3" style="gap:10px;margin-bottom:10px;">
+        <div class="form-group" style="margin-bottom:0"><label>Password attuale</label><input type="password" id="pw-old" placeholder="••••••••"></div>
+        <div class="form-group" style="margin-bottom:0"><label>Nuova password</label><input type="password" id="pw-new" placeholder="••••••••"></div>
+        <div class="form-group" style="margin-bottom:0"><label>Conferma nuova</label><input type="password" id="pw-confirm" placeholder="••••••••"></div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="cambiaPassword()">🔑 Cambia password</button>
+      <div id="pw-msg" style="font-size:.8rem;margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <div class="sec-header"><h2>${op.length} operatori</h2><button class="btn btn-primary" onclick="openModal('modal-operatore',null)">+ Nuovo operatore</button></div>
+  ${op.length?`<div class="grid g3">
+    ${op.map(o=>`<div class="card" style="${o.id===meId?'border-color:var(--accent);':''}">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <div class="avatar" style="width:44px;height:44px;font-size:.88rem">${o.nome[0]}${o.cognome[0]}</div>
+        <div>
+          <div style="font-weight:700">${o.nome} ${o.cognome} ${o.id===meId?'<span class="badge badge-green" style="font-size:.65rem;">Tu</span>':''}</div>
+          <span class="badge badge-blue" style="margin-top:4px">${o.ruolo}</span>
+        </div>
+      </div>
+      ${o.tel?`<div style="font-size:.82rem;color:var(--muted);margin-bottom:3px">📞 ${o.tel}</div>`:''}
+      ${o.email?`<div style="font-size:.82rem;color:var(--muted)">✉️ ${o.email}</div>`:''}
+      <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-sm btn-ghost" onclick="openModal('modal-operatore','${o.id}')">✏️ Modifica</button>
+        <button class="btn btn-sm btn-danger" onclick="eliminaOperatore('${o.id}')">🗑</button>
+      </div>
+    </div>`).join('')}
+  </div>`:`<div class="card"><div class="empty-state"><div class="es-icon">👥</div><p>Nessun operatore registrato.</p></div></div>`}`;
+}
+
+async function cambiaPassword(){
+  const vecchia=document.getElementById('pw-old').value;
+  const nuova=document.getElementById('pw-new').value;
+  const conferma=document.getElementById('pw-confirm').value;
+  const msg=document.getElementById('pw-msg');
+
+  if(!vecchia||!nuova||!conferma){msg.style.color='var(--danger)';msg.textContent='Compila tutti i campi.';return;}
+  if(nuova!==conferma){msg.style.color='var(--danger)';msg.textContent='Le nuove password non coincidono.';return;}
+  if(nuova.length<6){msg.style.color='var(--danger)';msg.textContent='La password deve essere di almeno 6 caratteri.';return;}
+
+  // Verifica password attuale
+  const hashVecchia=await sha256(vecchia);
+  const utente=SESSION.utente;
+  if(utente.password_hash!==hashVecchia){msg.style.color='var(--danger)';msg.textContent='Password attuale non corretta.';return;}
+
+  // Salva nuova password
+  const hashNuova=await sha256(nuova);
+  try{
+    await fetch(`${SUPA_URL}/rest/v1/utenti?id=eq.${utente.id}`,{
+      method:'PATCH',
+      headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body:JSON.stringify({password_hash:hashNuova})
+    });
+    // Aggiorna sessione
+    SESSION.utente.password_hash=hashNuova;
+    setSession(SESSION);
+    msg.style.color='var(--accent2)';
+    msg.textContent='✓ Password cambiata con successo!';
+    ['pw-old','pw-new','pw-confirm'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  }catch(e){
+    msg.style.color='var(--danger)';msg.textContent='Errore durante il salvataggio.';
+  }
+}
+
+// ===================== CRUD MODALI =====================
+function openModal(id,editId){
+  if(id==='modal-minore') return openModalMinore(editId);
+  if(id==='modal-evento'){
+    populateSelect('ev-minore',DB.get('minori').map(m=>({value:m.id,label:m.nome+' '+m.cognome})),'— Nessuno specifico —');
+    ['titolo','note','luogo'].forEach(f=>{const el=document.getElementById('ev-'+f);if(el)el.value='';});
+    document.getElementById('ev-data').value='';document.getElementById('ev-ora').value='';
+  }
+  if(id==='modal-attivita'){
+    populateSelect('at-op',DB.get('operatori').map(o=>({value:o.id,label:o.nome+' '+o.cognome})));
+    ['nome','note'].forEach(f=>{const el=document.getElementById('at-'+f);if(el)el.value='';});
+    document.getElementById('at-data').value='';document.getElementById('at-ora').value='';
+  }
+  if(id==='modal-operatore'){
+    document.getElementById('modal-op-title').textContent=editId?'Modifica Operatore':'Nuovo Operatore';
+    document.getElementById('modal-operatore')._editId=editId;
+    if(editId){const o=DB.get('operatori').find(x=>x.id===editId);if(o){['nome','cognome','ruolo','tel','email'].forEach(f=>{sv('op-'+f,o[f]);});}}
+    else{['nome','cognome','tel','email'].forEach(f=>{const el=document.getElementById('op-'+f);if(el)el.value='';});}
+  }
+  document.getElementById(id).classList.add('open');
+}
+
+function openModalMinore(editId){
+  document.getElementById('modal-minore-title').textContent=editId?'Modifica Minore':'Nuovo Minore';
+  document.getElementById('modal-minore')._editId=editId;
+  if(editId){
+    const m=DB.get('minori').find(x=>x.id===editId);
+    if(m){sv('m-nome',m.nome);sv('m-cognome',m.cognome);sv('m-dob',m.dob);sv('m-naz',m.naz);sv('m-ingresso',m.ingresso);sv('m-stato',m.stato);sv('m-tutore',m.tutore);sv('m-status-giuridico',m.statusGiuridico);sv('m-cf',m.cf);sv('m-permesso',m.permesso);sv('m-scad-permesso',m.scadPermesso);sv('m-tutela',m.tutela);sv('m-scad-legale',m.scadLegale);sv('m-proseguimento',m.proseguimento);sv('m-pratica',m.pratica);sv('m-note',m.note);}
+  } else {
+    ['nome','cognome','dob','naz','ingresso','tutore','cf','permesso','scad-permesso','tutela','scad-legale','pratica','note'].forEach(f=>{const el=document.getElementById('m-'+f);if(el)el.value='';});
+    document.getElementById('m-stato').value='In comunità';
+    document.getElementById('m-status-giuridico').value='MSNA';
+    document.getElementById('m-proseguimento').value='Non richiesto';
+  }
+  document.getElementById('modal-minore').classList.add('open');
+}
+
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+function salvaMinore(){
+  const editId=document.getElementById('modal-minore')._editId;
+  const minori=DB.get('minori');
+  const obj={id:editId||uid(),nome:v('m-nome'),cognome:v('m-cognome'),dob:v('m-dob'),naz:v('m-naz'),ingresso:v('m-ingresso'),stato:v('m-stato'),tutore:v('m-tutore'),statusGiuridico:v('m-status-giuridico'),cf:v('m-cf'),permesso:v('m-permesso'),scadPermesso:v('m-scad-permesso'),tutela:v('m-tutela'),scadLegale:v('m-scad-legale'),proseguimento:v('m-proseguimento'),pratica:v('m-pratica'),note:v('m-note')};
+  if(!obj.nome){alert('Inserire almeno il nome');return;}
+  if(editId){const i=minori.findIndex(x=>x.id===editId);if(i>=0)minori[i]=obj;}else minori.push(obj);
+  DB.set('minori',minori);closeModal('modal-minore');showPage(currentPage);
+}
+function salvaEvento(){
+  if(!v('ev-titolo')||!v('ev-data')){alert('Titolo e data sono obbligatori');return;}
+  const eventi=DB.get('eventi');
+  eventi.push({id:uid(),titolo:v('ev-titolo'),data:v('ev-data'),ora:v('ev-ora'),tipo:v('ev-tipo'),minoreId:v('ev-minore'),luogo:v('ev-luogo'),note:v('ev-note')});
+  DB.set('eventi',eventi);closeModal('modal-evento');showPage(currentPage);
+}
+function salvaAttivita(){
+  if(!v('at-nome')){alert('Nome attività obbligatorio');return;}
+  const att=DB.get('attivita');
+  att.push({id:uid(),nome:v('at-nome'),data:v('at-data'),ora:v('at-ora'),cat:v('at-cat'),opId:v('at-op'),note:v('at-note')});
+  DB.set('attivita',att);closeModal('modal-attivita');showPage(currentPage);
+}
+function salvaOperatore(){
+  const editId=document.getElementById('modal-operatore')._editId;
+  const op=DB.get('operatori');
+  const obj={id:editId||uid(),nome:v('op-nome'),cognome:v('op-cognome'),ruolo:v('op-ruolo'),tel:v('op-tel'),email:v('op-email')};
+  if(!obj.nome){alert('Nome obbligatorio');return;}
+  if(editId){const i=op.findIndex(x=>x.id===editId);if(i>=0)op[i]=obj;}else op.push(obj);
+  DB.set('operatori',op);closeModal('modal-operatore');showPage(currentPage);
+}
+function apriNota(minoreId){
+  document.getElementById('nota-minore-id').value=minoreId;
+  document.getElementById('modal-nota')._minoreId=minoreId;
+  ['titolo','testo','autore'].forEach(f=>document.getElementById('nota-'+f).value='');
+  closeModal('modal-scheda');
+  document.getElementById('modal-nota').classList.add('open');
+}
+function aggiornaFileLabel(input){
+  const label=document.getElementById('nota-file-label');
+  label.textContent=input.files.length?input.files[0].name:'Nessun file selezionato';
+}
+
+function salvaNota(){
+  const mid=document.getElementById('modal-nota')._minoreId;
+  if(!v('nota-titolo')){alert('Titolo obbligatorio');return;}
+  const fileInput=document.getElementById('nota-file-input');
+  const nomeFile=fileInput.files.length?fileInput.files[0].name:'';
+  const note=DB.get('note');
+  note.push({id:uid(),minoreId:mid,tipo:v('nota-tipo'),titolo:v('nota-titolo'),testo:v('nota-testo'),autore:v('nota-autore'),data:new Date().toISOString().split('T')[0],allegato:nomeFile});
+  DB.set('note',note);closeModal('modal-nota');apriScheda(mid);
+}
+
+function eliminaNota(id,mid){if(!confirm('Eliminare questa nota?'))return;DB.set('note',DB.get('note').filter(x=>x.id!==id));apriScheda(mid);}
+function eliminaMinore(id){if(!confirm('Eliminare questo minore e tutti i suoi dati?'))return;
+  DB.set('minori',DB.get('minori').filter(x=>x.id!==id));
+  DB.set('note',DB.get('note').filter(x=>x.minoreId!==id));
+  DB.set('pei',DB.get('pei').filter(x=>x.minoreId!==id));
+  DB.set('relazioni',DB.get('relazioni').filter(x=>x.minoreId!==id));
+  showPage('minori');}
+function eliminaEvento(id){if(!confirm('Eliminare questo evento?'))return;DB.set('eventi',DB.get('eventi').filter(x=>x.id!==id));renderCalendario();}
+function eliminaAttivita(id){if(!confirm('Eliminare questa attività?'))return;DB.set('attivita',DB.get('attivita').filter(x=>x.id!==id));renderAttivita();}
+function eliminaOperatore(id){if(!confirm('Eliminare questo operatore?'))return;DB.set('operatori',DB.get('operatori').filter(x=>x.id!==id));renderOperatori();}
+
+// ===================== BACKUP =====================
+function esportaDati(){
+  const data={minori:DB.get('minori'),operatori:DB.get('operatori'),eventi:DB.get('eventi'),attivita:DB.get('attivita'),note:DB.get('note'),pei:DB.get('pei'),relazioni:DB.get('relazioni'),turni:DB.getObj('turni'),data:new Date().toISOString()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`cemterraferma_backup_${new Date().toISOString().split('T')[0]}.json`;a.click();
+}
+function importaDati(){document.getElementById('import-file').click();}
+function leggiBackup(e){
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(!confirm('Importare il backup? I dati attuali saranno sovrascritti.'))return;
+      ['minori','operatori','eventi','attivita','note','pei','relazioni'].forEach(k=>{if(data[k])DB.set(k,data[k]);});
+      if(data.turni)DB.setObj('turni',data.turni);
+      alert('Backup importato con successo!');showPage('dashboard');
+    }catch{alert('File non valido.');}
+  };
+  r.readAsText(file);
+  e.target.value='';
+}
+
+// ===================== UTILS =====================
+function v(id){return document.getElementById(id)?.value||'';}
+function sv(id,val){const el=document.getElementById(id);if(el)el.value=val||'';}
+function populateSelect(id,items,defaultLabel){
+  const s=document.getElementById(id);if(!s)return;
+  s.innerHTML=(defaultLabel?`<option value="">${defaultLabel}</option>`:'')+items.map(i=>`<option value="${i.value}">${i.label}</option>`).join('');
+}
+function fmtData(d){if(!d)return'—';const[y,m,dd]=d.split('-');return`${dd}/${m}/${y}`;}
+function fmtMese(d){if(!d)return'';return['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'][parseInt(d.split('-')[1])-1]||'';}
+function calcolaEta(dob){if(!dob)return'?';const d=new Date(dob),o=new Date();let a=o.getFullYear()-d.getFullYear();if(o.getMonth()<d.getMonth()||(o.getMonth()===d.getMonth()&&o.getDate()<d.getDate()))a--;return a;}
+function statoColor(s){return{'In comunità':'badge-green','Permesso':'badge-yellow','Ricovero':'badge-red','Dimesso':'badge-gray','AWOL':'badge-red'}[s]||'badge-gray';}
+function tipoColor(t){return{'Udienza':'badge-yellow','Colloquio':'badge-blue','Visita medica':'badge-red','Attività educativa':'badge-green','Riunione équipe':'badge-gray','Permesso':'badge-purple','Altro':'badge-gray'}[t]||'badge-gray';}
+function togglePEI(){}
+
+function giorniAllaData(data){
+  if(!data)return null;
+  const oggi=new Date();
+  oggi.setHours(0,0,0,0);
+  const d=new Date(data+'T00:00:00');
+  return Math.round((d-oggi)/86400000);
+}
+function testoGiorniScadenza(data){
+  const g=giorniAllaData(data);
+  if(g===null)return'—';
+  if(g<0)return 'Scaduto';
+  if(g===0)return 'Oggi';
+  if(g===1)return '1 giorno';
+  return g+' giorni';
+}
+function badgeScadenza(data){
+  const g=giorniAllaData(data);
+  if(g===null)return 'badge-gray';
+  if(g<0)return 'badge-red';
+  if(g<=7)return 'badge-red';
+  if(g<=30)return 'badge-yellow';
+  return 'badge-blue';
+}
+function getScadenzeMinore(m){
+  const out=[];
+  if(m.scadPermesso)out.push({minoreId:m.id,nome:m.nome+' '+m.cognome,label:'Scadenza permesso di soggiorno',data:m.scadPermesso});
+  if(m.scadLegale)out.push({minoreId:m.id,nome:m.nome+' '+m.cognome,label:'Scadenza legale / udienza',data:m.scadLegale});
+  return out;
+}
+function renderAlertLegali(m){
+  const arr=getScadenzeMinore(m);
+  if(!arr.length)return '<span class="badge badge-gray">Nessuno</span>';
+  return arr.map(a=>`<span class="badge ${badgeScadenza(a.data)}" style="margin-right:6px">${a.label}: ${testoGiorniScadenza(a.data)}</span>`).join('');
+}
+
+// ===================== MOBILE SIDEBAR =====================
+function apriSidebar(){
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebar-overlay').classList.add('open');
+  document.getElementById('sidebar-close').style.display='block';
+}
+function chiudiSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+  document.getElementById('sidebar-close').style.display='none';
+}
+
+// Chiudi sidebar quando si clicca una voce del menu su mobile
+document.querySelectorAll('.nav-item').forEach(item=>{
+  item.addEventListener('click',()=>{
+    if(window.innerWidth<=768)chiudiSidebar();
+  });
+});
+document.getElementById('today-date').textContent=new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+// Controlla sessione esistente
+(async () => {
+  const s = getSession();
+  if (s) {
+    SESSION = s;
+    try {
+      await DB.loadAll();
+      mostraApp();
+      showPage('dashboard');
+    } catch(e) {
+      clearSession();
+      // rimane sulla welcome screen
+    }
+  }
+  // altrimenti rimane sulla welcome screen
+})();
+</script>
+
+
+</body></html>
