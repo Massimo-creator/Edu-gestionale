@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0050)file:///C:/Users/Dell/Downloads/eduCare_v18_1.html -->
+<!-- saved from url=(0054)file:///C:/Users/Dell/Downloads/eduCare_v19_admin.html -->
 <html lang="it"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -490,6 +490,7 @@ tr:hover td{background:#f8fafc}
   <div class="nav-item" onclick="showPage(&#39;equipe&#39;)"><span class="ico">📋</span> Agenda équipe</div>
   <div class="nav-item" onclick="showPage(&#39;attivita&#39;)"><span class="ico">🎯</span> Attività</div>
   <div class="nav-item" onclick="showPage(&#39;operatori&#39;)"><span class="ico">👥</span> Operatori</div>
+  <div id="nav-admin" style="display:none;" class="nav-item" onclick="showPage(&#39;admin&#39;)"><span class="ico">⚙️</span> <span style="color:#a5b4fc;">Pannello Admin</span></div>
   <div style="margin-top:auto;padding:12px 10px;border-top:1px solid rgba(255,255,255,.08);">
     <div id="sidebar-user" style="padding:8px 6px 10px;font-size:.75rem;color:#94a3b8;line-height:1.4;"></div>
     <div class="nav-item" onclick="doLogout()" style="color:#f87171;border-radius:8px;margin:0;">
@@ -769,7 +770,7 @@ tr:hover td{background:#f8fafc}
 
 </div>
 
-<script src="./eduCare - Gestionale Comunità Educative18_files/supabase.min.js.download"></script>
+<script src="./index_files/supabase.min.js.download"></script>
 <script>
 const SUPA_URL = 'https://nvwqykhosumrjkdlejtb.supabase.co';
 const SUPA_KEY = 'sb_publishable_p1Bci_nIcTZWIemx-4EJ8Q_4LSlzQ2b';
@@ -823,6 +824,10 @@ function mostraApp() {
   if (SESSION) {
     document.getElementById('topbar-user').textContent = `${SESSION.utente.nome} ${SESSION.utente.cognome} (${SESSION.utente.ruolo}) · ${SESSION.comunita_nome}`;
     document.getElementById('sidebar-user').innerHTML = `<b style="color:#cbd5e1">${SESSION.utente.nome} ${SESSION.utente.cognome}</b><br><span style="color:#4ade80">${SESSION.utente.ruolo}</span> · ${SESSION.comunita_nome}`;
+    // Mostra voce admin solo per SuperAdmin
+    if(SESSION.utente.ruolo === 'SuperAdmin'){
+      document.getElementById('nav-admin').style.display = 'flex';
+    }
   }
 }
 
@@ -855,11 +860,19 @@ async function doLogin() {
     if (!utenti || utenti.length === 0) throw new Error('Email non trovata per questa comunità.');
     const utente = utenti[0];
 
-    // 3. Verifica password (hash SHA-256 semplice)
+    // 3. Verifica password
     const pwHash = await sha256(password);
     if (utente.password_hash !== pwHash) throw new Error('Password non corretta.');
 
     setSession({ utente, comunita_id: com.id, comunita_nome: com.nome });
+
+    // Se SuperAdmin → pannello admin
+    if(utente.ruolo === 'SuperAdmin'){
+      mostraApp();
+      showPage('admin');
+      return;
+    }
+
     await DB.loadAll();
     mostraApp();
     showPage('dashboard');
@@ -992,14 +1005,187 @@ function showPage(p){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const map={dashboard:0,diario:1,chat:2,minori:3,calendario:4,turni:5,mansioni:6,menu:7,acquisti:8,equipe:9,attivita:10,operatori:11};
   const items=document.querySelectorAll('.nav-item');
-  if(items[map[p]])items[map[p]].classList.add('active');
-  const titles={dashboard:'Dashboard',diario:'Diario di bordo',chat:'Chat équipe',minori:'Cartelle Minori',calendario:'Calendario Appuntamenti',turni:'Turni Operatori',mansioni:'Mansioni Minori',menu:'Menù settimanale',acquisti:'Acquisti',equipe:'Agenda riunione équipe',attivita:'Attività',operatori:'Operatori'};
+  if(map[p]!==undefined&&items[map[p]])items[map[p]].classList.add('active');
+  if(p==='admin'){document.getElementById('nav-admin').classList.add('active');}
+  const titles={dashboard:'Dashboard',diario:'Diario di bordo',chat:'Chat équipe',minori:'Cartelle Minori',calendario:'Calendario Appuntamenti',turni:'Turni Operatori',mansioni:'Mansioni Minori',menu:'Menù settimanale',acquisti:'Acquisti',equipe:'Agenda riunione équipe',attivita:'Attività',operatori:'Operatori',admin:'⚙️ Pannello Admin'};
   document.getElementById('page-title').textContent=titles[p]||p;
   if(p==='chat'){renderChat();return;}
+  if(p==='admin'){renderAdmin();return;}
   ({dashboard:renderDashboard,diario:renderDiario,minori:renderMinori,calendario:renderCalendario,turni:renderTurni,mansioni:renderMansioni,menu:renderMenu,acquisti:renderAcquisti,equipe:renderEquipe,attivita:renderAttivita,operatori:renderOperatori}[p]||renderDashboard)();
 }
 
-// ===================== DASHBOARD =====================
+// ===================== PANNELLO ADMIN =====================
+async function renderAdmin(){
+  if(SESSION?.utente?.ruolo!=='SuperAdmin'){
+    document.getElementById('content').innerHTML=`<div class="card"><div class="empty-state"><div class="es-icon">🔒</div><p>Accesso non autorizzato.</p></div></div>`;
+    return;
+  }
+  document.getElementById('content').innerHTML=`<div class="card"><div class="empty-state"><div class="es-icon">⏳</div><p>Caricamento comunità…</p></div></div>`;
+
+  try{
+    // Carica tutte le comunità (escluso __admin__)
+    const comunita=await supa(`comunita?nome=neq.__admin__&order=created_at.asc`);
+    // Per ogni comunità carica utenti
+    const tuttiUtenti=await supa(`utenti?select=*&order=created_at.asc`);
+
+    document.getElementById('content').innerHTML=`
+    <div class="grid g2" style="align-items:start;margin-bottom:20px;">
+      <!-- Form nuova comunità -->
+      <div class="card" style="border-left:3px solid var(--accent);">
+        <div class="card-title">🏠 Nuova comunità</div>
+        <div class="form-group"><label>Nome comunità *</label><input id="adm-com-nome" placeholder="es. Casa Speranza"></div>
+        <div style="font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;margin-top:4px;">Coordinatore</div>
+        <div class="grid g2">
+          <div class="form-group"><label>Nome *</label><input id="adm-coord-nome" placeholder="Nome"></div>
+          <div class="form-group"><label>Cognome *</label><input id="adm-coord-cognome" placeholder="Cognome"></div>
+        </div>
+        <div class="form-group"><label>Email *</label><input id="adm-coord-email" type="email" placeholder="coordinatore@email.it"></div>
+        <div class="form-group"><label>Password iniziale *</label><input id="adm-coord-pw" type="text" value="password123" placeholder="password123"></div>
+        <button class="btn btn-primary" style="width:100%" onclick="creaComunitaAdmin()">➕ Crea comunità</button>
+        <div id="adm-msg" style="font-size:.8rem;margin-top:8px;"></div>
+      </div>
+
+      <!-- Statistiche -->
+      <div class="card">
+        <div class="card-title">📊 Riepilogo</div>
+        <div class="grid g2" style="gap:10px;">
+          <div style="background:#eff6ff;border-radius:8px;padding:14px;text-align:center;">
+            <div style="font-size:2rem;font-weight:700;color:var(--accent)">${comunita.length}</div>
+            <div style="font-size:.78rem;color:var(--muted);">Comunità attive</div>
+          </div>
+          <div style="background:#f0fdf4;border-radius:8px;padding:14px;text-align:center;">
+            <div style="font-size:2rem;font-weight:700;color:var(--accent2)">${tuttiUtenti.filter(u=>u.ruolo!=='SuperAdmin').length}</div>
+            <div style="font-size:.78rem;color:var(--muted);">Utenti totali</div>
+          </div>
+        </div>
+        <div style="margin-top:14px;padding:12px;background:#fef3c7;border-radius:8px;font-size:.82rem;">
+          <b>💰 Entrate mensili stimate</b><br>
+          <span style="font-size:1.4rem;font-weight:700;color:#92400e;">${comunita.length * 35}€/mese</span>
+          <span style="font-size:.75rem;color:var(--muted);"> (${comunita.length} × 35€)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lista comunità -->
+    <div class="card">
+      <div class="card-title">🏘️ Comunità registrate (${comunita.length})</div>
+      ${comunita.length?comunita.map(com=>{
+        const utenti=tuttiUtenti.filter(u=>u.comunita_id===com.id);
+        const coord=utenti.find(u=>u.ruolo==='Coordinatore');
+        return`<div style="padding:14px 0;border-bottom:1px solid var(--border);">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+            <div>
+              <div style="font-weight:700;font-size:.95rem;">🏠 ${com.nome}</div>
+              <div style="font-size:.78rem;color:var(--muted);margin-top:2px;">
+                Creata: ${new Date(com.created_at).toLocaleDateString('it-IT')} ·
+                ${utenti.length} utent${utenti.length===1?'e':'i'}
+                ${coord?` · Coordinatore: ${coord.nome} ${coord.cognome} (${coord.email})`:''}
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn btn-sm btn-ghost" onclick="mostraUtentiComunita('${com.id}','${com.nome}')">👥 Utenti</button>
+              <button class="btn btn-sm btn-success" onclick="aggiungiUtenteComunita('${com.id}','${com.nome}')">+ Utente</button>
+              <button class="btn btn-sm btn-danger" onclick="eliminaComunitaAdmin('${com.id}','${com.nome}')">🗑</button>
+            </div>
+          </div>
+          <div id="utenti-${com.id}" style="display:none;margin-top:10px;padding:10px;background:#f8fafc;border-radius:6px;">
+            ${utenti.map(u=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:.82rem;">
+              <div><b>${u.nome} ${u.cognome}</b> · ${u.ruolo} · ${u.email}</div>
+              <button class="btn btn-sm btn-danger" onclick="eliminaUtenteAdmin('${u.id}','${com.id}','${com.nome}')">🗑</button>
+            </div>`).join('')}
+          </div>
+        </div>`;
+      }).join(''):`<div class="empty-state"><div class="es-icon">🏘️</div><p>Nessuna comunità ancora registrata.</p></div>`}
+    </div>`;
+  }catch(e){
+    document.getElementById('content').innerHTML=`<div class="card"><div class="empty-state"><div class="es-icon">❌</div><p>Errore: ${e.message}</p></div></div>`;
+  }
+}
+
+function mostraUtentiComunita(comId, comNome){
+  const el=document.getElementById(`utenti-${comId}`);
+  if(el)el.style.display=el.style.display==='none'?'block':'none';
+}
+
+async function creaComunitaAdmin(){
+  const nome=document.getElementById('adm-com-nome').value.trim();
+  const coordNome=document.getElementById('adm-coord-nome').value.trim();
+  const coordCognome=document.getElementById('adm-coord-cognome').value.trim();
+  const coordEmail=document.getElementById('adm-coord-email').value.trim().toLowerCase();
+  const coordPw=document.getElementById('adm-coord-pw').value.trim();
+  const msg=document.getElementById('adm-msg');
+
+  if(!nome||!coordNome||!coordCognome||!coordEmail||!coordPw){
+    msg.style.color='var(--danger)';msg.textContent='Compila tutti i campi.';return;
+  }
+  msg.style.color='var(--muted)';msg.textContent='Creazione in corso…';
+
+  try{
+    // Crea comunità
+    const comRes=await supa('comunita',{method:'POST',body:JSON.stringify({nome})});
+    const comId=comRes[0].id;
+
+    // Crea coordinatore
+    const pwHash=await sha256(coordPw);
+    await supa('utenti',{method:'POST',body:JSON.stringify({
+      comunita_id:comId,email:coordEmail,nome:coordNome,
+      cognome:coordCognome,ruolo:'Coordinatore',password_hash:pwHash
+    })});
+
+    msg.style.color='var(--accent2)';
+    msg.textContent=`✓ Comunità "${nome}" creata! Credenziali: ${coordEmail} / ${coordPw}`;
+    ['adm-com-nome','adm-coord-nome','adm-coord-cognome','adm-coord-email'].forEach(id=>{
+      const el=document.getElementById(id);if(el)el.value='';
+    });
+    document.getElementById('adm-coord-pw').value='password123';
+    setTimeout(()=>renderAdmin(),1500);
+  }catch(e){
+    msg.style.color='var(--danger)';msg.textContent='Errore: '+e.message;
+  }
+}
+
+async function aggiungiUtenteComunita(comId, comNome){
+  const nome=prompt(`Nome utente per "${comNome}":`);
+  if(!nome)return;
+  const cognome=prompt('Cognome:');
+  if(!cognome)return;
+  const email=prompt('Email:');
+  if(!email)return;
+  const ruolo=prompt('Ruolo (Coordinatore/Educatore/Amministratore/Tirocinante/Borsista):','Educatore');
+  if(!ruolo)return;
+  const pw=prompt('Password iniziale:','password123');
+  if(!pw)return;
+
+  try{
+    const pwHash=await sha256(pw);
+    await supa('utenti',{method:'POST',body:JSON.stringify({
+      comunita_id:comId,email:email.toLowerCase(),nome,cognome,ruolo,password_hash:pwHash
+    })});
+    alert(`✓ Utente ${nome} ${cognome} aggiunto!`);
+    renderAdmin();
+  }catch(e){
+    alert('Errore: '+e.message);
+  }
+}
+
+async function eliminaUtenteAdmin(utId, comId, comNome){
+  if(!confirm('Eliminare questo utente?'))return;
+  await fetch(`${SUPA_URL}/rest/v1/utenti?id=eq.${utId}`,{
+    method:'DELETE',
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'}
+  });
+  renderAdmin();
+}
+
+async function eliminaComunitaAdmin(comId, comNome){
+  if(!confirm(`Eliminare la comunità "${comNome}" e tutti i suoi dati? Questa operazione è irreversibile!`))return;
+  if(!confirm(`Sei sicuro? Tutti i minori, operatori e dati di "${comNome}" saranno cancellati.`))return;
+  await fetch(`${SUPA_URL}/rest/v1/comunita?id=eq.${comId}`,{
+    method:'DELETE',
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'}
+  });
+  renderAdmin();
+}
 function renderDashboard(){
   const minori=DB.get('minori'),eventi=DB.get('eventi'),att=DB.get('attivita'),op=DB.get('operatori');
   const oggi=new Date().toISOString().split('T')[0];
