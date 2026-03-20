@@ -3066,94 +3066,94 @@ document.getElementById('today-date').textContent=new Date().toLocaleDateString(
 // ===================== CONFIGURAZIONE TOUR =====================
 const TOUR_PASSI = [
   {
-    titolo: "Benvenuto in eduCare! 👋",
-    corpo: "Questa è la <b>versione demo</b> della piattaforma gestionale per comunità educative residenziali. Ti guido in un tour di 13 passi per scoprire tutte le funzionalità.",
+    titolo: "Benvenuto in eduCare!",
+    corpo: "Questa e' la <b>versione demo</b> della piattaforma gestionale per comunita' educative residenziali. Ti guido in un tour di 13 passi per scoprire tutte le funzionalita'.",
     selettore: null,
-    pos: 'center',
+    pos: "center",
     naviga: null
   },
   {
-    titolo: "Dashboard — Il polso della comunità 📊",
-    corpo: "La dashboard ti mostra in un colpo d'occhio: <b>minori presenti</b>, <b>operatori in organico</b>, <b>appuntamenti di oggi</b> divisi per mattina/pomeriggio, e le <b>scadenze legali</b> dei prossimi 30 giorni.",
-    selettore: '.g4',
-    pos: 'bottom',
-    naviga: 'dashboard'
+    titolo: "Dashboard",
+    corpo: "La dashboard ti mostra: <b>minori presenti</b>, <b>operatori in organico</b>, <b>appuntamenti di oggi</b> e le <b>scadenze legali</b> dei prossimi 30 giorni.",
+    selettore: "#content .g4",
+    pos: "bottom",
+    naviga: "dashboard"
   },
   {
-    titolo: "Scheda Minore — La cartella sociale 👤",
-    corpo: "Ogni minore ha una cartella completa con anagrafica, dati giuridici (permesso di soggiorno, tutela, udienza), PEI, relazioni agli enti, note operative e appuntamenti.",
-    selettore: '.nav-item:nth-child(4)',
-    pos: 'right',
-    naviga: 'minori'
+    titolo: "Cartelle Minori",
+    corpo: "Ogni minore ha una cartella completa con anagrafica, dati giuridici, PEI, relazioni agli enti, note operative e appuntamenti.",
+    selettore: "#sidebar .nav-item:nth-of-type(4)",
+    pos: "right",
+    naviga: "minori"
   },
   {
-    titolo: "PEI — Progetto Educativo Individualizzato 🎯",
-    corpo: "Il PEI è strutturato in sezioni: analisi della situazione, risorse del minore, obiettivi a breve/medio/lungo termine, interventi per area (scolastica, relazionale, autonomia, legale) e verifiche periodiche. Solo il Coordinatore può modificarlo.",
-    selettore: '.nav-item:nth-child(4)',
-    pos: 'right',
-    naviga: 'minori'
+    titolo: "PEI — Progetto Educativo Individualizzato",
+    corpo: "Strutturato in sezioni: analisi della situazione, obiettivi a breve/medio/lungo termine, interventi per area scolastica, relazionale, autonomia e legale. Solo il Coordinatore puo' modificarlo.",
+    selettore: "#content .sec-header",
+    pos: "bottom",
+    naviga: "minori"
   },
   {
-    titolo: "Relazioni agli enti 📝",
-    corpo: "Il Coordinatore può redigere relazioni strutturate (ingresso, trimestrale, per il Tribunale, di dimissione) direttamente dalla scheda del minore. Ogni relazione è esportabile in PDF con firma.",
-    selettore: '.nav-item:nth-child(4)',
-    pos: 'right',
-    naviga: 'minori'
+    titolo: "Relazioni agli enti",
+    corpo: "Il Coordinatore redige relazioni strutturate (ingresso, trimestrale, per il Tribunale, di dimissione) direttamente dalla scheda del minore. Esportabili in PDF.",
+    selettore: "#content .card",
+    pos: "bottom",
+    naviga: "minori"
   },
   {
-    titolo: "Calendario appuntamenti 📅",
-    corpo: "Tieni traccia di udienze, colloqui, visite mediche, riunioni d'équipe. Ogni appuntamento può essere collegato a un minore specifico. La dashboard mostra gli eventi di oggi divisi per mattina e pomeriggio.",
-    selettore: '.nav-item:nth-child(5)',
-    pos: 'right',
-    naviga: 'calendario'
+    titolo: "Calendario appuntamenti",
+    corpo: "Tieni traccia di udienze, colloqui, visite mediche, riunioni di equipe. Ogni appuntamento puo' essere collegato a un minore specifico.",
+    selettore: "#sidebar .nav-item:nth-of-type(5)",
+    pos: "right",
+    naviga: "calendario"
   },
   {
-    titolo: "Scheda Operatore 👥",
-    corpo: "La sezione Operatori raccoglie il team completo: nome, cognome, ruolo, telefono ed email. Ogni operatore accede alla piattaforma con le proprie credenziali e vede solo ciò che il suo ruolo consente.",
-    selettore: '.nav-item:nth-child(12)',
-    pos: 'right',
-    naviga: 'operatori'
+    titolo: "Scheda Operatore",
+    corpo: "La sezione Operatori raccoglie il team: nome, cognome, ruolo, telefono ed email. Ogni operatore accede con le proprie credenziali.",
+    selettore: "#sidebar .nav-item:nth-of-type(12)",
+    pos: "right",
+    naviga: "operatori"
   },
   {
-    titolo: "Turni Operatori 🔄",
-    corpo: "Pianifica i turni mensili con vista settimanale. Clicca su uno slot per assegnare Mattina (M), Pomeriggio (P), Notte (N) o Riposo (R). In fondo trovi il riepilogo mensile per operatore. Solo il Coordinatore può modificare.",
-    selettore: '.nav-item:nth-child(6)',
-    pos: 'right',
-    naviga: 'turni'
+    titolo: "Turni Operatori",
+    corpo: "Pianifica i turni mensili con vista settimanale. Clicca su uno slot per assegnare Mattina (M), Pomeriggio (P), Notte (N) o Riposo (R). Solo il Coordinatore puo' modificare.",
+    selettore: "#sidebar .nav-item:nth-of-type(6)",
+    pos: "right",
+    naviga: "turni"
   },
   {
-    titolo: "Diario di bordo 📓",
-    corpo: "Ogni operatore scrive il diario del proprio turno: andamento generale, episodi significativi, segnalazioni urgenti al coordinatore. I diari sono archiviati in ordine cronologico e consultabili da tutta l'équipe.",
-    selettore: '.nav-item:nth-child(2)',
-    pos: 'right',
-    naviga: 'diario'
+    titolo: "Diario di bordo",
+    corpo: "Ogni operatore scrive il diario del proprio turno: andamento, episodi significativi, segnalazioni urgenti. Archiviato cronologicamente.",
+    selettore: "#sidebar .nav-item:nth-of-type(2)",
+    pos: "right",
+    naviga: "diario"
   },
   {
-    titolo: "Chat équipe 💬",
-    corpo: "Messaggistica interna in tempo reale. Puoi scrivere nel gruppo generale o aprire conversazioni private con un collega. I messaggi si aggiornano automaticamente grazie a Supabase Realtime.",
-    selettore: '.nav-item:nth-child(3)',
-    pos: 'right',
-    naviga: 'chat'
+    titolo: "Chat equipe",
+    corpo: "Messaggistica interna in tempo reale. Gruppo generale o conversazioni private con i colleghi. Aggiornamento automatico grazie a Supabase Realtime.",
+    selettore: "#sidebar .nav-item:nth-of-type(3)",
+    pos: "right",
+    naviga: "chat"
   },
   {
-    titolo: "Gestione acquisti 🛒",
-    corpo: "L'educatore inserisce una richiesta, il Coordinatore approva, l'Amministratore autorizza. Solo dopo la doppia approvazione l'acquisto va in lista spesa. Tutto tracciato con nome, categoria e quantità.",
-    selettore: '.nav-item:nth-child(9)',
-    pos: 'right',
-    naviga: 'acquisti'
+    titolo: "Gestione acquisti",
+    corpo: "L'educatore inserisce la richiesta, il Coordinatore approva, l'Amministratore autorizza. Solo dopo la doppia approvazione l'acquisto va in lista spesa.",
+    selettore: "#sidebar .nav-item:nth-of-type(9)",
+    pos: "right",
+    naviga: "acquisti"
   },
   {
-    titolo: "Mansioni dei minori 🧹",
-    corpo: "Assegna le mansioni settimanali ai minori: Cucina (C), Bagni (B), Giardinaggio (G), Lavanderia (L). Le rotazioni si gestiscono cliccando sulle celle del calendario mensile.",
-    selettore: '.nav-item:nth-child(7)',
-    pos: 'right',
-    naviga: 'mansioni'
+    titolo: "Mansioni dei minori",
+    corpo: "Assegna le mansioni settimanali: Cucina (C), Bagni (B), Giardinaggio (G), Lavanderia (L). Le rotazioni si gestiscono cliccando sulle celle del calendario.",
+    selettore: "#sidebar .nav-item:nth-of-type(7)",
+    pos: "right",
+    naviga: "mansioni"
   },
   {
-    titolo: "Vuoi saperne di più? 🚀",
-    corpo: "Questa è solo la demo di <b>eduCare</b>. La piattaforma è già attiva in comunità reali ed è pensata per cooperative che gestiscono una o più strutture, con tariffe flessibili.<br><br>Contatta <b>Dott. Massimo Andreoni</b>:<br>📧 andreonimassi@gmail.com",
+    titolo: "Vuoi saperne di piu'?",
+    corpo: "Questa e' la demo di <b>eduCare</b>. La piattaforma e' gia' attiva in comunita' reali ed e' pensata per cooperative che gestiscono una o piu' strutture.<br><br>Contatta <b>Dott. Massimo Andreoni</b>:<br>andreonimassi@gmail.com",
     selettore: null,
-    pos: 'center',
+    pos: "center",
     naviga: null
   }
 ];
