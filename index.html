@@ -876,6 +876,7 @@ async function doLogin() {
     await DB.loadAll();
     mostraApp();
     showPage('dashboard');
+    document.dispatchEvent(new CustomEvent('educare:login', {detail: {email: email}}));
   } catch(e) {
     errEl.textContent = e.message || 'Errore di accesso.';
   } finally {
@@ -2873,6 +2874,455 @@ document.getElementById('today-date').textContent=new Date().toLocaleDateString(
   // altrimenti rimane sulla welcome screen
 })();
 </script>
+
+<!-- ===================== TOUR INTERATTIVO DEMO ===================== -->
+<style>
+/* OVERLAY TOUR */
+#tour-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  pointer-events: none;
+}
+#tour-overlay.active {
+  display: block;
+}
+
+/* Sfondo semi-trasparente con "buco" sull'elemento evidenziato */
+#tour-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 9001;
+  pointer-events: all;
+  transition: opacity 0.3s;
+}
+
+/* Elemento evidenziato — "buco" nel backdrop */
+#tour-highlight {
+  position: fixed;
+  z-index: 9002;
+  border-radius: 8px;
+  box-shadow: 0 0 0 4000px rgba(0,0,0,0.55), 0 0 0 3px #4ade80;
+  transition: all 0.35s cubic-bezier(0.4,0,0.2,1);
+  pointer-events: none;
+}
+
+/* Tooltip */
+#tour-tooltip {
+  position: fixed;
+  z-index: 9003;
+  background: #0d1b3e;
+  border: 1px solid rgba(74,222,128,0.4);
+  border-radius: 14px;
+  padding: 20px 22px;
+  width: min(340px, 90vw);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  pointer-events: all;
+  transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+  font-family: 'DM Sans', -apple-system, sans-serif;
+}
+#tour-tooltip::before {
+  content: '';
+  position: absolute;
+  width: 12px; height: 12px;
+  background: #0d1b3e;
+  border: 1px solid rgba(74,222,128,0.4);
+  transform: rotate(45deg);
+}
+#tour-tooltip.pos-bottom::before { top: -7px; left: 24px; border-right: none; border-bottom: none; }
+#tour-tooltip.pos-top::before { bottom: -7px; left: 24px; border-left: none; border-top: none; }
+#tour-tooltip.pos-right::before { left: -7px; top: 20px; border-right: none; border-top: none; }
+#tour-tooltip.pos-left::before { right: -7px; top: 20px; border-left: none; border-bottom: none; }
+#tour-tooltip.pos-center::before { display: none; }
+
+.tour-step-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #4ade80;
+  margin-bottom: 6px;
+}
+.tour-step-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+.tour-step-body {
+  font-size: 0.84rem;
+  color: rgba(255,255,255,0.7);
+  line-height: 1.55;
+  margin-bottom: 18px;
+}
+.tour-progress {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+.tour-dot {
+  height: 3px;
+  flex: 1;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.15);
+  transition: background 0.3s;
+}
+.tour-dot.done { background: #4ade80; }
+.tour-dot.active { background: #4ade80; opacity: 0.6; }
+
+.tour-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.tour-btn-skip {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.35);
+  font-size: 0.78rem;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+  transition: color 0.2s;
+}
+.tour-btn-skip:hover { color: rgba(255,255,255,0.6); }
+.tour-btn-group { display: flex; gap: 8px; }
+.tour-btn-prev {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #fff;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s;
+}
+.tour-btn-prev:hover { background: rgba(255,255,255,0.14); }
+.tour-btn-next {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  border: none;
+  color: #fff;
+  border-radius: 8px;
+  padding: 9px 20px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 4px 16px rgba(34,197,94,0.3);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.tour-btn-next:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(34,197,94,0.4); }
+
+/* Pulsante ? per rilanciare il tour */
+#tour-launcher {
+  display: none;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 8999;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1e40af, #065f46);
+  border: 2px solid rgba(74,222,128,0.4);
+  color: #4ade80;
+  font-size: 1.1rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  transition: transform 0.2s;
+  font-family: inherit;
+}
+#tour-launcher:hover { transform: scale(1.1); }
+#tour-launcher.visible { display: flex; align-items: center; justify-content: center; }
+</style>
+
+<!-- DOM del tour -->
+<div id="tour-overlay">
+  <div id="tour-backdrop" onclick="tourSkip()"></div>
+  <div id="tour-highlight"></div>
+  <div id="tour-tooltip">
+    <div class="tour-step-label" id="tour-label"></div>
+    <div class="tour-progress" id="tour-progress"></div>
+    <div class="tour-step-title" id="tour-title"></div>
+    <div class="tour-step-body" id="tour-body"></div>
+    <div class="tour-buttons">
+      <button class="tour-btn-skip" onclick="tourSkip()">Salta tour</button>
+      <div class="tour-btn-group">
+        <button class="tour-btn-prev" id="tour-prev" onclick="tourPrev()">← Indietro</button>
+        <button class="tour-btn-next" id="tour-next" onclick="tourNext()">Avanti →</button>
+      </div>
+    </div>
+  </div>
+</div>
+<button id="tour-launcher" onclick="tourStart()" title="Riavvia il tour guidato">?</button>
+
+<script>
+// ===================== CONFIGURAZIONE TOUR =====================
+const TOUR_PASSI = [
+  {
+    titolo: "Benvenuto in eduCare! 👋",
+    corpo: "Questa è la <b>versione demo</b> della piattaforma gestionale per comunità educative residenziali. Ti guido in un tour di 13 passi per scoprire tutte le funzionalità.",
+    selettore: null,
+    pos: 'center',
+    naviga: null
+  },
+  {
+    titolo: "Dashboard — Il polso della comunità 📊",
+    corpo: "La dashboard ti mostra in un colpo d'occhio: <b>minori presenti</b>, <b>operatori in organico</b>, <b>appuntamenti di oggi</b> divisi per mattina/pomeriggio, e le <b>scadenze legali</b> dei prossimi 30 giorni.",
+    selettore: '.g4',
+    pos: 'bottom',
+    naviga: 'dashboard'
+  },
+  {
+    titolo: "Scheda Minore — La cartella sociale 👤",
+    corpo: "Ogni minore ha una cartella completa con anagrafica, dati giuridici (permesso di soggiorno, tutela, udienza), PEI, relazioni agli enti, note operative e appuntamenti.",
+    selettore: '.nav-item:nth-child(4)',
+    pos: 'right',
+    naviga: 'minori'
+  },
+  {
+    titolo: "PEI — Progetto Educativo Individualizzato 🎯",
+    corpo: "Il PEI è strutturato in sezioni: analisi della situazione, risorse del minore, obiettivi a breve/medio/lungo termine, interventi per area (scolastica, relazionale, autonomia, legale) e verifiche periodiche. Solo il Coordinatore può modificarlo.",
+    selettore: '.nav-item:nth-child(4)',
+    pos: 'right',
+    naviga: 'minori'
+  },
+  {
+    titolo: "Relazioni agli enti 📝",
+    corpo: "Il Coordinatore può redigere relazioni strutturate (ingresso, trimestrale, per il Tribunale, di dimissione) direttamente dalla scheda del minore. Ogni relazione è esportabile in PDF con firma.",
+    selettore: '.nav-item:nth-child(4)',
+    pos: 'right',
+    naviga: 'minori'
+  },
+  {
+    titolo: "Calendario appuntamenti 📅",
+    corpo: "Tieni traccia di udienze, colloqui, visite mediche, riunioni d'équipe. Ogni appuntamento può essere collegato a un minore specifico. La dashboard mostra gli eventi di oggi divisi per mattina e pomeriggio.",
+    selettore: '.nav-item:nth-child(5)',
+    pos: 'right',
+    naviga: 'calendario'
+  },
+  {
+    titolo: "Scheda Operatore 👥",
+    corpo: "La sezione Operatori raccoglie il team completo: nome, cognome, ruolo, telefono ed email. Ogni operatore accede alla piattaforma con le proprie credenziali e vede solo ciò che il suo ruolo consente.",
+    selettore: '.nav-item:nth-child(12)',
+    pos: 'right',
+    naviga: 'operatori'
+  },
+  {
+    titolo: "Turni Operatori 🔄",
+    corpo: "Pianifica i turni mensili con vista settimanale. Clicca su uno slot per assegnare Mattina (M), Pomeriggio (P), Notte (N) o Riposo (R). In fondo trovi il riepilogo mensile per operatore. Solo il Coordinatore può modificare.",
+    selettore: '.nav-item:nth-child(6)',
+    pos: 'right',
+    naviga: 'turni'
+  },
+  {
+    titolo: "Diario di bordo 📓",
+    corpo: "Ogni operatore scrive il diario del proprio turno: andamento generale, episodi significativi, segnalazioni urgenti al coordinatore. I diari sono archiviati in ordine cronologico e consultabili da tutta l'équipe.",
+    selettore: '.nav-item:nth-child(2)',
+    pos: 'right',
+    naviga: 'diario'
+  },
+  {
+    titolo: "Chat équipe 💬",
+    corpo: "Messaggistica interna in tempo reale. Puoi scrivere nel gruppo generale o aprire conversazioni private con un collega. I messaggi si aggiornano automaticamente grazie a Supabase Realtime.",
+    selettore: '.nav-item:nth-child(3)',
+    pos: 'right',
+    naviga: 'chat'
+  },
+  {
+    titolo: "Gestione acquisti 🛒",
+    corpo: "L'educatore inserisce una richiesta, il Coordinatore approva, l'Amministratore autorizza. Solo dopo la doppia approvazione l'acquisto va in lista spesa. Tutto tracciato con nome, categoria e quantità.",
+    selettore: '.nav-item:nth-child(9)',
+    pos: 'right',
+    naviga: 'acquisti'
+  },
+  {
+    titolo: "Mansioni dei minori 🧹",
+    corpo: "Assegna le mansioni settimanali ai minori: Cucina (C), Bagni (B), Giardinaggio (G), Lavanderia (L). Le rotazioni si gestiscono cliccando sulle celle del calendario mensile.",
+    selettore: '.nav-item:nth-child(7)',
+    pos: 'right',
+    naviga: 'mansioni'
+  },
+  {
+    titolo: "Vuoi saperne di più? 🚀",
+    corpo: "Questa è solo la demo di <b>eduCare</b>. La piattaforma è già attiva in comunità reali ed è pensata per cooperative che gestiscono una o più strutture, con tariffe flessibili.<br><br>Contatta <b>Dott. Massimo Andreoni</b>:<br>📧 andreonimassi@gmail.com",
+    selettore: null,
+    pos: 'center',
+    naviga: null
+  }
+];
+
+let _tourStep = 0;
+let _tourAttivo = false;
+
+function tourIsDemoUser() {
+  return SESSION && SESSION.utente && SESSION.utente.email === 'demo@educare.it';
+}
+
+function tourStart() {
+  if (!tourIsDemoUser()) return;
+  _tourStep = 0;
+  _tourAttivo = true;
+  document.getElementById('tour-overlay').classList.add('active');
+  document.getElementById('tour-launcher').classList.remove('visible');
+  tourRender();
+}
+
+function tourStop() {
+  _tourAttivo = false;
+  document.getElementById('tour-overlay').classList.remove('active');
+  document.getElementById('tour-highlight').style.cssText = 'display:none';
+  if (tourIsDemoUser()) {
+    document.getElementById('tour-launcher').classList.add('visible');
+  }
+}
+
+function tourSkip() {
+  tourStop();
+}
+
+function tourNext() {
+  if (_tourStep < TOUR_PASSI.length - 1) {
+    _tourStep++;
+    tourRender();
+  } else {
+    tourStop();
+  }
+}
+
+function tourPrev() {
+  if (_tourStep > 0) {
+    _tourStep--;
+    tourRender();
+  }
+}
+
+function tourRender() {
+  const passo = TOUR_PASSI[_tourStep];
+  const n = TOUR_PASSI.length;
+
+  // Naviga alla pagina giusta se necessario
+  if (passo.naviga && currentPage !== passo.naviga) {
+    showPage(passo.naviga);
+    // Aspetta che la pagina si renderizzi
+    setTimeout(() => tourPositiona(passo), 350);
+  } else {
+    tourPositiona(passo);
+  }
+}
+
+function tourPositiona(passo) {
+  const n = TOUR_PASSI.length;
+
+  // Aggiorna testi
+  document.getElementById('tour-label').textContent = 'Passo ' + (_tourStep + 1) + ' di ' + n;
+  document.getElementById('tour-title').textContent = passo.titolo;
+  document.getElementById('tour-body').innerHTML = passo.corpo;
+
+  // Progress bar
+  const prog = document.getElementById('tour-progress');
+  prog.innerHTML = TOUR_PASSI.map((_, i) => {
+    let cls = 'tour-dot';
+    if (i < _tourStep) cls += ' done';
+    else if (i === _tourStep) cls += ' active';
+    return '<div class="' + cls + '"></div>';
+  }).join('');
+
+  // Bottoni
+  document.getElementById('tour-prev').style.display = _tourStep === 0 ? 'none' : 'inline-flex';
+  const btnNext = document.getElementById('tour-next');
+  btnNext.textContent = _tourStep === n - 1 ? 'Chiudi ✓' : 'Avanti →';
+
+  // Posiziona highlight e tooltip
+  const hl = document.getElementById('tour-highlight');
+  const tt = document.getElementById('tour-tooltip');
+
+  // Rimuovi classi posizione precedenti
+  tt.className = tt.className.replace(/pos-\w+/g, '').trim();
+
+  if (!passo.selettore) {
+    // Centrato — nessun highlight
+    hl.style.cssText = 'display:none';
+    document.getElementById('tour-backdrop').style.background = 'rgba(0,0,0,0.7)';
+    tt.classList.add('pos-center');
+    tt.style.top = '50%';
+    tt.style.left = '50%';
+    tt.style.transform = 'translate(-50%, -50%)';
+    return;
+  }
+
+  document.getElementById('tour-backdrop').style.background = 'transparent';
+
+  const el = document.querySelector(passo.selettore);
+  if (!el) {
+    // Elemento non trovato — centra
+    hl.style.cssText = 'display:none';
+    tt.classList.add('pos-center');
+    tt.style.top = '50%';
+    tt.style.left = '50%';
+    tt.style.transform = 'translate(-50%, -50%)';
+    return;
+  }
+
+  const rect = el.getBoundingClientRect();
+  const pad = 6;
+
+  hl.style.display = 'block';
+  hl.style.top = (rect.top - pad) + 'px';
+  hl.style.left = (rect.left - pad) + 'px';
+  hl.style.width = (rect.width + pad * 2) + 'px';
+  hl.style.height = (rect.height + pad * 2) + 'px';
+
+  tt.style.transform = '';
+
+  const pos = passo.pos || 'bottom';
+  tt.classList.add('pos-' + pos);
+  const ttW = 340;
+  const ttH = 280; // stima
+
+  if (pos === 'bottom') {
+    tt.style.top = (rect.bottom + pad + 12) + 'px';
+    tt.style.left = Math.max(10, Math.min(rect.left, window.innerWidth - ttW - 10)) + 'px';
+  } else if (pos === 'top') {
+    tt.style.top = (rect.top - ttH - 12) + 'px';
+    tt.style.left = Math.max(10, Math.min(rect.left, window.innerWidth - ttW - 10)) + 'px';
+  } else if (pos === 'right') {
+    tt.style.top = Math.max(10, rect.top) + 'px';
+    tt.style.left = (rect.right + 16) + 'px';
+  } else if (pos === 'left') {
+    tt.style.top = Math.max(10, rect.top) + 'px';
+    tt.style.left = (rect.left - ttW - 16) + 'px';
+  }
+
+  // Correggi overflow
+  const ttRect = tt.getBoundingClientRect();
+  if (ttRect.right > window.innerWidth - 10) {
+    tt.style.left = (window.innerWidth - ttW - 10) + 'px';
+  }
+  if (ttRect.bottom > window.innerHeight - 10) {
+    tt.style.top = (window.innerHeight - ttH - 10) + 'px';
+  }
+}
+
+// Il tour viene lanciato dal doLogin() tramite evento custom
+document.addEventListener('educare:login', function(e) {
+  if (e.detail && e.detail.email === 'demo@educare.it') {
+    setTimeout(function() { tourStart(); }, 900);
+  }
+  if (e.detail && tourIsDemoUser()) {
+    document.getElementById('tour-launcher').classList.add('visible');
+  }
+});
+</script>
+<!-- ===================== FINE TOUR ===================== -->
+
+
 
 
 </body></html>
