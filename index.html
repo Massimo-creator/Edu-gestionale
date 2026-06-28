@@ -3301,7 +3301,7 @@ function mostraAppCAS() {
   if (SESSION) {
     const nome = SESSION.utente.nome || SESSION.utente.email || '';
     const isSimona = SESSION.utente.email === 'simona@coopmetis.com';
-    const isMax = SESSION.utente.email === 'max@coopmetis.com';
+    const isMax = SESSION.utente.email === 'm.ceccaroli@coopmetis.com';
     const ruolo = SESSION.is_coordinatore_cas ? 'Coordinatore' : isSimona ? 'Responsabile RU' : isMax ? 'Manutentore' : 'Educatore';
     SESSION.is_simona = isSimona;
     SESSION.is_max = isMax;
