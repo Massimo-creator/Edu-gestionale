@@ -3760,6 +3760,7 @@ async function renderCasManutenzioni(el) {
     const mapS = {}; strutture.forEach(s=>mapS[s.id]=s.nome);
     const aperte = segn.filter(s=>s.stato==='Aperta');
     const inLavoro = segn.filter(s=>s.stato==='In lavorazione');
+    const sospese = segn.filter(s=>s.stato==='Sospesa');
     const risolte = segn.filter(s=>s.stato==='Risolta');
     const urgenzaCol = {Urgente:'var(--danger)',Media:'var(--warn)',Bassa:'var(--accent2)'};
     const renderCard = (s) => `
@@ -3776,9 +3777,10 @@ async function renderCasManutenzioni(el) {
             <div style="font-size:.75rem;color:var(--muted);">${new Date(s.created_at).toLocaleDateString('it-IT')}</div>
             ${SESSION.is_max||SESSION.is_coordinatore_cas?`
               <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
-                ${s.stato!=='In lavorazione'&&s.stato!=='Risolta'?`<button class="btn btn-ghost" style="font-size:.72rem;padding:3px 8px;" onclick="aggiornaStatoManutenzione('${s.id}','In lavorazione')">▶ Prendi in carico</button>`:''}
+                ${s.stato!=='In lavorazione'&&s.stato!=='Risolta'&&s.stato!=='Sospesa'?`<button class="btn btn-ghost" style="font-size:.72rem;padding:3px 8px;" onclick="aggiornaStatoManutenzione('${s.id}','In lavorazione')">▶ Prendi in carico</button>`:''}
                 ${s.stato!=='Risolta'?`<button class="btn btn-primary" style="font-size:.72rem;padding:3px 8px;" onclick="aggiornaStatoManutenzione('${s.id}','Risolta')">✓ Risolto</button>`:''}
-                <button class="btn btn-ghost" style="font-size:.72rem;padding:3px 8px;" onclick="aggiuntaNoteManutentore('${s.id}')">📝 Note</button>
+                ${s.stato!=='Sospesa'&&s.stato!=='Risolta'?`<button class="btn btn-ghost" style="font-size:.72rem;padding:3px 8px;color:var(--warn);" onclick="aggiornaStatoManutenzione('${s.id}','Sospesa')">⏸ Sospendi</button>`:''} 
+                ${s.stato==='Sospesa'?`<button class="btn btn-ghost" style="font-size:.72rem;padding:3px 8px;" onclick="aggiornaStatoManutenzione('${s.id}','Aperta')">↩ Riapri</button>`:''}
               </div>`:''}
           </div>
         </div>
@@ -3790,7 +3792,8 @@ async function renderCasManutenzioni(el) {
       </div>
       ${aperte.length>0?`<div style="margin-bottom:20px;"><div style="font-weight:600;color:var(--danger);margin-bottom:10px;">🔴 Aperte (${aperte.length})</div><div style="display:grid;gap:10px;">${aperte.map(renderCard).join('')}</div></div>`:''}
       ${inLavoro.length>0?`<div style="margin-bottom:20px;"><div style="font-weight:600;color:var(--warn);margin-bottom:10px;">🟡 In lavorazione (${inLavoro.length})</div><div style="display:grid;gap:10px;">${inLavoro.map(renderCard).join('')}</div></div>`:''}
-      ${aperte.length===0&&inLavoro.length===0?'<div class="card" style="padding:30px;text-align:center;color:var(--muted);">Nessuna segnalazione aperta 👍</div>':''}
+      ${sospese.length>0?`<div style="margin-bottom:20px;"><div style="font-weight:600;color:#94a3b8;margin-bottom:10px;">⏸ Sospese (${sospese.length})</div><div style="display:grid;gap:10px;">${sospese.map(renderCard).join('')}</div></div>`:''}
+      ${aperte.length===0&&inLavoro.length===0&&sospese.length===0?'<div class="card" style="padding:30px;text-align:center;color:var(--muted);">Nessuna segnalazione aperta 👍</div>':''}
       ${risolte.length>0?`<details style="margin-top:12px;"><summary style="cursor:pointer;color:var(--muted);font-size:.85rem;padding:8px 0;">Risolte (${risolte.length})</summary><div style="display:grid;gap:8px;margin-top:10px;opacity:.6;">${risolte.map(renderCard).join('')}</div></details>`:''}
     `;
   } catch(e) { el.innerHTML=`<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
