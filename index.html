@@ -3211,6 +3211,8 @@ function moveTask(id, nuovoStato){
   <div class="nav-item" onclick="showPageCAS('cas-calendario')"><span class="ico">📅</span> Appuntamenti</div>
   <div class="nav-item" onclick="showPageCAS('cas-turni')"><span class="ico">🔄</span> Turni</div>
   <div class="nav-item" onclick="showPageCAS('cas-manutenzioni')"><span class="ico">🔧</span> Manutenzioni</div>
+  <div class="nav-item" onclick="showPageCAS('cas-pocketmoney')"><span class="ico">💶</span> Pocket Money</div>
+  <div class="nav-item" onclick="showPageCAS('cas-trasferimenti')"><span class="ico">🔀</span> Trasferimenti</div>
   <div style="margin-top:auto;padding:12px 10px;border-top:1px solid rgba(255,255,255,.08);">
     <div id="sidebar-cas-user" style="padding:8px 6px 10px;font-size:.75rem;color:#94a3b8;line-height:1.4;"></div>
     <div class="nav-item" onclick="doLogout()" style="color:#f87171;border-radius:8px;margin:0;"><span class="ico">🚪</span> Esci</div>
@@ -3321,7 +3323,7 @@ function mostraAppCAS() {
 
 function showPageCAS(page) {
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
-  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze','cas-calendario':'Appuntamenti','cas-turni':'Turni Operatori','cas-manutenzioni':'Manutenzioni' };
+  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze','cas-calendario':'Appuntamenti','cas-turni':'Turni Operatori','cas-manutenzioni':'Manutenzioni','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
   if (page === 'cas-dashboard') renderCasDashboard(content);
@@ -3331,6 +3333,8 @@ function showPageCAS(page) {
   else if (page === 'cas-calendario') renderCasCalendario(content);
   else if (page === 'cas-turni') renderCasTurni(content);
   else if (page === 'cas-manutenzioni') renderCasManutenzioni(content);
+  else if (page === 'cas-pocketmoney') renderCasPocketMoney(content);
+  else if (page === 'cas-trasferimenti') renderCasTrasferimenti(content);
 }
 
 async function renderCasDashboard(el) {
@@ -3835,6 +3839,194 @@ async function aggiuntaNoteManutentore(id) {
     showPageCAS('cas-manutenzioni');
   } catch(e){alert('Errore: '+e.message);}
 }
+
+// ── POCKET MONEY ───────────────────────────────────────────────
+let _pmMese = new Date().getMonth();
+let _pmAnno = new Date().getFullYear();
+
+async function renderCasPocketMoney(el) {
+  el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
+  try {
+    const strutture = SESSION.strutture_cas || [];
+    const struttureIds = strutture.map(s=>s.id);
+    const nomiMesi = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+    let records = [];
+    if(struttureIds.length>0) records = await supa(`pocket_money_cas?struttura_id=in.(${struttureIds.join(',')})&mese=eq.${_pmMese+1}&anno=eq.${_pmAnno}`) || [];
+    const mapS = {}; strutture.forEach(s=>mapS[s.id]=s.nome);
+    const distribuite = records.filter(r=>r.distribuito).length;
+
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <h2 style="font-size:1.1rem;">💶 Pocket Money — ${nomiMesi[_pmMese]} ${_pmAnno}</h2>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost" onclick="_pmMese--;if(_pmMese<0){_pmMese=11;_pmAnno--;}renderCasPocketMoney(document.getElementById('content-cas'))">←</button>
+          <button class="btn btn-ghost" onclick="_pmMese++;if(_pmMese>11){_pmMese=0;_pmAnno++;}renderCasPocketMoney(document.getElementById('content-cas'))">→</button>
+        </div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px;display:flex;gap:24px;">
+        <div style="text-align:center;"><div style="font-size:1.8rem;font-weight:700;color:var(--accent2);">${distribuite}</div><div style="font-size:.8rem;color:var(--muted);">Distribuite</div></div>
+        <div style="text-align:center;"><div style="font-size:1.8rem;font-weight:700;color:var(--warn);">${strutture.length-distribuite}</div><div style="font-size:.8rem;color:var(--muted);">Da distribuire</div></div>
+        <div style="text-align:center;"><div style="font-size:1.8rem;font-weight:700;color:var(--text);">${strutture.length}</div><div style="font-size:.8rem;color:var(--muted);">Strutture totali</div></div>
+      </div>
+      <div style="display:grid;gap:10px;">
+        ${strutture.map(s => {
+          const r = records.find(x=>x.struttura_id===s.id);
+          const distribuito = r?.distribuito;
+          const puoModificare = !SESSION.is_max && !SESSION.is_coordinatore_cas ? true : !SESSION.is_max;
+          return `<div class="card" style="padding:16px;border-left:3px solid ${distribuito?'var(--accent2)':'var(--border)'};">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+              <div>
+                <div style="font-weight:600;">${s.nome}</div>
+                ${r?.importo?`<div style="font-size:.82rem;color:var(--muted);">€ ${r.importo} per ospite</div>`:''}
+                ${r?.data_distribuzione?`<div style="font-size:.82rem;color:var(--muted);">Distribuito il ${new Date(r.data_distribuzione).toLocaleDateString('it-IT')}</div>`:''}
+                ${r?.operatore_nome?`<div style="font-size:.82rem;color:var(--muted);">da ${r.operatore_nome}</div>`:''}
+                ${r?.criticita?`<div style="font-size:.82rem;color:var(--danger);margin-top:4px;">⚠️ ${r.criticita}</div>`:''}
+                ${r?.note?`<div style="font-size:.82rem;color:var(--muted);margin-top:2px;">📝 ${r.note}</div>`:''}
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                ${distribuito?'<span style="color:var(--accent2);font-weight:700;">✓ Distribuito</span>':
+                  puoModificare?`<button class="btn btn-primary" style="font-size:.82rem;" onclick="apriPocketMoney('${s.id}','${s.nome}','${r?.id||''}','${r?.importo||75}')">💶 Registra</button>`:'<span style="color:var(--muted);font-size:.82rem;">In attesa</span>'}
+                ${r&&puoModificare?`<button class="btn btn-ghost" style="font-size:.78rem;padding:4px 8px;" onclick="apriPocketMoney('${s.id}','${s.nome}','${r.id}','${r.importo}')">✏️</button>`:''}
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    `;
+  } catch(e) { el.innerHTML=`<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
+}
+
+function apriPocketMoney(strutturaId, strutturaNome, recordId, importo) {
+  document.getElementById('pm-struttura-nome').textContent = strutturaNome;
+  document.getElementById('pm-struttura-id').value = strutturaId;
+  document.getElementById('pm-record-id').value = recordId;
+  document.getElementById('pm-importo').value = importo || 75;
+  document.getElementById('pm-data').value = new Date().toISOString().split('T')[0];
+  document.getElementById('pm-note').value = '';
+  document.getElementById('pm-criticita').value = '';
+  document.getElementById('pm-distribuito').checked = true;
+  openModal('modal-pocket-money');
+}
+
+async function salvaPocketMoney() {
+  const strutturaId = document.getElementById('pm-struttura-id').value;
+  const recordId = document.getElementById('pm-record-id').value;
+  const payload = {
+    struttura_id: strutturaId,
+    mese: _pmMese+1,
+    anno: _pmAnno,
+    importo: parseFloat(document.getElementById('pm-importo').value)||75,
+    distribuito: document.getElementById('pm-distribuito').checked,
+    data_distribuzione: document.getElementById('pm-data').value||null,
+    operatore_email: SESSION.utente.email,
+    operatore_nome: SESSION.utente.nome||SESSION.utente.email,
+    note: document.getElementById('pm-note').value||null,
+    criticita: document.getElementById('pm-criticita').value||null,
+    updated_at: new Date().toISOString()
+  };
+  try {
+    if(recordId) await supa(`pocket_money_cas?id=eq.${recordId}`,{method:'PATCH',body:JSON.stringify(payload)});
+    else await supa('pocket_money_cas',{method:'POST',body:JSON.stringify(payload)});
+    closeModal('modal-pocket-money');
+    showPageCAS('cas-pocketmoney');
+  } catch(e){alert('Errore: '+e.message);}
+}
+
+// ── TRASFERIMENTI INTERNI ──────────────────────────────────────
+const STATI_TRASFERIMENTO = ['Richiesto internamente','In discussione','Accettato','Respinto','Inviato in Prefettura','Autorizzato','Effettuato'];
+const STATO_COL = {'Richiesto internamente':'var(--muted)','In discussione':'var(--warn)','Accettato':'var(--accent2)','Respinto':'var(--danger)','Inviato in Prefettura':'var(--accent)','Autorizzato':'#8b5cf6','Effettuato':'var(--accent2)'};
+
+async function renderCasTrasferimenti(el) {
+  el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
+  try {
+    const trasferimenti = await supa('trasferimenti_cas?order=created_at.desc') || [];
+    const strutture = SESSION.strutture_cas || [];
+    const mapS = {}; strutture.forEach(s=>mapS[s.id]=s.nome);
+
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <h2 style="font-size:1.1rem;">🔀 Trasferimenti Interni</h2>
+        ${SESSION.is_coordinatore_cas?`<button class="btn btn-primary" onclick="nuovoTrasferimento()">+ Nuovo</button>`:''}
+      </div>
+      ${trasferimenti.length===0?'<div class="card" style="padding:30px;text-align:center;color:var(--muted);">Nessun trasferimento registrato</div>':
+        trasferimenti.map(t=>`
+          <div class="card" style="padding:16px;margin-bottom:10px;border-left:3px solid ${STATO_COL[t.stato]||'var(--muted)'};">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+              <div>
+                <div style="font-weight:600;">${t.ospite_nome||'—'}</div>
+                <div style="font-size:.82rem;color:var(--muted);margin-top:2px;">
+                  🏠 ${mapS[t.struttura_origine_id]||'—'} → ${mapS[t.struttura_destinazione_id]||'—'}
+                </div>
+                ${t.data_richiesta?`<div style="font-size:.78rem;color:var(--muted);">Richiesto: ${new Date(t.data_richiesta).toLocaleDateString('it-IT')}</div>`:''}
+                ${t.data_autorizzazione?`<div style="font-size:.78rem;color:#8b5cf6;">Autorizzato: ${new Date(t.data_autorizzazione).toLocaleDateString('it-IT')}</div>`:''}
+                ${t.note?`<div style="font-size:.82rem;color:var(--muted);margin-top:4px;">📝 ${t.note}</div>`:''}
+              </div>
+              <div style="text-align:right;">
+                <div style="font-weight:700;color:${STATO_COL[t.stato]};">${t.stato}</div>
+                ${SESSION.is_coordinatore_cas?`<button class="btn btn-ghost" style="font-size:.75rem;padding:3px 8px;margin-top:6px;" onclick="modificaTrasferimento('${t.id}')">✏️ Aggiorna</button>`:''}
+              </div>
+            </div>
+          </div>
+        `).join('')}
+    `;
+  } catch(e){el.innerHTML=`<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`;}
+}
+
+let _trasferimentoEditId = null;
+
+function nuovoTrasferimento() {
+  _trasferimentoEditId = null;
+  document.getElementById('tr-ospite-nome').value='';
+  document.getElementById('tr-stato').value='Richiesto internamente';
+  document.getElementById('tr-data-richiesta').value=new Date().toISOString().split('T')[0];
+  document.getElementById('tr-data-autorizzazione').value='';
+  document.getElementById('tr-note').value='';
+  const strutture = SESSION.strutture_cas||[];
+  const opts = strutture.map(s=>`<option value="${s.id}">${s.nome}</option>`).join('');
+  document.getElementById('tr-origine').innerHTML=opts;
+  document.getElementById('tr-destinazione').innerHTML=opts;
+  openModal('modal-trasferimento-cas');
+}
+
+async function modificaTrasferimento(id) {
+  const res = await supa(`trasferimenti_cas?id=eq.${id}&limit=1`) || [];
+  if(!res.length) return;
+  const t = res[0];
+  _trasferimentoEditId = id;
+  document.getElementById('tr-ospite-nome').value=t.ospite_nome||'';
+  document.getElementById('tr-stato').value=t.stato||'Richiesto internamente';
+  document.getElementById('tr-data-richiesta').value=t.data_richiesta||'';
+  document.getElementById('tr-data-autorizzazione').value=t.data_autorizzazione||'';
+  document.getElementById('tr-note').value=t.note||'';
+  const strutture = SESSION.strutture_cas||[];
+  const opts = strutture.map(s=>`<option value="${s.id}" ${s.id===t.struttura_origine_id?'selected':''}>${s.nome}</option>`).join('');
+  const optsD = strutture.map(s=>`<option value="${s.id}" ${s.id===t.struttura_destinazione_id?'selected':''}>${s.nome}</option>`).join('');
+  document.getElementById('tr-origine').innerHTML=opts;
+  document.getElementById('tr-destinazione').innerHTML=optsD;
+  openModal('modal-trasferimento-cas');
+}
+
+async function salvaTrasferimento() {
+  const ospiteNome = document.getElementById('tr-ospite-nome').value.trim();
+  if(!ospiteNome){alert('Inserisci il nome dell\'ospite.');return;}
+  const stato = document.getElementById('tr-stato').value;
+  const payload = {
+    ospite_nome: ospiteNome,
+    struttura_origine_id: document.getElementById('tr-origine').value,
+    struttura_destinazione_id: document.getElementById('tr-destinazione').value,
+    stato,
+    data_richiesta: document.getElementById('tr-data-richiesta').value||null,
+    data_autorizzazione: stato==='Autorizzato'||stato==='Effettuato' ? document.getElementById('tr-data-autorizzazione').value||null : null,
+    note: document.getElementById('tr-note').value||null,
+    updated_at: new Date().toISOString()
+  };
+  try {
+    if(_trasferimentoEditId) await supa(`trasferimenti_cas?id=eq.${_trasferimentoEditId}`,{method:'PATCH',body:JSON.stringify(payload)});
+    else await supa('trasferimenti_cas',{method:'POST',body:JSON.stringify(payload)});
+    closeModal('modal-trasferimento-cas');
+    showPageCAS('cas-trasferimenti');
+  } catch(e){alert('Errore: '+e.message);}
+}
 </script>
 
 <!-- MODAL APPUNTAMENTO CAS -->
@@ -3893,7 +4085,62 @@ async function aggiuntaNoteManutentore(id) {
   </div>
 </div>
 
-<!-- MODAL MANUTENZIONE CAS -->
+<!-- MODAL POCKET MONEY -->
+<div class="modal-overlay" id="modal-pocket-money">
+  <div class="modal">
+    <h3>💶 Pocket Money — <span id="pm-struttura-nome"></span></h3>
+    <input type="hidden" id="pm-struttura-id">
+    <input type="hidden" id="pm-record-id">
+    <div class="grid g2">
+      <div class="form-group"><label>Importo per ospite (€)</label><input id="pm-importo" type="number" step="0.01" placeholder="75.00"></div>
+      <div class="form-group"><label>Data distribuzione</label><input id="pm-data" type="date"></div>
+    </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <input id="pm-distribuito" type="checkbox" checked style="width:18px;height:18px;cursor:pointer;">
+      <label for="pm-distribuito" style="cursor:pointer;font-weight:600;">Pocket money distribuito a tutti gli ospiti</label>
+    </div>
+    <div class="form-group"><label>Criticità</label><input id="pm-criticita" placeholder="es. Ospite assente, importo mancante..."></div>
+    <div class="form-group"><label>Note</label><textarea id="pm-note" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-pocket-money')">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaPocketMoney()">💾 Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TRASFERIMENTO -->
+<div class="modal-overlay" id="modal-trasferimento-cas">
+  <div class="modal">
+    <h3>🔀 <span id="tr-modal-title">Trasferimento Interno</span></h3>
+    <div class="form-group"><label>Nome ospite *</label><input id="tr-ospite-nome" placeholder="Nome e cognome"></div>
+    <div class="grid g2">
+      <div class="form-group"><label>Struttura di origine</label><select id="tr-origine"></select></div>
+      <div class="form-group"><label>Struttura di destinazione</label><select id="tr-destinazione"></select></div>
+    </div>
+    <div class="grid g2">
+      <div class="form-group"><label>Data richiesta</label><input id="tr-data-richiesta" type="date"></div>
+      <div class="form-group"><label>Data autorizzazione</label><input id="tr-data-autorizzazione" type="date"></div>
+    </div>
+    <div class="form-group"><label>Stato</label>
+      <select id="tr-stato">
+        <option>Richiesto internamente</option>
+        <option>In discussione</option>
+        <option>Accettato</option>
+        <option>Respinto</option>
+        <option>Inviato in Prefettura</option>
+        <option>Autorizzato</option>
+        <option>Effettuato</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Note</label><textarea id="tr-note" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-trasferimento-cas')">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaTrasferimento()">💾 Salva</button>
+    </div>
+  </div>
+</div>
+
+</body></html>
 <div class="modal-overlay" id="modal-manutenzione-cas">
   <div class="modal">
     <h3>🔧 Segnala guasto</h3>
