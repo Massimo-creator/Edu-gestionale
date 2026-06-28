@@ -3297,9 +3297,15 @@ function mostraAppCAS() {
   document.getElementById('mainAppCAS').style.display = 'flex';
   if (SESSION) {
     const nome = SESSION.utente.nome || SESSION.utente.email || '';
-    const ruolo = SESSION.is_coordinatore_cas ? 'Coordinatore' : 'Educatore';
+    const isSimona = SESSION.utente.email === 'simona@coopmetis.com';
+    const ruolo = SESSION.is_coordinatore_cas ? 'Coordinatore' : isSimona ? 'Responsabile RU' : 'Educatore';
+    SESSION.is_simona = isSimona;
     document.getElementById('cas-topbar-user').textContent = `${nome} (${ruolo}) · Metis CAS Rimini`;
     document.getElementById('sidebar-cas-user').innerHTML = `<b style="color:#cbd5e1">${nome}</b><br><span style="color:#4ade80">${ruolo}</span> · Metis CAS Rimini`;
+    // Nasconde voce Ospiti per Simona
+    document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => {
+      if(el.textContent.includes('Ospiti') && isSimona) el.style.display = 'none';
+    });
   }
   showPageCAS('cas-dashboard');
 }
@@ -3344,6 +3350,7 @@ async function renderCasDashboard(el) {
 }
 
 async function renderCasOspiti(el) {
+  if(SESSION.is_simona) { el.innerHTML='<div class="card" style="padding:30px;text-align:center;color:var(--muted);">⛔ Accesso non autorizzato.</div>'; return; }
   el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
   try {
     const strutture = SESSION.strutture_cas || [];
