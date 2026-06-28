@@ -3307,15 +3307,10 @@ function mostraAppCAS() {
     SESSION.is_max = isMax;
     document.getElementById('cas-topbar-user').textContent = `${nome} (${ruolo}) · Metis CAS Rimini`;
     document.getElementById('sidebar-cas-user').innerHTML = `<b style="color:#cbd5e1">${nome}</b><br><span style="color:#4ade80">${ruolo}</span> · Metis CAS Rimini`;
-    // Gestione voci menu per ruolo
+    // Nasconde voce Ospiti per Simona
     document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => {
       const t = el.textContent.trim();
-      if(isMax) {
-        // Max vede solo Manutenzioni e Dashboard
-        if(t.includes('Ospiti')||t.includes('Strutture')||t.includes('Scadenze')||t.includes('Appuntamenti')||t.includes('Turni')) el.style.display='none';
-      } else if(isSimona) {
-        if(t.includes('Ospiti')) el.style.display='none';
-      }
+      if(isSimona && t.includes('Ospiti')) el.style.display='none';
     });
   }
   showPageCAS('cas-dashboard');
