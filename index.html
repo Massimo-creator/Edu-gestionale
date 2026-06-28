@@ -3897,36 +3897,57 @@ async function renderCasPocketMoney(el) {
 }
 
 function apriPocketMoney(strutturaId, strutturaNome, recordId, importo) {
+  const nomiMesi = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
   document.getElementById('pm-struttura-nome').textContent = strutturaNome;
   document.getElementById('pm-struttura-id').value = strutturaId;
   document.getElementById('pm-record-id').value = recordId;
   document.getElementById('pm-importo').value = importo || 75;
   document.getElementById('pm-data').value = new Date().toISOString().split('T')[0];
-  document.getElementById('pm-note').value = '';
   document.getElementById('pm-criticita').value = '';
-  document.getElementById('pm-distribuito').checked = true;
+  document.getElementById('pm-distribuito').checked = false;
+  document.getElementById('pm-mese-label').textContent = `${nomiMesi[_pmMese]} ${_pmAnno}`;
+  document.getElementById('pm-educatore-nome').textContent = SESSION.utente.nome || SESSION.utente.email;
   openModal('modal-pocket-money');
 }
 
-async function salvaPocketMoney() {
+async function salvaPocketMoney(invia) {
   const strutturaId = document.getElementById('pm-struttura-id').value;
   const recordId = document.getElementById('pm-record-id').value;
+  const distribuito = document.getElementById('pm-distribuito').checked;
+  const strutturaNome = document.getElementById('pm-struttura-nome').textContent;
+  const nomiMesi = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
   const payload = {
     struttura_id: strutturaId,
     mese: _pmMese+1,
     anno: _pmAnno,
     importo: parseFloat(document.getElementById('pm-importo').value)||75,
-    distribuito: document.getElementById('pm-distribuito').checked,
+    distribuito,
     data_distribuzione: document.getElementById('pm-data').value||null,
     operatore_email: SESSION.utente.email,
     operatore_nome: SESSION.utente.nome||SESSION.utente.email,
-    note: document.getElementById('pm-note').value||null,
+    note: invia ? 'Inviato in amministrazione' : null,
     criticita: document.getElementById('pm-criticita').value||null,
     updated_at: new Date().toISOString()
   };
+
   try {
     if(recordId) await supa(`pocket_money_cas?id=eq.${recordId}`,{method:'PATCH',body:JSON.stringify(payload)});
     else await supa('pocket_money_cas',{method:'POST',body:JSON.stringify(payload)});
+
+    if(invia) {
+      // Email in amministrazione (Isabella - da configurare)
+      const ADMIN_EMAIL = 'amministrazione@coopmetis.com'; // da aggiornare con email Isabella
+      const importo = document.getElementById('pm-importo').value;
+      const data = new Date(document.getElementById('pm-data').value).toLocaleDateString('it-IT');
+      const educatore = SESSION.utente.nome || SESSION.utente.email;
+      const criticita = document.getElementById('pm-criticita').value;
+
+      const corpo = `RICEVUTA POCKET MONEY\n\nStruttura: ${strutturaNome}\nMese: ${nomiMesi[_pmMese]} ${_pmAnno}\nImporto per ospite: € ${importo}\nData distribuzione: ${data}\nDistribuito da: ${educatore}\nDistribuito a tutti gli ospiti presenti: ${distribuito?'SÌ':'NO'}${criticita?'\nCriticità: '+criticita:''}\n\nRicevuta generata da Approdo — Gestionale CAS Metis Rimini`;
+
+      window.location.href = `mailto:${ADMIN_EMAIL}?subject=Ricevuta Pocket Money — ${strutturaNome} — ${nomiMesi[_pmMese]} ${_pmAnno}&body=${encodeURIComponent(corpo)}`;
+    }
+
     closeModal('modal-pocket-money');
     showPageCAS('cas-pocketmoney');
   } catch(e){alert('Errore: '+e.message);}
@@ -4090,23 +4111,37 @@ async function salvaTrasferimento() {
 
 <!-- MODAL POCKET MONEY -->
 <div class="modal-overlay" id="modal-pocket-money">
-  <div class="modal">
-    <h3>💶 Pocket Money — <span id="pm-struttura-nome"></span></h3>
+  <div class="modal" style="max-width:520px;">
     <input type="hidden" id="pm-struttura-id">
     <input type="hidden" id="pm-record-id">
-    <div class="grid g2">
-      <div class="form-group"><label>Importo per ospite (€)</label><input id="pm-importo" type="number" step="0.01" placeholder="75.00"></div>
-      <div class="form-group"><label>Data distribuzione</label><input id="pm-data" type="date"></div>
+
+    <!-- Intestazione ricevuta -->
+    <div style="border:2px solid var(--border);border-radius:10px;padding:20px;background:#fafafa;">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);">Cooperativa Sociale Metis — CAS Rimini</div>
+        <div style="font-size:1.2rem;font-weight:800;margin-top:4px;">💶 RICEVUTA POCKET MONEY</div>
+        <div id="pm-mese-label" style="font-size:.9rem;color:var(--muted);margin-top:2px;"></div>
+      </div>
+      <hr style="border:none;border-top:1px dashed var(--border);margin:12px 0;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:.88rem;">
+        <div><span style="color:var(--muted);">Struttura</span><br><b id="pm-struttura-nome" style="font-size:.95rem;"></b></div>
+        <div><span style="color:var(--muted);">Importo per ospite</span><br><b>€ <input id="pm-importo" type="number" step="0.01" style="width:70px;border:none;border-bottom:1px solid var(--border);font-size:.95rem;font-weight:700;background:transparent;"></b></div>
+        <div><span style="color:var(--muted);">Data distribuzione</span><br><input id="pm-data" type="date" style="border:none;border-bottom:1px solid var(--border);font-size:.88rem;background:transparent;"></div>
+        <div><span style="color:var(--muted);">Educatore</span><br><b id="pm-educatore-nome" style="font-size:.88rem;"></b></div>
+      </div>
+      <hr style="border:none;border-top:1px dashed var(--border);margin:16px 0;">
+      <div style="display:flex;align-items:flex-start;gap:10px;padding:10px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;">
+        <input id="pm-distribuito" type="checkbox" style="width:20px;height:20px;cursor:pointer;margin-top:2px;flex-shrink:0;">
+        <label for="pm-distribuito" style="cursor:pointer;font-size:.9rem;font-weight:600;line-height:1.4;">Pocket money distribuito a tutti gli ospiti presenti in struttura</label>
+      </div>
+      <div class="form-group" style="margin-top:12px;"><label style="font-size:.8rem;color:var(--muted);">Criticità o note</label><textarea id="pm-criticita" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;" placeholder="es. ospite assente, importo mancante..."></textarea></div>
+      <input type="hidden" id="pm-note">
     </div>
-    <div class="form-group" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-      <input id="pm-distribuito" type="checkbox" checked style="width:18px;height:18px;cursor:pointer;">
-      <label for="pm-distribuito" style="cursor:pointer;font-weight:600;">Pocket money distribuito a tutti gli ospiti</label>
-    </div>
-    <div class="form-group"><label>Criticità</label><input id="pm-criticita" placeholder="es. Ospite assente, importo mancante..."></div>
-    <div class="form-group"><label>Note</label><textarea id="pm-note" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
-    <div class="modal-footer">
+
+    <div class="modal-footer" style="margin-top:16px;">
       <button class="btn btn-ghost" onclick="closeModal('modal-pocket-money')">Annulla</button>
-      <button class="btn btn-primary" onclick="salvaPocketMoney()">💾 Salva</button>
+      <button class="btn btn-ghost" onclick="salvaPocketMoney(false)">💾 Salva bozza</button>
+      <button class="btn btn-primary" onclick="salvaPocketMoney(true)">📤 Invia in Amministrazione</button>
     </div>
   </div>
 </div>
