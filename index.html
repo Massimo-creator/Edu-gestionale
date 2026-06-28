@@ -424,19 +424,19 @@ tr:hover td{background:#f8fafc}
 
   <!-- wordmark -->
   <div class="ws-wordmark">
-    <span class="ws-edu">edu</span><span class="ws-care">Care</span>
+    <span class="ws-edu">Approdo</span>
   </div>
 
   <!-- tagline -->
-  <div class="ws-tagline">Gestionale per comunità educative</div>
+  <div class="ws-tagline">Gestionale CAS · Metis Rimini</div>
 
   <!-- feature pills -->
   <div class="ws-features">
-    <span class="ws-pill"><span class="ws-pill-dot"></span>Cartelle sociali</span>
-    <span class="ws-pill"><span class="ws-pill-dot"></span>PEI e relazioni</span>
+    <span class="ws-pill"><span class="ws-pill-dot"></span>Fascicoli ospiti</span>
+    <span class="ws-pill"><span class="ws-pill-dot"></span>Iter asilo</span>
+    <span class="ws-pill"><span class="ws-pill-dot"></span>Scadenze permessi</span>
+    <span class="ws-pill"><span class="ws-pill-dot"></span>Calendario appuntamenti</span>
     <span class="ws-pill"><span class="ws-pill-dot"></span>Turni operatori</span>
-    <span class="ws-pill"><span class="ws-pill-dot"></span>Calendario eventi</span>
-    <span class="ws-pill"><span class="ws-pill-dot"></span>Supporto MSNA</span>
   </div>
 
   <!-- CTA -->
@@ -447,9 +447,9 @@ tr:hover td{background:#f8fafc}
     </button>
   </div>
 
-  <div class="welcome-note">Offline · Nessun dato inviato a server esterni</div>
+  <div class="welcome-note">Dati protetti · Cooperativa Sociale Metis</div>
 
-  <div class="welcome-footer">eduCare &nbsp;·&nbsp; Sistema gestionale per comunità educative &nbsp;·&nbsp; v2.1</div>
+  <div class="welcome-footer">Approdo &nbsp;·&nbsp; Gestionale CAS Metis Rimini &nbsp;·&nbsp; v1.0</div>
 </div>
 
 <!-- LOGIN SCREEN -->
@@ -464,8 +464,8 @@ tr:hover td{background:#f8fafc}
       <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#1e40af,#065f46);box-shadow:0 8px 24px rgba(0,0,0,.3);margin-bottom:16px;">
         <span style="font-size:1.8rem;">📖</span>
       </div>
-      <div style="font-family:&#39;DM Serif Display&#39;,Georgia,serif;font-size:2rem;color:#fff;line-height:1;"><span style="color:#fff;">edu</span><span style="color:#4ade80;font-style:italic;">Care</span></div>
-      <div style="color:rgba(255,255,255,.45);font-size:.82rem;margin-top:6px;letter-spacing:.1em;text-transform:uppercase;">Accesso al gestionale</div>
+      <div style="font-family:'DM Serif Display',Georgia,serif;font-size:2rem;color:#fff;line-height:1;"><span style="color:#fff;">Approdo</span></div>
+      <div style="color:rgba(255,255,255,.45);font-size:.82rem;margin-top:6px;letter-spacing:.1em;text-transform:uppercase;">Gestionale CAS · Metis Rimini</div>
     </div>
 
     <!-- form -->
@@ -3201,6 +3201,8 @@ function moveTask(id, nuovoStato){
   <div class="nav-item" onclick="showPageCAS('cas-ospiti')"><span class="ico">👤</span> Ospiti</div>
   <div class="nav-item" onclick="showPageCAS('cas-strutture')"><span class="ico">🏠</span> Strutture</div>
   <div class="nav-item" onclick="showPageCAS('cas-scadenze')"><span class="ico">⏰</span> Scadenze</div>
+  <div class="nav-item" onclick="showPageCAS('cas-calendario')"><span class="ico">📅</span> Appuntamenti</div>
+  <div class="nav-item" onclick="showPageCAS('cas-turni')"><span class="ico">🔄</span> Turni</div>
   <div style="margin-top:auto;padding:12px 10px;border-top:1px solid rgba(255,255,255,.08);">
     <div id="sidebar-cas-user" style="padding:8px 6px 10px;font-size:.75rem;color:#94a3b8;line-height:1.4;"></div>
     <div class="nav-item" onclick="doLogout()" style="color:#f87171;border-radius:8px;margin:0;"><span class="ico">🚪</span> Esci</div>
@@ -3297,13 +3299,15 @@ function mostraAppCAS() {
 
 function showPageCAS(page) {
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
-  const titles = { 'cas-dashboard':'Dashboard CAS','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze' };
+  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze','cas-calendario':'Appuntamenti','cas-turni':'Turni Operatori' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
   if (page === 'cas-dashboard') renderCasDashboard(content);
   else if (page === 'cas-ospiti') renderCasOspiti(content);
   else if (page === 'cas-strutture') renderCasStrutture(content);
   else if (page === 'cas-scadenze') renderCasScadenze(content);
+  else if (page === 'cas-calendario') renderCasCalendario(content);
+  else if (page === 'cas-turni') renderCasTurni(content);
 }
 
 async function renderCasDashboard(el) {
@@ -3407,7 +3411,232 @@ async function renderCasScadenze(el) {
   } catch(e) { el.innerHTML=`<div style="color:var(--danger);">Errore: ${e.message}</div>`; }
 }
 
-let _casOspiteEditId = null;
+// ── CALENDARIO APPUNTAMENTI ────────────────────────────────────
+async function renderCasCalendario(el) {
+  el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
+  try {
+    const strutture = SESSION.strutture_cas || [];
+    const struttureIds = strutture.map(s=>s.id);
+    let appuntamenti = [];
+    if (struttureIds.length>0) {
+      appuntamenti = await supa(`appuntamenti_cas?struttura_id=in.(${struttureIds.join(',')})&order=data_ora`) || [];
+    }
+    const mapS = {}; strutture.forEach(s=>mapS[s.id]=s.nome);
+    const oggi = new Date(); oggi.setHours(0,0,0,0);
+    const prossimi = appuntamenti.filter(a => new Date(a.data_ora) >= oggi);
+    const passati = appuntamenti.filter(a => new Date(a.data_ora) < oggi);
+
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <h2 style="font-size:1.1rem;">📅 Appuntamenti</h2>
+        <button class="btn btn-primary" onclick="nuovoAppuntamentoCAS()">+ Nuovo</button>
+      </div>
+      <div style="display:grid;gap:10px;margin-bottom:28px;">
+        ${prossimi.length===0?'<div class="card" style="padding:20px;text-align:center;color:var(--muted);">Nessun appuntamento in programma</div>':
+          prossimi.map(a=>{
+            const d = new Date(a.data_ora);
+            const isOggi = d.toDateString()===new Date().toDateString();
+            return `<div class="card" style="padding:16px;border-left:3px solid ${isOggi?'var(--accent2)':'var(--accent)'};">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div>
+                  <div style="font-weight:600;">${a.titolo}</div>
+                  <div style="font-size:.82rem;color:var(--muted);margin-top:2px;">${tipoAppuntamentoIcon(a.tipo)} ${a.tipo} · 🏠 ${mapS[a.struttura_id]||'—'}</div>
+                  ${a.ospite_nome?`<div style="font-size:.82rem;color:var(--muted);">👤 ${a.ospite_nome}</div>`:''}
+                  ${a.note?`<div style="font-size:.82rem;color:var(--muted);margin-top:4px;">${a.note}</div>`:''}
+                </div>
+                <div style="text-align:right;flex-shrink:0;margin-left:12px;">
+                  <div style="font-weight:700;color:${isOggi?'var(--accent2)':'var(--text)'};">${isOggi?'OGGI':d.toLocaleDateString('it-IT',{day:'2-digit',month:'short'})}</div>
+                  <div style="font-size:.82rem;color:var(--muted);">${d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</div>
+                  <button onclick="eliminaAppuntamentoCAS('${a.id}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.75rem;margin-top:4px;">✕ elimina</button>
+                </div>
+              </div>
+            </div>`;
+          }).join('')}
+      </div>
+      ${passati.length>0?`
+        <details style="margin-top:8px;">
+          <summary style="cursor:pointer;color:var(--muted);font-size:.85rem;padding:8px 0;">Appuntamenti passati (${passati.length})</summary>
+          <div style="display:grid;gap:8px;margin-top:10px;opacity:.6;">
+            ${passati.reverse().map(a=>{
+              const d=new Date(a.data_ora);
+              return `<div class="card" style="padding:12px;">
+                <div style="display:flex;justify-content:space-between;">
+                  <div><span style="font-weight:500;">${a.titolo}</span> <span style="font-size:.78rem;color:var(--muted);">· ${tipoAppuntamentoIcon(a.tipo)} ${a.tipo}</span></div>
+                  <div style="font-size:.82rem;color:var(--muted);">${d.toLocaleDateString('it-IT')} ${d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</div>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+        </details>`:''}
+    `;
+  } catch(e) { el.innerHTML=`<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
+}
+
+function tipoAppuntamentoIcon(tipo) {
+  const map = {'Questura':'🏛️','Commissione Territoriale':'⚖️','Avvocato':'👨‍⚖️','Visita medica':'🏥','Ricorso':'📋','Altro':'📌'};
+  return map[tipo]||'📌';
+}
+
+function nuovoAppuntamentoCAS() { openModal('modal-appuntamento-cas'); }
+
+async function eliminaAppuntamentoCAS(id) {
+  if(!confirm('Eliminare questo appuntamento?')) return;
+  try {
+    await supa(`appuntamenti_cas?id=eq.${id}`,{method:'DELETE',headers:{'Prefer':'return=minimal'}});
+    showPageCAS('cas-calendario');
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+async function salvaAppuntamentoCAS() {
+  const titolo = document.getElementById('app-titolo').value.trim();
+  const tipo = document.getElementById('app-tipo').value;
+  const struttura_id = document.getElementById('app-struttura').value;
+  const data = document.getElementById('app-data').value;
+  const ora = document.getElementById('app-ora').value;
+  if(!titolo||!data||!ora) { alert('Compila titolo, data e ora.'); return; }
+  const payload = {
+    titolo, tipo, struttura_id,
+    data_ora: `${data}T${ora}:00`,
+    ospite_nome: document.getElementById('app-ospite').value||null,
+    note: document.getElementById('app-note').value||null
+  };
+  try {
+    await supa('appuntamenti_cas',{method:'POST',body:JSON.stringify(payload)});
+    closeModal('modal-appuntamento-cas');
+    showPageCAS('cas-calendario');
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+// ── TURNI OPERATORI ────────────────────────────────────────────
+const OPERATORI_CAS = [
+  {nome:'Ziad', email:'ziad@coopmetis.com'},
+  {nome:'Parfé', email:'parfe@coopmetis.com'},
+  {nome:'Remo', email:'remo@coopmetis.com'},
+  {nome:'James', email:'james@coopmetis.com'},
+  {nome:'Ilenia', email:'ilenia@coopmetis.com'},
+  {nome:'Gianluca', email:'gianluca@coopmetis.com'},
+];
+
+let _turniMese = new Date().getMonth();
+let _turniAnno = new Date().getFullYear();
+
+async function renderCasTurni(el) {
+  el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
+  const puoModificare = SESSION.utente.email === 'simona@coopmetis.com' || SESSION.is_coordinatore_cas;
+  try {
+    const mese = _turniMese; const anno = _turniAnno;
+    const dataInizio = `${anno}-${String(mese+1).padStart(2,'0')}-01`;
+    const ultimoGiorno = new Date(anno, mese+1, 0).getDate();
+    const dataFine = `${anno}-${String(mese+1).padStart(2,'0')}-${ultimoGiorno}`;
+    const turni = await supa(`turni_cas?data=gte.${dataInizio}&data=lte.${dataFine}`) || [];
+
+    const nomiMesi = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+    const giorni = Array.from({length:ultimoGiorno},(_,i)=>i+1);
+
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <h2 style="font-size:1.1rem;">🔄 Turni ${nomiMesi[mese]} ${anno}</h2>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-ghost" onclick="_turniMese--;if(_turniMese<0){_turniMese=11;_turniAnno--;}renderCasTurni(document.getElementById('content-cas'))">←</button>
+          <button class="btn btn-ghost" onclick="_turniMese++;if(_turniMese>11){_turniMese=0;_turniAnno++;}renderCasTurni(document.getElementById('content-cas'))">→</button>
+        </div>
+      </div>
+      ${!puoModificare?'<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;font-size:.82rem;margin-bottom:16px;">👁️ Visualizzazione in sola lettura. I turni vengono gestiti da Simona.</div>':''}
+      <div style="overflow-x:auto;">
+        <table style="border-collapse:collapse;min-width:100%;font-size:.78rem;">
+          <thead>
+            <tr>
+              <th style="padding:8px 12px;background:var(--sidebar);color:#fff;text-align:left;position:sticky;left:0;z-index:2;min-width:100px;">Operatore</th>
+              ${giorni.map(g=>{
+                const dow=['D','L','M','M','G','V','S'][new Date(anno,mese,g).getDay()];
+                const isFestivo = new Date(anno,mese,g).getDay()===0;
+                return `<th style="padding:6px 4px;background:${isFestivo?'#374151':'var(--sidebar)'};color:${isFestivo?'#f87171':'#94a3b8'};text-align:center;min-width:42px;">${dow}<br>${g}</th>`;
+              }).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${OPERATORI_CAS.map(op=>`
+              <tr>
+                <td style="padding:8px 12px;background:var(--card);font-weight:600;position:sticky;left:0;z-index:1;border-bottom:1px solid var(--border);">${op.nome}</td>
+                ${giorni.map(g=>{
+                  const dataStr = `${anno}-${String(mese+1).padStart(2,'0')}-${String(g).padStart(2,'0')}`;
+                  const turno = turni.find(t=>t.operatore_email===op.email&&t.data===dataStr);
+                  const isFestivo = new Date(anno,mese,g).getDay()===0;
+                  if(puoModificare) {
+                    return `<td style="padding:2px;background:${isFestivo?'#f9fafb':'var(--card)'};border-bottom:1px solid var(--border);border-right:1px solid var(--border);">
+                      <div onclick="toggleTurnoCAS('${op.email}','${op.nome}','${dataStr}')" style="cursor:pointer;border-radius:4px;padding:3px 2px;text-align:center;min-height:28px;background:${turno?turnoColore(turno.tipo):'transparent'};font-size:.7rem;font-weight:600;color:${turno?'#fff':'var(--muted)'};">
+                        ${turno?turnoLabel(turno.tipo,turno.ora_inizio,turno.ora_fine):'·'}
+                      </div>
+                    </td>`;
+                  } else {
+                    return `<td style="padding:2px;background:${isFestivo?'#f9fafb':'var(--card)'};border-bottom:1px solid var(--border);border-right:1px solid var(--border);">
+                      <div style="border-radius:4px;padding:3px 2px;text-align:center;min-height:28px;background:${turno?turnoColore(turno.tipo):'transparent'};font-size:.7rem;font-weight:600;color:${turno?'#fff':'var(--muted)'};">
+                        ${turno?turnoLabel(turno.tipo,turno.ora_inizio,turno.ora_fine):'·'}
+                      </div>
+                    </td>`;
+                  }
+                }).join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap;font-size:.78rem;">
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;background:#3b82f6;border-radius:3px;display:inline-block;"></span> Mattina</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;background:#10b981;border-radius:3px;display:inline-block;"></span> Pomeriggio</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span> Personalizzato</span>
+      </div>
+    `;
+  } catch(e) { el.innerHTML=`<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
+}
+
+function turnoColore(tipo) {
+  if(tipo==='Mattina') return '#3b82f6';
+  if(tipo==='Pomeriggio') return '#10b981';
+  return '#8b5cf6';
+}
+function turnoLabel(tipo, oraInizio, oraFine) {
+  if(tipo==='Mattina') return 'M';
+  if(tipo==='Pomeriggio') return 'P';
+  return oraInizio?oraInizio.slice(0,5):'C';
+}
+
+let _turnoEditData = null; let _turnoEditEmail = null; let _turnoEditNome = null;
+
+async function toggleTurnoCAS(email, nome, data) {
+  const turni = await supa(`turni_cas?operatore_email=eq.${encodeURIComponent(email)}&data=eq.${data}&limit=1`) || [];
+  if(turni.length>0) {
+    if(!confirm(`Rimuovere il turno di ${nome} per il ${data}?`)) return;
+    await supa(`turni_cas?id=eq.${turni[0].id}`,{method:'DELETE',headers:{'Prefer':'return=minimal'}});
+    renderCasTurni(document.getElementById('content-cas'));
+    return;
+  }
+  _turnoEditEmail = email; _turnoEditNome = nome; _turnoEditData = data;
+  document.getElementById('turno-modal-title').textContent = `Turno · ${nome} · ${new Date(data+'T12:00:00').toLocaleDateString('it-IT',{day:'2-digit',month:'long'})}`;
+  document.getElementById('turno-tipo').value = 'Mattina';
+  document.getElementById('turno-ora-inizio').value = '08:00';
+  document.getElementById('turno-ora-fine').value = '14:00';
+  document.getElementById('turno-tipo').dispatchEvent(new Event('change'));
+  openModal('modal-turno-cas');
+}
+
+async function salvaTurnoCAS() {
+  const tipo = document.getElementById('turno-tipo').value;
+  const payload = {
+    operatore_email: _turnoEditEmail,
+    operatore_nome: _turnoEditNome,
+    data: _turnoEditData,
+    tipo,
+    ora_inizio: document.getElementById('turno-ora-inizio').value,
+    ora_fine: document.getElementById('turno-ora-fine').value,
+    note: document.getElementById('turno-note').value||null
+  };
+  try {
+    await supa('turni_cas',{method:'POST',body:JSON.stringify(payload)});
+    closeModal('modal-turno-cas');
+    renderCasTurni(document.getElementById('content-cas'));
+  } catch(e) { alert('Errore: '+e.message); }
+}
 
 function nuovoOspiteCAS(strutturaIdPreselezionata) {
   _casOspiteEditId = null;
@@ -3476,5 +3705,61 @@ async function salvaOspiteCAS() {
   } catch(e) { alert('Errore salvataggio: '+e.message); }
 }
 </script>
+
+<!-- MODAL APPUNTAMENTO CAS -->
+<div class="modal-overlay" id="modal-appuntamento-cas">
+  <div class="modal">
+    <h3>📅 Nuovo Appuntamento</h3>
+    <div class="form-group"><label>Titolo *</label><input id="app-titolo" placeholder="es. Audizione Commissione - Ahmed"></div>
+    <div class="grid g2">
+      <div class="form-group"><label>Tipo *</label>
+        <select id="app-tipo">
+          <option>Questura</option>
+          <option>Commissione Territoriale</option>
+          <option>Avvocato</option>
+          <option>Visita medica</option>
+          <option>Ricorso</option>
+          <option>Altro</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Struttura</label>
+        <select id="app-struttura"></select>
+      </div>
+    </div>
+    <div class="grid g2">
+      <div class="form-group"><label>Data *</label><input id="app-data" type="date"></div>
+      <div class="form-group"><label>Ora *</label><input id="app-ora" type="time"></div>
+    </div>
+    <div class="form-group"><label>Ospite</label><input id="app-ospite" placeholder="Nome e cognome ospite (opzionale)"></div>
+    <div class="form-group"><label>Note</label><textarea id="app-note" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-appuntamento-cas')">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaAppuntamentoCAS()">💾 Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TURNO CAS -->
+<div class="modal-overlay" id="modal-turno-cas">
+  <div class="modal">
+    <h3>🔄 <span id="turno-modal-title">Nuovo Turno</span></h3>
+    <div class="form-group"><label>Tipo turno</label>
+      <select id="turno-tipo" onchange="const t=this.value;const i=document.getElementById('turno-ora-inizio');const f=document.getElementById('turno-ora-fine');if(t==='Mattina'){i.value='08:00';f.value='14:00';}else if(t==='Pomeriggio'){i.value='14:00';f.value='20:00';}">
+        <option value="Mattina">🔵 Mattina</option>
+        <option value="Pomeriggio">🟢 Pomeriggio</option>
+        <option value="Personalizzato">🟣 Personalizzato</option>
+      </select>
+    </div>
+    <div class="grid g2">
+      <div class="form-group"><label>Ora inizio</label><input id="turno-ora-inizio" type="time" value="08:00"></div>
+      <div class="form-group"><label>Ora fine</label><input id="turno-ora-fine" type="time" value="14:00"></div>
+    </div>
+    <div class="form-group"><label>Note</label><input id="turno-note" placeholder="Opzionale"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-turno-cas')">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaTurnoCAS()">💾 Salva</button>
+    </div>
+  </div>
+</div>
 
 </body></html>
