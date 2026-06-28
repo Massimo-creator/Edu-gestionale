@@ -3933,8 +3933,8 @@ async function salvaPocketMoney() {
 }
 
 // ── TRASFERIMENTI INTERNI ──────────────────────────────────────
-const STATI_TRASFERIMENTO = ['Richiesto internamente','In discussione','Accettato','Respinto','Inviato in Prefettura','Autorizzato','Effettuato'];
-const STATO_COL = {'Richiesto internamente':'var(--muted)','In discussione':'var(--warn)','Accettato':'var(--accent2)','Respinto':'var(--danger)','Inviato in Prefettura':'var(--accent)','Autorizzato':'#8b5cf6','Effettuato':'var(--accent2)'};
+const STATI_TRASFERIMENTO = ['Richiesto internamente','In discussione interna','Accettato internamente','Respinto internamente','Inviato in Prefettura (PEC)','Trasferimento autorizzato','Trasferimento respinto','Trasferimento effettuato'];
+const STATO_COL = {'Richiesto internamente':'var(--muted)','In discussione interna':'var(--warn)','Accettato internamente':'var(--accent2)','Respinto internamente':'var(--danger)','Inviato in Prefettura (PEC)':'var(--accent)','Trasferimento autorizzato':'#8b5cf6','Trasferimento respinto':'var(--danger)','Trasferimento effettuato':'var(--accent2)'};
 
 async function renderCasTrasferimenti(el) {
   el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
@@ -3949,25 +3949,28 @@ async function renderCasTrasferimenti(el) {
         ${SESSION.is_coordinatore_cas?`<button class="btn btn-primary" onclick="nuovoTrasferimento()">+ Nuovo</button>`:''}
       </div>
       ${trasferimenti.length===0?'<div class="card" style="padding:30px;text-align:center;color:var(--muted);">Nessun trasferimento registrato</div>':
-        trasferimenti.map(t=>`
-          <div class="card" style="padding:16px;margin-bottom:10px;border-left:3px solid ${STATO_COL[t.stato]||'var(--muted)'};">
+        trasferimenti.map(t=>{
+          const col = STATO_COL[t.stato]||'var(--muted)';
+          return `<div class="card" style="padding:16px;margin-bottom:10px;border-left:4px solid ${col};">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
-              <div>
-                <div style="font-weight:600;">${t.ospite_nome||'—'}</div>
-                <div style="font-size:.82rem;color:var(--muted);margin-top:2px;">
-                  🏠 ${mapS[t.struttura_origine_id]||'—'} → ${mapS[t.struttura_destinazione_id]||'—'}
+              <div style="flex:1;">
+                <div style="font-weight:700;font-size:1rem;margin-bottom:8px;">👤 ${t.ospite_nome||'—'}</div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+                  <span style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.82rem;font-weight:600;">🏠 ${mapS[t.struttura_origine_id]||'—'}</span>
+                  <span style="font-size:1.2rem;color:var(--accent);">→</span>
+                  <span style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.82rem;font-weight:600;">🏠 ${mapS[t.struttura_destinazione_id]||'—'}</span>
                 </div>
-                ${t.data_richiesta?`<div style="font-size:.78rem;color:var(--muted);">Richiesto: ${new Date(t.data_richiesta).toLocaleDateString('it-IT')}</div>`:''}
-                ${t.data_autorizzazione?`<div style="font-size:.78rem;color:#8b5cf6;">Autorizzato: ${new Date(t.data_autorizzazione).toLocaleDateString('it-IT')}</div>`:''}
+                ${t.data_richiesta?`<div style="font-size:.78rem;color:var(--muted);">📅 Richiesto: ${new Date(t.data_richiesta).toLocaleDateString('it-IT')}</div>`:''}
+                ${t.data_autorizzazione?`<div style="font-size:.78rem;color:#8b5cf6;">✓ Autorizzato: ${new Date(t.data_autorizzazione).toLocaleDateString('it-IT')}</div>`:''}
                 ${t.note?`<div style="font-size:.82rem;color:var(--muted);margin-top:4px;">📝 ${t.note}</div>`:''}
               </div>
-              <div style="text-align:right;">
-                <div style="font-weight:700;color:${STATO_COL[t.stato]};">${t.stato}</div>
-                ${SESSION.is_coordinatore_cas?`<button class="btn btn-ghost" style="font-size:.75rem;padding:3px 8px;margin-top:6px;" onclick="modificaTrasferimento('${t.id}')">✏️ Aggiorna</button>`:''}
+              <div style="text-align:right;flex-shrink:0;">
+                <div style="font-weight:700;color:${col};font-size:.85rem;background:${col}18;padding:4px 10px;border-radius:20px;">${t.stato}</div>
+                ${SESSION.is_coordinatore_cas?`<button class="btn btn-ghost" style="font-size:.75rem;padding:3px 8px;margin-top:8px;" onclick="modificaTrasferimento('${t.id}')">✏️ Aggiorna</button>`:''}
               </div>
             </div>
-          </div>
-        `).join('')}
+          </div>`;
+        }).join('')}
     `;
   } catch(e){el.innerHTML=`<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`;}
 }
@@ -4124,12 +4127,13 @@ async function salvaTrasferimento() {
     <div class="form-group"><label>Stato</label>
       <select id="tr-stato">
         <option>Richiesto internamente</option>
-        <option>In discussione</option>
-        <option>Accettato</option>
-        <option>Respinto</option>
-        <option>Inviato in Prefettura</option>
-        <option>Autorizzato</option>
-        <option>Effettuato</option>
+        <option>In discussione interna</option>
+        <option>Accettato internamente</option>
+        <option>Respinto internamente</option>
+        <option>Inviato in Prefettura (PEC)</option>
+        <option>Trasferimento autorizzato</option>
+        <option>Trasferimento respinto</option>
+        <option>Trasferimento effettuato</option>
       </select>
     </div>
     <div class="form-group"><label>Note</label><textarea id="tr-note" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
