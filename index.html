@@ -3365,14 +3365,16 @@ async function renderCasDashboard(el) {
             const vuoti = capienza>0 ? capienza-presenti : null;
             const pct = capienza>0 ? Math.round((presenti/capienza)*100) : null;
             return `<div style="padding:10px 14px;background:var(--bg);border-radius:8px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${capienza>0?'6px':'0'};">
-                <span style="font-weight:500;">${s.nome}</span>
-                <div style="display:flex;gap:6px;align-items:center;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <span style="font-weight:500;flex:1;">${s.nome}</span>
+                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
                   <span style="background:var(--accent);color:#fff;border-radius:20px;padding:2px 10px;font-size:.78rem;">${presenti} presenti</span>
+                  <span style="background:#e2e8f0;color:var(--text);border-radius:20px;padding:2px 10px;font-size:.78rem;">${capienza>0?capienza:'—'} capienza</span>
                   ${vuoti!==null?`<span style="background:${vuoti>0?'var(--accent2)':'var(--danger)'};color:#fff;border-radius:20px;padding:2px 10px;font-size:.78rem;">${vuoti} vuoti</span>`:''}
+                  ${SESSION.is_coordinatore_cas?`<button onclick="modificaCapienza('${s.id}','${s.nome}',${capienza})" style="background:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:.72rem;cursor:pointer;color:var(--muted);">✏️</button>`:''}
                 </div>
               </div>
-              ${capienza>0?`<div style="background:#e2e8f0;border-radius:4px;height:4px;"><div style="background:${pct>=90?'var(--danger)':pct>=70?'var(--warn)':'var(--accent2)'};height:4px;border-radius:4px;width:${Math.min(pct,100)}%;"></div></div>`:''}
+              ${capienza>0?`<div style="background:#e2e8f0;border-radius:4px;height:4px;margin-top:6px;"><div style="background:${pct>=90?'var(--danger)':pct>=70?'var(--warn)':'var(--accent2)'};height:4px;border-radius:4px;width:${Math.min(pct,100)}%;"></div></div>`:''}
             </div>`;
           }).join('')}
         </div>
@@ -3859,7 +3861,19 @@ async function aggiuntaNoteManutentore(id) {
   } catch(e){alert('Errore: '+e.message);}
 }
 
-// ── POCKET MONEY ───────────────────────────────────────────────
+async function modificaCapienza(strutturaId, strutturaNome, capienzaAttuale) {
+  const nuova = prompt(`Capienza massima per ${strutturaNome}:`, capienzaAttuale||'');
+  if(nuova===null) return;
+  const val = parseInt(nuova);
+  if(isNaN(val)||val<0) { alert('Inserisci un numero valido.'); return; }
+  try {
+    await supa(`strutture_cas?id=eq.${strutturaId}`,{method:'PATCH',body:JSON.stringify({capienza:val})});
+    // Aggiorna anche la sessione locale
+    const s = SESSION.strutture_cas.find(x=>x.id===strutturaId);
+    if(s) s.capienza = val;
+    showPageCAS('cas-dashboard');
+  } catch(e){alert('Errore: '+e.message);}
+}
 let _pmMese = new Date().getMonth();
 let _pmAnno = new Date().getFullYear();
 
