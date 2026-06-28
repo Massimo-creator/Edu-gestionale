@@ -3911,7 +3911,7 @@ function apriPocketMoney(strutturaId, strutturaNome, recordId, importo) {
   document.getElementById('pm-struttura-nome').textContent = strutturaNome;
   document.getElementById('pm-struttura-id').value = strutturaId;
   document.getElementById('pm-record-id').value = recordId;
-  document.getElementById('pm-importo').value = importo || 75;
+  document.getElementById('pm-importo').value = importo || 77.50;
   document.getElementById('pm-data').value = new Date().toISOString().split('T')[0];
   document.getElementById('pm-criticita').value = '';
   document.getElementById('pm-distribuito').checked = false;
@@ -3931,7 +3931,7 @@ async function salvaPocketMoney(invia) {
     struttura_id: strutturaId,
     mese: _pmMese+1,
     anno: _pmAnno,
-    importo: parseFloat(document.getElementById('pm-importo').value)||75,
+    importo: parseFloat(document.getElementById('pm-importo').value)||77.50,
     distribuito,
     data_distribuzione: document.getElementById('pm-data').value||null,
     operatore_email: SESSION.utente.email,
