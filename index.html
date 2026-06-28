@@ -3885,7 +3885,7 @@ async function renderCasPocketMoney(el) {
               </div>
               <div style="display:flex;align-items:center;gap:8px;">
                 ${distribuito?'<span style="color:var(--accent2);font-weight:700;">✓ Distribuito</span>':
-                  puoModificare?`<button class="btn btn-primary" style="font-size:.82rem;" onclick="apriPocketMoney('${s.id}','${s.nome}','${r?.id||''}','${r?.importo||75}')">💶 Registra</button>`:'<span style="color:var(--muted);font-size:.82rem;">In attesa</span>'}
+                  puoModificare?`<button class="btn btn-primary" style="font-size:.82rem;" onclick="apriPocketMoney('${s.id}','${s.nome}','${r?.id||''}','${r?.importo||75}')">💶 Registra e invia ricevuta</button>`:'<span style="color:var(--muted);font-size:.82rem;">In attesa</span>'}
                 ${r&&puoModificare?`<button class="btn btn-ghost" style="font-size:.78rem;padding:4px 8px;" onclick="apriPocketMoney('${s.id}','${s.nome}','${r.id}','${r.importo}')">✏️</button>`:''}
               </div>
             </div>
@@ -3898,6 +3898,16 @@ async function renderCasPocketMoney(el) {
 
 function apriPocketMoney(strutturaId, strutturaNome, recordId, importo) {
   const nomiMesi = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+  // Referenti per struttura
+  const referenti = {
+    'Raggiolo 33':'Ziad', 'Raggiolo 35':'Ziad', 'XXIV Maggio':'Ziad', 'Maiolo':'Ziad',
+    'Montececo':'Parfé', 'Borgo':'Parfé', 'Verucchio':'Parfé',
+    'Cavalcanti':'Remo / James', 'Bandiera':'Remo / James', 'Imperial':'Remo / James',
+    'Calatafimi':'Ilenia', 'Barattona':'Ilenia',
+    'Via Puccini':'Gianluca'
+  };
+
   document.getElementById('pm-struttura-nome').textContent = strutturaNome;
   document.getElementById('pm-struttura-id').value = strutturaId;
   document.getElementById('pm-record-id').value = recordId;
@@ -3906,7 +3916,7 @@ function apriPocketMoney(strutturaId, strutturaNome, recordId, importo) {
   document.getElementById('pm-criticita').value = '';
   document.getElementById('pm-distribuito').checked = false;
   document.getElementById('pm-mese-label').textContent = `${nomiMesi[_pmMese]} ${_pmAnno}`;
-  document.getElementById('pm-educatore-nome').textContent = SESSION.utente.nome || SESSION.utente.email;
+  document.getElementById('pm-educatore-nome').textContent = referenti[strutturaNome] || SESSION.utente.nome || SESSION.utente.email;
   openModal('modal-pocket-money');
 }
 
