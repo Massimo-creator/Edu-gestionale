@@ -3210,6 +3210,7 @@ function moveTask(id, nuovoStato){
   <div class="nav-item" onclick="showPageCAS('cas-scadenze')"><span class="ico">⏰</span> Scadenze</div>
   <div class="nav-item" onclick="showPageCAS('cas-calendario')"><span class="ico">📅</span> Appuntamenti</div>
   <div class="nav-item" onclick="showPageCAS('cas-turni')"><span class="ico">🔄</span> Turni</div>
+  <div class="nav-item" onclick="showPageCAS('cas-manutenzioni')"><span class="ico">🔧</span> Manutenzioni</div>
   <div style="margin-top:auto;padding:12px 10px;border-top:1px solid rgba(255,255,255,.08);">
     <div id="sidebar-cas-user" style="padding:8px 6px 10px;font-size:.75rem;color:#94a3b8;line-height:1.4;"></div>
     <div class="nav-item" onclick="doLogout()" style="color:#f87171;border-radius:8px;margin:0;"><span class="ico">🚪</span> Esci</div>
@@ -3298,13 +3299,21 @@ function mostraAppCAS() {
   if (SESSION) {
     const nome = SESSION.utente.nome || SESSION.utente.email || '';
     const isSimona = SESSION.utente.email === 'simona@coopmetis.com';
-    const ruolo = SESSION.is_coordinatore_cas ? 'Coordinatore' : isSimona ? 'Responsabile RU' : 'Educatore';
+    const isMax = SESSION.utente.email === 'max@coopmetis.com';
+    const ruolo = SESSION.is_coordinatore_cas ? 'Coordinatore' : isSimona ? 'Responsabile RU' : isMax ? 'Manutentore' : 'Educatore';
     SESSION.is_simona = isSimona;
+    SESSION.is_max = isMax;
     document.getElementById('cas-topbar-user').textContent = `${nome} (${ruolo}) · Metis CAS Rimini`;
     document.getElementById('sidebar-cas-user').innerHTML = `<b style="color:#cbd5e1">${nome}</b><br><span style="color:#4ade80">${ruolo}</span> · Metis CAS Rimini`;
-    // Nasconde voce Ospiti per Simona
+    // Gestione voci menu per ruolo
     document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => {
-      if(el.textContent.includes('Ospiti') && isSimona) el.style.display = 'none';
+      const t = el.textContent.trim();
+      if(isMax) {
+        // Max vede solo Manutenzioni e Dashboard
+        if(t.includes('Ospiti')||t.includes('Strutture')||t.includes('Scadenze')||t.includes('Appuntamenti')||t.includes('Turni')) el.style.display='none';
+      } else if(isSimona) {
+        if(t.includes('Ospiti')) el.style.display='none';
+      }
     });
   }
   showPageCAS('cas-dashboard');
@@ -3312,7 +3321,7 @@ function mostraAppCAS() {
 
 function showPageCAS(page) {
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
-  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze','cas-calendario':'Appuntamenti','cas-turni':'Turni Operatori' };
+  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze','cas-calendario':'Appuntamenti','cas-turni':'Turni Operatori','cas-manutenzioni':'Manutenzioni' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
   if (page === 'cas-dashboard') renderCasDashboard(content);
@@ -3321,6 +3330,7 @@ function showPageCAS(page) {
   else if (page === 'cas-scadenze') renderCasScadenze(content);
   else if (page === 'cas-calendario') renderCasCalendario(content);
   else if (page === 'cas-turni') renderCasTurni(content);
+  else if (page === 'cas-manutenzioni') renderCasManutenzioni(content);
 }
 
 async function renderCasDashboard(el) {
@@ -3718,6 +3728,113 @@ async function salvaOspiteCAS() {
     showPageCAS('cas-ospiti');
   } catch(e) { alert('Errore salvataggio: '+e.message); }
 }
+
+// ── MANUTENZIONI ───────────────────────────────────────────────
+async function renderCasManutenzioni(el) {
+  el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
+  try {
+    const strutture = SESSION.strutture_cas || [];
+    const struttureIds = strutture.map(s=>s.id);
+    let segn = [];
+    if(struttureIds.length>0) segn = await supa(`manutenzioni_cas?struttura_id=in.(${struttureIds.join(',')})&order=created_at.desc`) || [];
+    const mapS = {}; strutture.forEach(s=>mapS[s.id]=s.nome);
+    const aperte = segn.filter(s=>s.stato==='Aperta');
+    const inLavoro = segn.filter(s=>s.stato==='In lavorazione');
+    const risolte = segn.filter(s=>s.stato==='Risolta');
+    const urgenzaCol = {Urgente:'var(--danger)',Media:'var(--warn)',Bassa:'var(--accent2)'};
+    const renderCard = (s) => `
+      <div class="card" style="padding:16px;border-left:3px solid ${urgenzaCol[s.urgenza]||'var(--muted)'};">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+          <div style="flex:1;">
+            <div style="font-weight:600;">${s.titolo}</div>
+            <div style="font-size:.82rem;color:var(--muted);margin-top:2px;">🏠 ${mapS[s.struttura_id]||'—'} · <span style="color:${urgenzaCol[s.urgenza]};">${s.urgenza}</span> · ${s.segnalato_da_nome||'—'}</div>
+            ${s.descrizione?`<div style="font-size:.83rem;margin-top:6px;">${s.descrizione}</div>`:''}
+            ${s.note_manutentore?`<div style="font-size:.82rem;color:var(--accent);margin-top:4px;">🔧 ${s.note_manutentore}</div>`:''}
+            ${s.foto_url?`<div style="margin-top:8px;"><img src="${s.foto_url}" style="max-width:200px;max-height:140px;border-radius:6px;cursor:pointer;" onclick="window.open('${s.foto_url}','_blank')"></div>`:''}
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-size:.75rem;color:var(--muted);">${new Date(s.created_at).toLocaleDateString('it-IT')}</div>
+            ${SESSION.is_max||SESSION.is_coordinatore_cas?`
+              <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
+                ${s.stato!=='In lavorazione'&&s.stato!=='Risolta'?`<button class="btn btn-ghost" style="font-size:.72rem;padding:3px 8px;" onclick="aggiornaStatoManutenzione('${s.id}','In lavorazione')">▶ Prendi in carico</button>`:''}
+                ${s.stato!=='Risolta'?`<button class="btn btn-primary" style="font-size:.72rem;padding:3px 8px;" onclick="aggiornaStatoManutenzione('${s.id}','Risolta')">✓ Risolto</button>`:''}
+                <button class="btn btn-ghost" style="font-size:.72rem;padding:3px 8px;" onclick="aggiuntaNoteManutentore('${s.id}')">📝 Note</button>
+              </div>`:''}
+          </div>
+        </div>
+      </div>`;
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <h2 style="font-size:1.1rem;">🔧 Manutenzioni</h2>
+        ${!SESSION.is_max?`<button class="btn btn-primary" onclick="nuovaSegnalazioneCAS()">+ Segnala guasto</button>`:''}
+      </div>
+      ${aperte.length>0?`<div style="margin-bottom:20px;"><div style="font-weight:600;color:var(--danger);margin-bottom:10px;">🔴 Aperte (${aperte.length})</div><div style="display:grid;gap:10px;">${aperte.map(renderCard).join('')}</div></div>`:''}
+      ${inLavoro.length>0?`<div style="margin-bottom:20px;"><div style="font-weight:600;color:var(--warn);margin-bottom:10px;">🟡 In lavorazione (${inLavoro.length})</div><div style="display:grid;gap:10px;">${inLavoro.map(renderCard).join('')}</div></div>`:''}
+      ${aperte.length===0&&inLavoro.length===0?'<div class="card" style="padding:30px;text-align:center;color:var(--muted);">Nessuna segnalazione aperta 👍</div>':''}
+      ${risolte.length>0?`<details style="margin-top:12px;"><summary style="cursor:pointer;color:var(--muted);font-size:.85rem;padding:8px 0;">Risolte (${risolte.length})</summary><div style="display:grid;gap:8px;margin-top:10px;opacity:.6;">${risolte.map(renderCard).join('')}</div></details>`:''}
+    `;
+  } catch(e) { el.innerHTML=`<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
+}
+
+function nuovaSegnalazioneCAS() {
+  document.getElementById('man-titolo').value='';
+  document.getElementById('man-descrizione').value='';
+  document.getElementById('man-urgenza').value='Media';
+  document.getElementById('man-foto').value='';
+  const sel = document.getElementById('man-struttura');
+  sel.innerHTML = (SESSION.strutture_cas||[]).map(s=>`<option value="${s.id}">${s.nome}</option>`).join('');
+  openModal('modal-manutenzione-cas');
+}
+
+async function salvaManutenzioneCAS() {
+  const titolo = document.getElementById('man-titolo').value.trim();
+  if(!titolo){alert('Inserisci un titolo.');return;}
+  const fotoInput = document.getElementById('man-foto');
+  let foto_url = null;
+  if(fotoInput.files&&fotoInput.files[0]) {
+    const file = fotoInput.files[0];
+    const ext = file.name.split('.').pop();
+    const fileName = `${Date.now()}.${ext}`;
+    try {
+      const res = await fetch(`${SUPA_URL}/storage/v1/object/manutenzioni-foto/${fileName}`,{
+        method:'POST',
+        headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':file.type},
+        body:file
+      });
+      if(res.ok) foto_url = `${SUPA_URL}/storage/v1/object/public/manutenzioni-foto/${fileName}`;
+    } catch(e){console.error('Upload foto:',e);}
+  }
+  const payload = {
+    titolo,
+    struttura_id: document.getElementById('man-struttura').value,
+    descrizione: document.getElementById('man-descrizione').value||null,
+    urgenza: document.getElementById('man-urgenza').value,
+    segnalato_da: SESSION.utente.email,
+    segnalato_da_nome: SESSION.utente.nome||SESSION.utente.email,
+    stato:'Aperta', foto_url
+  };
+  try {
+    await supa('manutenzioni_cas',{method:'POST',body:JSON.stringify(payload)});
+    closeModal('modal-manutenzione-cas');
+    showPageCAS('cas-manutenzioni');
+  } catch(e){alert('Errore: '+e.message);}
+}
+
+async function aggiornaStatoManutenzione(id, stato) {
+  try {
+    await supa(`manutenzioni_cas?id=eq.${id}`,{method:'PATCH',body:JSON.stringify({stato,updated_at:new Date().toISOString()})});
+    showPageCAS('cas-manutenzioni');
+  } catch(e){alert('Errore: '+e.message);}
+}
+
+async function aggiuntaNoteManutentore(id) {
+  const nota = prompt('Aggiungi nota manutentore:');
+  if(!nota) return;
+  try {
+    await supa(`manutenzioni_cas?id=eq.${id}`,{method:'PATCH',body:JSON.stringify({note_manutentore:nota,updated_at:new Date().toISOString()})});
+    showPageCAS('cas-manutenzioni');
+  } catch(e){alert('Errore: '+e.message);}
+}
 </script>
 
 <!-- MODAL APPUNTAMENTO CAS -->
@@ -3772,6 +3889,34 @@ async function salvaOspiteCAS() {
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-turno-cas')">Annulla</button>
       <button class="btn btn-primary" onclick="salvaTurnoCAS()">💾 Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MANUTENZIONE CAS -->
+<div class="modal-overlay" id="modal-manutenzione-cas">
+  <div class="modal">
+    <h3>🔧 Segnala guasto</h3>
+    <div class="form-group"><label>Titolo *</label><input id="man-titolo" placeholder="es. Perdita acqua bagno secondo piano"></div>
+    <div class="grid g2">
+      <div class="form-group"><label>Struttura</label><select id="man-struttura"></select></div>
+      <div class="form-group"><label>Urgenza</label>
+        <select id="man-urgenza">
+          <option value="Bassa">🟢 Bassa</option>
+          <option value="Media" selected>🟡 Media</option>
+          <option value="Urgente">🔴 Urgente</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group"><label>Descrizione</label><textarea id="man-descrizione" rows="3" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;" placeholder="Descrivi il problema..."></textarea></div>
+    <div class="form-group">
+      <label>Foto (opzionale)</label>
+      <input id="man-foto" type="file" accept="image/*" capture="environment" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;">
+      <div style="font-size:.75rem;color:var(--muted);margin-top:4px;">Su telefono puoi scattare una foto direttamente</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-manutenzione-cas')">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaManutenzioneCAS()">📤 Invia segnalazione</button>
     </div>
   </div>
 </div>
