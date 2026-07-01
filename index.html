@@ -3213,6 +3213,7 @@ function moveTask(id, nuovoStato){
   <div class="nav-item" onclick="showPageCAS('cas-sanitari')"><span class="ico">🏥</span> Sanitari</div>
   <div class="nav-item" onclick="showPageCAS('cas-turni')"><span class="ico">🔄</span> Turni</div>
   <div class="nav-item" onclick="showPageCAS('cas-manutenzioni')"><span class="ico">🔧</span> Manutenzioni</div>
+  <div class="nav-item" onclick="showPageCAS('cas-cassettaps')"><span class="ico">🩺</span> Cassetta P.S.</div>
   <div class="nav-item" onclick="showPageCAS('cas-pocketmoney')"><span class="ico">💶</span> Pocket Money</div>
   <div class="nav-item" onclick="showPageCAS('cas-trasferimenti')"><span class="ico">🔀</span> Trasferimenti</div>
   <div style="margin-top:auto;padding:12px 10px;border-top:1px solid rgba(255,255,255,.08);">
@@ -3320,7 +3321,7 @@ function mostraAppCAS() {
 
 function showPageCAS(page) {
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
-  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Appuntamenti Sanitari','cas-turni':'Turni Operatori','cas-manutenzioni':'Manutenzioni','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni' };
+  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Appuntamenti Sanitari','cas-turni':'Turni Operatori','cas-manutenzioni':'Manutenzioni','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
   if (page === 'cas-dashboard') renderCasDashboard(content);
@@ -3332,6 +3333,7 @@ function showPageCAS(page) {
   else if (page === 'cas-sanitari') renderCasAppuntamenti(content, 'Visita medica');
   else if (page === 'cas-turni') renderCasTurni(content);
   else if (page === 'cas-manutenzioni') renderCasManutenzioni(content);
+  else if (page === 'cas-cassettaps') renderCassettePS(content);
   else if (page === 'cas-pocketmoney') renderCasPocketMoney(content);
   else if (page === 'cas-trasferimenti') renderCasTrasferimenti(content);
 }
@@ -3945,6 +3947,115 @@ async function modificaCapienza(strutturaId, strutturaNome, capienzaAttuale) {
     showPageCAS('cas-dashboard');
   } catch(e){alert('Errore: '+e.message);}
 }
+
+// ── CASSETTA PRIMO SOCCORSO ────────────────────────────────────
+const PRODOTTI_PS = [
+  'Ghiaccio Istantaneo','Laccio Emostatico','Cotone gr. 20',
+  'Flacone Iodoprovidone ml 125','Soluzione Fisiologica ml. 250',
+  'Garza Sterile compressa 18x40','Garza sterili compresse 10x20',
+  'Cerotto tnt rotolo','Scatolina cerotti assortiti da 10 pz.',
+  'Pinzetta sterile monouso','Forbicina',
+  'Benda di Garza orlata mt. 3,5x 10 cm',
+  'Paia di Guanti sterili','Sacchetto monouso per raccolta rifiuti sanitari'
+];
+
+let _psMese = new Date().getMonth();
+let _psAnno = new Date().getFullYear();
+
+async function renderCassettePS(el) {
+  el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
+  try {
+    const strutture = SESSION.strutture_cas || [];
+    const struttureIds = strutture.map(s=>s.id);
+    const nomiMesi = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+    let records = [];
+    if(struttureIds.length>0) records = await supa(`cassette_ps_cas?struttura_id=in.(${struttureIds.join(',')})&mese=eq.${_psMese+1}&anno=eq.${_psAnno}`) || [];
+    const oggi = new Date();
+    const dopo10 = oggi.getDate() > 10;
+    const verificate = records.filter(r=>r.inviato).length;
+    const nonPresenti = records.filter(r=>r.presente===false).length;
+    const daFare = strutture.length - verificate;
+
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <h2 style="font-size:1.1rem;">🩺 Cassetta P.S. — ${nomiMesi[_psMese]} ${_psAnno}</h2>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost" onclick="_psMese--;if(_psMese<0){_psMese=11;_psAnno--;}renderCassettePS(document.getElementById('content-cas'))">←</button>
+          <button class="btn btn-ghost" onclick="_psMese++;if(_psMese>11){_psMese=0;_psAnno++;}renderCassettePS(document.getElementById('content-cas'))">→</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
+        <div class="card" style="padding:16px;text-align:center;"><div style="font-size:1.8rem;font-weight:700;color:var(--accent2);">${verificate}</div><div style="color:var(--muted);font-size:.8rem;">Verificate</div></div>
+        <div class="card" style="padding:16px;text-align:center;"><div style="font-size:1.8rem;font-weight:700;color:${dopo10&&daFare>0?'var(--danger)':'var(--warn)'};">${daFare}</div><div style="color:var(--muted);font-size:.8rem;">Da completare</div></div>
+        ${nonPresenti>0?`<div class="card" style="padding:16px;text-align:center;border:2px solid var(--danger);"><div style="font-size:1.8rem;font-weight:700;color:var(--danger);">${nonPresenti}</div><div style="color:var(--muted);font-size:.8rem;">Cassette assenti</div></div>`:''}
+      </div>
+      ${dopo10&&daFare>0?`<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:.88rem;color:var(--danger);font-weight:600;">⚠️ Siamo dopo il 10 del mese: ${daFare} strutture non hanno ancora completato la verifica.</div>`:''}
+      <div style="display:grid;gap:10px;">
+        ${strutture.map(s => {
+          const r = records.find(x=>x.struttura_id===s.id);
+          let statoCol='var(--border)',statoLabel='Da verificare',statoIcon='⬜';
+          if(r&&r.presente===false){statoCol='var(--danger)';statoLabel='Cassetta ASSENTE';statoIcon='🔴';}
+          else if(r?.inviato){statoCol='var(--accent2)';statoLabel='Verificata';statoIcon='✅';}
+          else if(r){statoCol='var(--warn)';statoLabel='Bozza salvata';statoIcon='🟡';}
+          return `<div class="card" style="padding:16px;border-left:4px solid ${statoCol};">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+              <div>
+                <div style="font-weight:600;">${s.nome}</div>
+                <div style="font-size:.82rem;color:var(--muted);margin-top:2px;">${statoIcon} ${statoLabel}${r?.verificato_da_nome?' · '+r.verificato_da_nome:''}</div>
+                ${r?.data_verifica?`<div style="font-size:.78rem;color:var(--muted);">Verificata il ${new Date(r.data_verifica).toLocaleDateString('it-IT')}</div>`:''}
+              </div>
+              <button class="btn ${r?.inviato?'btn-ghost':'btn-primary'}" style="font-size:.82rem;" onclick="apriVerificaPS('${s.id}','${s.nome}','${r?.id||''}')">
+                ${r?.inviato?'📋 Rivedi':'🩺 Verifica'}
+              </button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    `;
+  } catch(e){el.innerHTML=`<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`;}
+}
+
+let _psStrutturaId=null, _psStrutturaNome=null, _psRecordId=null;
+
+async function apriVerificaPS(strutturaId, strutturaNome, recordId) {
+  _psStrutturaId=strutturaId; _psStrutturaNome=strutturaNome; _psRecordId=recordId;
+  const nomiMesi=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  document.getElementById('ps-struttura-nome').textContent=strutturaNome;
+  document.getElementById('ps-mese-label').textContent=`${nomiMesi[_psMese]} ${_psAnno}`;
+  document.getElementById('ps-operatore').textContent=SESSION.utente.nome||SESSION.utente.email;
+  document.getElementById('ps-data').value=new Date().toISOString().split('T')[0];
+  document.getElementById('ps-presente').checked=true;
+  let prodotti={};
+  if(recordId){
+    try{const res=await supa(`cassette_ps_cas?id=eq.${recordId}&limit=1`)||[];if(res.length>0){prodotti=res[0].prodotti||{};document.getElementById('ps-presente').checked=res[0].presente!==false;if(res[0].data_verifica)document.getElementById('ps-data').value=res[0].data_verifica;}}catch(e){}
+  }
+  const tbody=document.getElementById('ps-prodotti-tbody');
+  tbody.innerHTML=PRODOTTI_PS.map((p,i)=>{const d=prodotti[i]||{};return `<tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 6px;font-size:.85rem;font-weight:500;">${p}</td><td style="padding:4px;text-align:center;"><input type="checkbox" ${d.si?'checked':''} id="ps-si-${i}"></td><td style="padding:4px;text-align:center;"><input type="checkbox" ${d.no?'checked':''} id="ps-no-${i}"></td><td style="padding:4px;"><input type="date" value="${d.scaduto||''}" id="ps-scaduto-${i}" style="width:120px;padding:3px;border:1px solid var(--border);border-radius:4px;font-size:.78rem;"></td><td style="padding:4px;"><input type="date" value="${d.riordinato||''}" id="ps-riordinato-${i}" style="width:120px;padding:3px;border:1px solid var(--border);border-radius:4px;font-size:.78rem;"></td></tr>`;}).join('');
+  openModal('modal-cassetta-ps');
+}
+
+async function salvaVerificaPS(invia) {
+  const presente=document.getElementById('ps-presente').checked;
+  const prodotti={};
+  PRODOTTI_PS.forEach((p,i)=>{prodotti[i]={nome:p,si:document.getElementById(`ps-si-${i}`)?.checked||false,no:document.getElementById(`ps-no-${i}`)?.checked||false,scaduto:document.getElementById(`ps-scaduto-${i}`)?.value||null,riordinato:document.getElementById(`ps-riordinato-${i}`)?.value||null};});
+  const payload={struttura_id:_psStrutturaId,mese:_psMese+1,anno:_psAnno,presente,verificato_da:SESSION.utente.email,verificato_da_nome:SESSION.utente.nome||SESSION.utente.email,data_verifica:document.getElementById('ps-data').value||null,prodotti,inviato:invia,updated_at:new Date().toISOString()};
+  try{
+    if(_psRecordId)await supa(`cassette_ps_cas?id=eq.${_psRecordId}`,{method:'PATCH',body:JSON.stringify(payload)});
+    else await supa('cassette_ps_cas',{method:'POST',body:JSON.stringify(payload)});
+    if(!presente||invia){
+      const nomiMesi=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+      const operatore=SESSION.utente.nome||SESSION.utente.email;
+      const dest='m.andreoni@coopmetis.com,m.ceccaroli@coopmetis.com';
+      let oggetto,corpo;
+      if(!presente){oggetto=`⚠️ CASSETTA P.S. ASSENTE — ${_psStrutturaNome}`;corpo=`ALERT CASSETTA PRIMO SOCCORSO\n\nStruttura: ${_psStrutturaNome}\nMese: ${nomiMesi[_psMese]} ${_psAnno}\nSegnalato da: ${operatore}\n\nLA CASSETTA DI PRIMO SOCCORSO NON È PRESENTE IN STRUTTURA.\n\nSi prega di provvedere immediatamente.\n\nApprodo — Gestionale CAS Metis Rimini`;}
+      else{const mancanti=Object.values(prodotti).filter(p=>p.no).map(p=>p.nome);const scaduti=Object.values(prodotti).filter(p=>p.scaduto).map(p=>`${p.nome} (scad. ${p.scaduto})`);oggetto=`📋 Verifica Cassetta P.S. — ${_psStrutturaNome} — ${nomiMesi[_psMese]} ${_psAnno}`;corpo=`VERIFICA MENSILE CASSETTA PRIMO SOCCORSO\n\nStruttura: ${_psStrutturaNome}\nMese: ${nomiMesi[_psMese]} ${_psAnno}\nVerificata da: ${operatore}\nData: ${document.getElementById('ps-data').value||''}\n\nCassetta presente: SÌ\n${mancanti.length>0?`\nPRODOTTI MANCANTI:\n${mancanti.map(p=>'- '+p).join('\n')}`:'Tutti i prodotti presenti ✓'}\n${scaduti.length>0?`\nPRODOTTI SCADUTI:\n${scaduti.map(p=>'- '+p).join('\n')}`:''}\n\nApprodo — Gestionale CAS Metis Rimini`;}
+      window.location.href=`mailto:${dest}?subject=${encodeURIComponent(oggetto)}&body=${encodeURIComponent(corpo)}`;
+    }
+    closeModal('modal-cassetta-ps');
+    renderCassettePS(document.getElementById('content-cas'));
+  }catch(e){alert('Errore: '+e.message);}
+}
+
 let _pmMese = new Date().getMonth();
 let _pmAnno = new Date().getFullYear();
 
@@ -4166,6 +4277,45 @@ async function salvaTrasferimento() {
   } catch(e){alert('Errore: '+e.message);}
 }
 </script>
+
+<!-- MODAL CASSETTA PRIMO SOCCORSO -->
+<div class="modal-overlay" id="modal-cassetta-ps">
+  <div class="modal" style="max-width:700px;">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);">Cooperativa Sociale Metis — CAS Rimini</div>
+      <div style="font-size:1.1rem;font-weight:800;margin-top:4px;">🩺 VERIFICA MENSILE CASSETTA PRIMO SOCCORSO</div>
+      <div id="ps-mese-label" style="font-size:.88rem;color:var(--muted);margin-top:2px;"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:.88rem;margin-bottom:14px;">
+      <div><span style="color:var(--muted);">Struttura</span><br><b id="ps-struttura-nome"></b></div>
+      <div><span style="color:var(--muted);">Data verifica</span><br><input id="ps-data" type="date" style="border:none;border-bottom:1px solid var(--border);font-size:.88rem;background:transparent;"></div>
+      <div><span style="color:var(--muted);">Operatore</span><br><b id="ps-operatore"></b></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;margin-bottom:16px;">
+      <input id="ps-presente" type="checkbox" checked style="width:20px;height:20px;cursor:pointer;flex-shrink:0;">
+      <label for="ps-presente" style="cursor:pointer;font-size:.9rem;font-weight:600;">Cassetta di primo soccorso PRESENTE in struttura</label>
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.83rem;">
+        <thead>
+          <tr style="background:var(--sidebar);color:#fff;">
+            <th style="padding:8px;text-align:left;">PRODOTTO</th>
+            <th style="padding:8px;text-align:center;width:50px;">SI</th>
+            <th style="padding:8px;text-align:center;width:50px;">NO</th>
+            <th style="padding:8px;text-align:center;">SCADUTO IN DATA</th>
+            <th style="padding:8px;text-align:center;">RIORDINATO IN DATA</th>
+          </tr>
+        </thead>
+        <tbody id="ps-prodotti-tbody"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer" style="margin-top:16px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-cassetta-ps')">Annulla</button>
+      <button class="btn btn-ghost" onclick="salvaVerificaPS(false)">💾 Salva bozza</button>
+      <button class="btn btn-primary" onclick="salvaVerificaPS(true)">📤 Invia verifica</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL APPUNTAMENTO CAS -->
 <div class="modal-overlay" id="modal-appuntamento-cas">
