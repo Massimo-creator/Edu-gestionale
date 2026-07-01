@@ -3208,7 +3208,9 @@ function moveTask(id, nuovoStato){
   <div class="nav-item" onclick="showPageCAS('cas-ospiti')"><span class="ico">👤</span> Ospiti</div>
   <div class="nav-item" onclick="showPageCAS('cas-strutture')"><span class="ico">🏠</span> Strutture</div>
   <div class="nav-item" onclick="showPageCAS('cas-scadenze')"><span class="ico">⏰</span> Scadenze</div>
-  <div class="nav-item" onclick="showPageCAS('cas-calendario')"><span class="ico">📅</span> Appuntamenti</div>
+  <div class="nav-item" onclick="showPageCAS('cas-calendario')"><span class="ico">🏛️</span> Questura</div>
+  <div class="nav-item" onclick="showPageCAS('cas-commissioni')"><span class="ico">⚖️</span> Commissioni</div>
+  <div class="nav-item" onclick="showPageCAS('cas-sanitari')"><span class="ico">🏥</span> Sanitari</div>
   <div class="nav-item" onclick="showPageCAS('cas-turni')"><span class="ico">🔄</span> Turni</div>
   <div class="nav-item" onclick="showPageCAS('cas-manutenzioni')"><span class="ico">🔧</span> Manutenzioni</div>
   <div class="nav-item" onclick="showPageCAS('cas-pocketmoney')"><span class="ico">💶</span> Pocket Money</div>
@@ -3318,7 +3320,7 @@ function mostraAppCAS() {
 
 function showPageCAS(page) {
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
-  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze','cas-calendario':'Appuntamenti','cas-turni':'Turni Operatori','cas-manutenzioni':'Manutenzioni','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni' };
+  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Appuntamenti Sanitari','cas-turni':'Turni Operatori','cas-manutenzioni':'Manutenzioni','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
   if (page === 'cas-dashboard') renderCasDashboard(content);
@@ -3326,6 +3328,8 @@ function showPageCAS(page) {
   else if (page === 'cas-strutture') renderCasStrutture(content);
   else if (page === 'cas-scadenze') renderCasScadenze(content);
   else if (page === 'cas-calendario') renderCasCalendario(content);
+  else if (page === 'cas-commissioni') renderCasAppuntamenti(content, 'Commissione Territoriale');
+  else if (page === 'cas-sanitari') renderCasAppuntamenti(content, 'Visita medica');
   else if (page === 'cas-turni') renderCasTurni(content);
   else if (page === 'cas-manutenzioni') renderCasManutenzioni(content);
   else if (page === 'cas-pocketmoney') renderCasPocketMoney(content);
@@ -3467,7 +3471,53 @@ async function renderCasScadenze(el) {
   } catch(e) { el.innerHTML=`<div style="color:var(--danger);">Errore: ${e.message}</div>`; }
 }
 
-// ── CALENDARIO APPUNTAMENTI ────────────────────────────────────
+// ── COMMISSIONI E SANITARI ─────────────────────────────────────
+async function renderCasAppuntamenti(el, tipo) {
+  el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
+  try {
+    const strutture = SESSION.strutture_cas || [];
+    const struttureIds = strutture.map(s=>s.id);
+    let appuntamenti = [];
+    if (struttureIds.length>0) {
+      appuntamenti = await supa(`appuntamenti_cas?struttura_id=in.(${struttureIds.join(',')})&tipo=eq.${encodeURIComponent(tipo)}&order=data_ora`) || [];
+    }
+    const mapS = {}; strutture.forEach(s=>mapS[s.id]=s.nome);
+    const oggi = new Date(); oggi.setHours(0,0,0,0);
+    const prossimi = appuntamenti.filter(a => new Date(a.data_ora) >= oggi);
+    const passati = appuntamenti.filter(a => new Date(a.data_ora) < oggi);
+    const icona = tipo === 'Commissione Territoriale' ? '⚖️' : '🏥';
+
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <h2 style="font-size:1.1rem;">${icona} ${tipo}</h2>
+        <button class="btn btn-primary" onclick="nuovoAppuntamentoCAS('${tipo}')">+ Nuovo</button>
+      </div>
+      <div style="display:grid;gap:10px;margin-bottom:28px;">
+        ${prossimi.length===0?`<div class="card" style="padding:20px;text-align:center;color:var(--muted);">Nessun appuntamento in programma</div>`:
+          prossimi.map(a=>{
+            const d = new Date(a.data_ora);
+            const isOggi = d.toDateString()===new Date().toDateString();
+            return `<div class="card" style="padding:16px;border-left:3px solid ${isOggi?'var(--danger)':'var(--accent)'};">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div>
+                  <div style="font-weight:600;">${a.titolo}</div>
+                  <div style="font-size:.82rem;color:var(--muted);">🏠 ${mapS[a.struttura_id]||'—'}</div>
+                  ${a.ospite_nome?`<div style="font-size:.82rem;color:var(--muted);">👤 ${a.ospite_nome}</div>`:''}
+                  ${a.note?`<div style="font-size:.82rem;color:var(--muted);margin-top:4px;">${a.note}</div>`:''}
+                </div>
+                <div style="text-align:right;flex-shrink:0;margin-left:12px;">
+                  <div style="font-weight:700;color:${isOggi?'var(--danger)':'var(--text)'};">${isOggi?'OGGI':d.toLocaleDateString('it-IT',{day:'2-digit',month:'short'})}</div>
+                  <div style="font-size:.82rem;color:var(--muted);">${d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</div>
+                  <button onclick="eliminaAppuntamentoCAS('${a.id}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.75rem;margin-top:4px;">✕</button>
+                </div>
+              </div>
+            </div>`;
+          }).join('')}
+      </div>
+      ${passati.length>0?`<details><summary style="cursor:pointer;color:var(--muted);font-size:.85rem;padding:8px 0;">Passati (${passati.length})</summary><div style="display:grid;gap:8px;margin-top:10px;opacity:.6;">${passati.reverse().map(a=>{const d=new Date(a.data_ora);return `<div class="card" style="padding:12px;"><div style="display:flex;justify-content:space-between;"><span style="font-weight:500;">${a.titolo}</span><span style="font-size:.82rem;color:var(--muted);">${d.toLocaleDateString('it-IT')}</span></div></div>`;}).join('')}</div></details>`:''}
+    `;
+  } catch(e) { el.innerHTML=`<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
+}
 async function renderCasCalendario(el) {
   el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
   try {
@@ -3533,7 +3583,18 @@ function tipoAppuntamentoIcon(tipo) {
   return map[tipo]||'📌';
 }
 
-function nuovoAppuntamentoCAS() { openModal('modal-appuntamento-cas'); }
+function nuovoAppuntamentoCAS(tipoPreselezionato) {
+  document.getElementById('app-titolo').value='';
+  document.getElementById('app-data').value='';
+  document.getElementById('app-ora').value='';
+  document.getElementById('app-ospite').value='';
+  document.getElementById('app-note').value='';
+  if(tipoPreselezionato) document.getElementById('app-tipo').value=tipoPreselezionato;
+  const sel = document.getElementById('app-struttura');
+  const strutture = SESSION.strutture_cas||[];
+  sel.innerHTML = strutture.map(s=>`<option value="${s.id}">${s.nome}</option>`).join('');
+  openModal('modal-appuntamento-cas');
+}
 
 async function eliminaAppuntamentoCAS(id) {
   if(!confirm('Eliminare questo appuntamento?')) return;
@@ -4118,6 +4179,7 @@ async function salvaTrasferimento() {
           <option>Commissione Territoriale</option>
           <option>Avvocato</option>
           <option>Visita medica</option>
+          <option>Specialista</option>
           <option>Ricorso</option>
           <option>Altro</option>
         </select>
