@@ -3346,29 +3346,75 @@ async function renderCasDashboard(el) {
     const struttureIds = strutture.map(s => s.id);
     let ospiti = [];
     if (struttureIds.length > 0) ospiti = await supa(`ospiti_cas?struttura_id=in.(${struttureIds.join(',')})&attivo=eq.true`) || [];
-    const oggi = new Date();
-    const scadenzeVicine = ospiti.filter(o => { if(!o.scadenza_permesso) return false; const d=(new Date(o.scadenza_permesso)-oggi)/(1000*60*60*24); return d>=0&&d<=60; });
+    const oggi = new Date(); oggi.setHours(0,0,0,0);
     const totaleCapienza = strutture.reduce((acc,s)=>acc+(s.capienza||0),0);
     const postiVuoti = totaleCapienza > 0 ? totaleCapienza - ospiti.length : null;
-
-    // Appuntamenti prossimi 7 giorni
-    const fra7 = new Date(oggi); fra7.setDate(fra7.getDate()+7);
-    let appProssimi = [];
-    if(struttureIds.length>0) {
-      const dataOggiStr = oggi.toISOString().split('T')[0];
-      const dataFraStr = fra7.toISOString().split('T')[0];
-      appProssimi = await supa(`appuntamenti_cas?struttura_id=in.(${struttureIds.join(',')})&data_ora=gte.${dataOggiStr}&data_ora=lte.${dataFraStr}T23:59:59&order=data_ora`) || [];
-    }
     const mapS = {}; strutture.forEach(s=>mapS[s.id]=s.nome);
 
+    // Carica appuntamenti prossimi 30 giorni
+    const fra30 = new Date(oggi); fra30.setDate(fra30.getDate()+30);
+    let appuntamenti = [];
+    if(struttureIds.length>0) {
+      appuntamenti = await supa(`appuntamenti_cas?struttura_id=in.(${struttureIds.join(',')})&data_ora=gte.${oggi.toISOString().split('T')[0]}&data_ora=lte.${fra30.toISOString().split('T')[0]}T23:59:59&order=data_ora`) || [];
+    }
+
+    // Unifica appuntamenti e scadenze PDS in un unico array
+    const items = [];
+    appuntamenti.forEach(a => {
+      const d = new Date(a.data_ora);
+      const diff = Math.ceil((d - oggi) / (1000*60*60*24));
+      items.push({ tipo: a.tipo, label: a.ospite_nome||a.titolo, struttura: mapS[a.struttura_id]||'—', data: d, diff, icon: tipoAppuntamentoIcon(a.tipo), categoria: 'appuntamento' });
+    });
+    ospiti.forEach(o => {
+      if(!o.scadenza_permesso) return;
+      const d = new Date(o.scadenza_permesso);
+      const diff = Math.ceil((d - oggi) / (1000*60*60*24));
+      if(diff >= 0 && diff <= 30) items.push({ tipo: 'Scadenza PDS', label: `${o.nome} ${o.cognome}`, struttura: mapS[o.struttura_id]||'—', data: d, diff, icon: '📋', categoria: 'scadenza' });
+    });
+    items.sort((a,b) => a.diff - b.diff);
+
+    const fascia7 = items.filter(i=>i.diff<=7);
+    const fascia15 = items.filter(i=>i.diff>7&&i.diff<=15);
+    const fascia30 = items.filter(i=>i.diff>15&&i.diff<=30);
+
+    const renderItem = (i) => `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:10px 14px;background:var(--bg);border-radius:8px;border-left:3px solid ${i.diff<=7?'var(--danger)':i.diff<=15?'var(--warn)':'var(--accent2)'};">
+      <div>
+        <div style="font-weight:600;font-size:.88rem;">${i.icon} ${i.label}</div>
+        <div style="font-size:.78rem;color:var(--muted);">🏠 ${i.struttura} · ${i.tipo}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-left:10px;">
+        <div style="font-weight:700;color:${i.diff<=7?'var(--danger)':i.diff<=15?'var(--warn)':'var(--accent2)'};font-size:.85rem;">${i.diff===0?'OGGI':i.diff+' gg'}</div>
+        <div style="font-size:.75rem;color:var(--muted);">${i.data.toLocaleDateString('it-IT',{day:'2-digit',month:'short'})}</div>
+      </div>
+    </div>`;
+
+    const renderFascia = (label, col, icon, list, aperta) => list.length===0?'':`
+      <div style="margin-bottom:12px;">
+        <div onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'grid':'none'" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:${col}18;border:1px solid ${col}40;border-radius:8px;cursor:pointer;user-select:none;">
+          <span style="font-weight:700;color:${col};">${icon} ${label} <span style="background:${col};color:#fff;border-radius:20px;padding:1px 10px;font-size:.78rem;margin-left:6px;">${list.length}</span></span>
+          <span style="color:${col};font-size:.85rem;">▼</span>
+        </div>
+        <div style="display:${aperta?'grid':'none'};gap:8px;margin-top:8px;">
+          ${list.map(renderItem).join('')}
+        </div>
+      </div>`;
+
     el.innerHTML = `
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:28px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px;">
         <div class="card" style="padding:20px;text-align:center;"><div style="font-size:2.2rem;font-weight:700;color:var(--accent);">${strutture.length}</div><div style="color:var(--muted);font-size:.85rem;margin-top:4px;">Strutture</div></div>
         <div class="card" style="padding:20px;text-align:center;"><div style="font-size:2.2rem;font-weight:700;color:var(--accent2);">${ospiti.length}</div><div style="color:var(--muted);font-size:.85rem;margin-top:4px;">Beneficiari presenti</div></div>
         ${postiVuoti!==null?`<div class="card" style="padding:20px;text-align:center;"><div style="font-size:2.2rem;font-weight:700;color:${postiVuoti>0?'var(--warn)':'var(--danger)'};">${postiVuoti}</div><div style="color:var(--muted);font-size:.85rem;margin-top:4px;">Posti vuoti</div></div>`:''}
-        <div class="card" style="padding:20px;text-align:center;"><div style="font-size:2.2rem;font-weight:700;color:var(--danger);">${scadenzeVicine.length}</div><div style="color:var(--muted);font-size:.85rem;margin-top:4px;">Scadenze entro 60gg</div></div>
-        <div class="card" style="padding:20px;text-align:center;"><div style="font-size:2.2rem;font-weight:700;color:#8b5cf6;">${appProssimi.length}</div><div style="color:var(--muted);font-size:.85rem;margin-top:4px;">Appuntamenti 7gg</div></div>
+        <div class="card" style="padding:20px;text-align:center;"><div style="font-size:2.2rem;font-weight:700;color:var(--danger);">${fascia7.length}</div><div style="color:var(--muted);font-size:.85rem;margin-top:4px;">Urgenti (7gg)</div></div>
       </div>
+
+      <div class="card" style="padding:20px;margin-bottom:16px;">
+        <h3 style="font-size:1rem;margin-bottom:16px;">📅 Appuntamenti e Scadenze</h3>
+        ${fascia7.length===0&&fascia15.length===0&&fascia30.length===0?'<div style="color:var(--muted);text-align:center;padding:16px;">Nessun appuntamento o scadenza nei prossimi 30 giorni 👍</div>':''}
+        ${renderFascia('Entro 7 giorni','var(--danger)','🔴',fascia7,true)}
+        ${renderFascia('Entro 15 giorni','var(--warn)','🟠',fascia15,fascia7.length===0)}
+        ${renderFascia('Entro 30 giorni','var(--accent2)','🟡',fascia30,false)}
+      </div>
+
       <div class="card" style="padding:20px;">
         <h3 style="font-size:1rem;margin-bottom:16px;">🏠 Strutture</h3>
         <div style="display:grid;gap:8px;">
@@ -3392,8 +3438,6 @@ async function renderCasDashboard(el) {
           }).join('')}
         </div>
       </div>
-      ${scadenzeVicine.length>0?`<div class="card" style="padding:20px;margin-top:16px;"><h3 style="font-size:1rem;margin-bottom:16px;">⚠️ Scadenze permessi entro 60 giorni</h3><div style="display:grid;gap:8px;">${scadenzeVicine.map(o=>{const diff=Math.ceil((new Date(o.scadenza_permesso)-oggi)/(1000*60*60*24));const col=diff<=15?'var(--danger)':diff<=30?'var(--warn)':'var(--accent2)';return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg);border-radius:8px;"><b>${o.nome} ${o.cognome}</b><span style="color:${col};font-weight:600;">${diff} giorni</span></div>`;}).join('')}</div></div>`:''}
-      ${appProssimi.length>0?`<div class="card" style="padding:20px;margin-top:16px;border-left:4px solid #8b5cf6;"><h3 style="font-size:1rem;margin-bottom:16px;">📅 Appuntamenti nei prossimi 7 giorni</h3><div style="display:grid;gap:8px;">${appProssimi.map(a=>{const d=new Date(a.data_ora);const isOggi=d.toDateString()===oggi.toDateString();return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg);border-radius:8px;border-left:3px solid ${isOggi?'var(--danger)':'#8b5cf6'};"><div><b>${a.ospite_nome||a.titolo}</b><div style="font-size:.78rem;color:var(--muted);">🏠 ${mapS[a.struttura_id]||'—'} · ${a.tipo}</div></div><div style="text-align:right;"><div style="font-weight:700;color:${isOggi?'var(--danger)':'#8b5cf6'};">${isOggi?'OGGI':d.toLocaleDateString('it-IT',{day:'2-digit',month:'short'})}</div><div style="font-size:.78rem;color:var(--muted);">${d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</div></div></div>`;}).join('')}</div></div>`:''}
     `;
   } catch(e) { el.innerHTML=`<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
 }
