@@ -3207,10 +3207,11 @@ function moveTask(id, nuovoStato){
   <div class="nav-item active" onclick="showPageCAS('cas-dashboard')"><span class="ico">📊</span> Dashboard</div>
   <div class="nav-item" onclick="showPageCAS('cas-ospiti')"><span class="ico">👤</span> Ospiti</div>
   <div class="nav-item" onclick="showPageCAS('cas-strutture')"><span class="ico">🏠</span> Strutture</div>
-  <div class="nav-item" onclick="showPageCAS('cas-scadenze')"><span class="ico">⏰</span> Scadenze</div>
-  <div class="nav-item" onclick="showPageCAS('cas-calendario')"><span class="ico">🏛️</span> Questura</div>
-  <div class="nav-item" onclick="showPageCAS('cas-commissioni')"><span class="ico">⚖️</span> Commissioni</div>
-  <div class="nav-item" onclick="showPageCAS('cas-sanitari')"><span class="ico">🏥</span> Sanitari</div>
+  <div style="padding:10px 16px 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-top:4px;">Appuntamenti e Scadenze</div>
+  <div class="nav-item" onclick="showPageCAS('cas-scadenze')" style="padding-left:24px;"><span class="ico">⏰</span> Scadenze PDS</div>
+  <div class="nav-item" onclick="showPageCAS('cas-calendario')" style="padding-left:24px;"><span class="ico">🏛️</span> Questura</div>
+  <div class="nav-item" onclick="showPageCAS('cas-commissioni')" style="padding-left:24px;"><span class="ico">⚖️</span> Commissioni</div>
+  <div class="nav-item" onclick="showPageCAS('cas-sanitari')" style="padding-left:24px;"><span class="ico">🏥</span> Visite sanitarie</div>
   <div class="nav-item" onclick="showPageCAS('cas-turni')"><span class="ico">🔄</span> Turni</div>
   <div class="nav-item" onclick="showPageCAS('cas-manutenzioni')"><span class="ico">🔧</span> Manutenzioni</div>
   <div class="nav-item" onclick="showPageCAS('cas-cassettaps')"><span class="ico">🩺</span> Cassetta P.S.</div>
@@ -3321,7 +3322,7 @@ function mostraAppCAS() {
 
 function showPageCAS(page) {
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
-  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Appuntamenti Sanitari','cas-turni':'Turni Operatori','cas-manutenzioni':'Manutenzioni','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni' };
+  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-turni':'Turni Operatori','cas-manutenzioni':'Manutenzioni','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
   if (page === 'cas-dashboard') renderCasDashboard(content);
