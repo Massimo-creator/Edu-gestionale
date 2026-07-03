@@ -1001,6 +1001,17 @@ async function sha256(msg) {
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
+// Stub per mostraAppCAS — la funzione vera è nel secondo script block CAS
+// Viene sovrascritta quando il DOM è completamente caricato
+function mostraAppCAS() {
+  // Aspetta che il DOM sia pronto e richiama
+  setTimeout(() => {
+    if(typeof window._mostraAppCAS === 'function') {
+      window._mostraAppCAS();
+    }
+  }, 50);
+}
+
 // ===================== STORAGE (Supabase) =====================
 const DB = {
   _cache: {},
@@ -3321,10 +3332,7 @@ function moveTask(id, nuovoStato){
 <script>
 // ===== MODULO CAS =====
 
-function mostraAppCAS() {
-  document.getElementById('welcomeScreen').style.display = 'none';
-  document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('mainApp').style.display = 'none';
+window._mostraAppCAS = function mostraAppCAS() {
   document.getElementById('mainAppCAS').style.display = 'flex';
   if (SESSION) {
     const nome = SESSION.utente.nome || SESSION.utente.email || '';
