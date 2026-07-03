@@ -4074,19 +4074,21 @@ async function renderCasEquipe(el) {
 function renderCardRiunione(r, aperta) {
   const d = new Date(r.data_ora);
   const isOggi = d.toDateString() === new Date().toDateString();
+  const orario = r.ora_da_definire ? '<span style="color:var(--warn);">ora da definire</span>' : d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
   return `<div class="card" style="padding:0;overflow:hidden;">
     <div style="padding:16px;border-left:4px solid ${isOggi?'var(--danger)':'var(--accent)'};">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
         <div>
           <div style="font-weight:700;font-size:1rem;">${r.titolo}</div>
           <div style="font-size:.82rem;color:var(--muted);margin-top:2px;">
-            📅 ${isOggi?'<b style="color:var(--danger)">OGGI</b>':d.toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'long'})} · ${d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}
+            📅 ${isOggi?'<b style="color:var(--danger)">OGGI</b>':d.toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'long'})} · ${orario}
             ${r.luogo?` · 📍 ${r.luogo}`:''}
           </div>
         </div>
-        <button class="btn btn-ghost" style="font-size:.82rem;" onclick="apriRiunione('${r.id}')">
-          📋 Ordine del giorno
-        </button>
+        <div style="display:flex;gap:6px;">
+          ${SESSION.is_coordinatore_cas?`<button class="btn btn-ghost" style="font-size:.78rem;" onclick="modificaRiunione('${r.id}')">✏️ Modifica</button>`:''}
+          <button class="btn btn-ghost" style="font-size:.82rem;" onclick="apriRiunione('${r.id}')">📋 ODG</button>
+        </div>
       </div>
       ${r.note_coordinatore?`<div style="margin-top:8px;font-size:.82rem;color:var(--muted);font-style:italic;">📝 ${r.note_coordinatore}</div>`:''}
     </div>
@@ -4163,6 +4165,8 @@ function tipoODGCol(tipo) {
 }
 
 function nuovaRiunione() {
+  document.getElementById('riu-modal-title').textContent = 'Nuova riunione di équipe';
+  document.getElementById('riu-id').value = '';
   document.getElementById('riu-titolo').value = '';
   document.getElementById('riu-data').value = '';
   document.getElementById('riu-ora').value = '';
@@ -4171,18 +4175,41 @@ function nuovaRiunione() {
   openModal('modal-riunione');
 }
 
-async function salvaRiunione() {
+async function modificaRiunione(id) {
+  try {
+    const res = await supa(`riunioni_cas?id=eq.${id}&limit=1`) || [];
+    if(!res.length) return;
+    const r = res[0];
+    const d = new Date(r.data_ora);
+    document.getElementById('riu-modal-title').textContent = 'Modifica riunione';
+    document.getElementById('riu-id').value = id;
+    document.getElementById('riu-titolo').value = r.titolo || '';
+    document.getElementById('riu-data').value = d.toISOString().split('T')[0];
+    document.getElementById('riu-ora').value = r.ora_da_definire ? '' : d.toTimeString().slice(0,5);
+    document.getElementById('riu-luogo').value = r.luogo || '';
+    document.getElementById('riu-note').value = r.note_coordinatore || '';
+    openModal('modal-riunione');
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+async function salvaRiunione(riunioneId) {
   const titolo = document.getElementById('riu-titolo').value.trim();
   const data = document.getElementById('riu-data').value;
+  if(!titolo||!data) { alert('Compila almeno titolo e data.'); return; }
   const ora = document.getElementById('riu-ora').value;
-  if(!titolo||!data||!ora) { alert('Compila titolo, data e ora.'); return; }
+  const payload = {
+    titolo,
+    data_ora: ora ? `${data}T${ora}:00` : `${data}T00:00:00`,
+    ora_da_definire: !ora,
+    luogo: document.getElementById('riu-luogo').value || null,
+    note_coordinatore: document.getElementById('riu-note').value || null
+  };
   try {
-    await supa('riunioni_cas', { method:'POST', body: JSON.stringify({
-      titolo,
-      data_ora: `${data}T${ora}:00`,
-      luogo: document.getElementById('riu-luogo').value || null,
-      note_coordinatore: document.getElementById('riu-note').value || null
-    })});
+    if(riunioneId) {
+      await supa(`riunioni_cas?id=eq.${riunioneId}`, { method:'PATCH', body: JSON.stringify(payload)});
+    } else {
+      await supa('riunioni_cas', { method:'POST', body: JSON.stringify(payload)});
+    }
     closeModal('modal-riunione');
     showPageCAS('cas-equipe');
   } catch(e) { alert('Errore: '+e.message); }
@@ -4578,17 +4605,19 @@ async function salvaTrasferimento() {
 <!-- MODAL NUOVA RIUNIONE -->
 <div class="modal-overlay" id="modal-riunione">
   <div class="modal">
-    <h3>👥 Nuova riunione di équipe</h3>
+    <h3>👥 <span id="riu-modal-title">Nuova riunione di équipe</span></h3>
+    <input type="hidden" id="riu-id">
     <div class="form-group"><label>Titolo *</label><input id="riu-titolo" placeholder="es. Équipe 16 luglio 2025"></div>
     <div class="grid g2">
       <div class="form-group"><label>Data *</label><input id="riu-data" type="date"></div>
-      <div class="form-group"><label>Ora *</label><input id="riu-ora" type="time" value="14:00"></div>
+      <div class="form-group"><label>Ora <span style="color:var(--muted);font-size:.8rem;">(opzionale)</span></label><input id="riu-ora" type="time" placeholder="da definire"></div>
     </div>
+    <div style="font-size:.78rem;color:var(--warn);margin-top:-8px;margin-bottom:10px;">💡 Puoi lasciare l'ora vuota e aggiungerla dopo</div>
     <div class="form-group"><label>Luogo</label><input id="riu-luogo" placeholder="es. Sede Metis, Via Marzabotto"></div>
     <div class="form-group"><label>Note iniziali</label><textarea id="riu-note" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;" placeholder="Eventuali comunicazioni preliminari..."></textarea></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-riunione')">Annulla</button>
-      <button class="btn btn-primary" onclick="salvaRiunione()">💾 Crea riunione</button>
+      <button class="btn btn-primary" onclick="salvaRiunione(document.getElementById('riu-id').value||null)">💾 Salva</button>
     </div>
   </div>
 </div>
