@@ -3224,6 +3224,7 @@ function moveTask(id, nuovoStato){
   <div class="nav-item" onclick="showPageCAS('cas-calendario')" style="padding-left:24px;"><span class="ico">🏛️</span> Questura</div>
   <div class="nav-item" onclick="showPageCAS('cas-commissioni')" style="padding-left:24px;"><span class="ico">⚖️</span> Commissioni</div>
   <div class="nav-item" onclick="showPageCAS('cas-sanitari')" style="padding-left:24px;"><span class="ico">🏥</span> Visite sanitarie</div>
+  <div class="nav-item" onclick="showPageCAS('cas-equipe')"><span class="ico">👥</span> Équipe</div>
   <div class="nav-item" onclick="showPageCAS('cas-turni')"><span class="ico">🔄</span> Turni</div>
   <div class="nav-item" onclick="showPageCAS('cas-manutenzioni')"><span class="ico">🔧</span> Manutenzioni</div>
   <div class="nav-item" onclick="showPageCAS('cas-cassettaps')"><span class="ico">🩺</span> Cassetta P.S.</div>
@@ -3334,7 +3335,7 @@ function mostraAppCAS() {
 
 function showPageCAS(page) {
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
-  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-turni':'Turni Operatori','cas-manutenzioni':'Manutenzioni','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni' };
+  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-equipe':'Équipe','cas-turni':'Turni Operatori','cas-manutenzioni':'Manutenzioni','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
   if (page === 'cas-dashboard') renderCasDashboard(content);
@@ -3344,6 +3345,7 @@ function showPageCAS(page) {
   else if (page === 'cas-calendario') renderCasCalendario(content);
   else if (page === 'cas-commissioni') renderCasAppuntamenti(content, 'Commissione Territoriale');
   else if (page === 'cas-sanitari') renderCasAppuntamenti(content, 'Visita medica');
+  else if (page === 'cas-equipe') renderCasEquipe(content);
   else if (page === 'cas-turni') renderCasTurni(content);
   else if (page === 'cas-manutenzioni') renderCasManutenzioni(content);
   else if (page === 'cas-cassettaps') renderCassettePS(content);
@@ -4005,7 +4007,218 @@ async function modificaCapienza(strutturaId, strutturaNome, capienzaAttuale) {
   } catch(e){alert('Errore: '+e.message);}
 }
 
-// ── CASSETTA PRIMO SOCCORSO ────────────────────────────────────
+// ── ÉQUIPE ─────────────────────────────────────────────────────
+async function renderCasEquipe(el) {
+  el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
+  try {
+    const riunioni = await supa('riunioni_cas?order=data_ora.desc') || [];
+    const oggi = new Date();
+
+    const prossime = riunioni.filter(r => new Date(r.data_ora) >= oggi);
+    const passate = riunioni.filter(r => new Date(r.data_ora) < oggi);
+
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <h2 style="font-size:1.1rem;">👥 Équipe — Riunioni</h2>
+        ${SESSION.is_coordinatore_cas ? `<button class="btn btn-primary" onclick="nuovaRiunione()">+ Nuova riunione</button>` : ''}
+      </div>
+
+      ${prossime.length === 0 && passate.length === 0 ? '<div class="card" style="padding:30px;text-align:center;color:var(--muted);">Nessuna riunione programmata</div>' : ''}
+
+      ${prossime.length > 0 ? `
+        <div style="margin-bottom:24px;">
+          <div style="font-weight:700;color:var(--accent);margin-bottom:12px;font-size:.9rem;text-transform:uppercase;letter-spacing:.05em;">📅 Prossime riunioni</div>
+          <div style="display:grid;gap:12px;">
+            ${prossime.map(r => renderCardRiunione(r, true)).join('')}
+          </div>
+        </div>` : ''}
+
+      ${passate.length > 0 ? `
+        <details>
+          <summary style="cursor:pointer;color:var(--muted);font-size:.85rem;padding:8px 0;">Riunioni precedenti (${passate.length})</summary>
+          <div style="display:grid;gap:10px;margin-top:10px;">
+            ${passate.map(r => renderCardRiunione(r, false)).join('')}
+          </div>
+        </details>` : ''}
+    `;
+  } catch(e) { el.innerHTML = `<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
+}
+
+function renderCardRiunione(r, aperta) {
+  const d = new Date(r.data_ora);
+  const isOggi = d.toDateString() === new Date().toDateString();
+  return `<div class="card" style="padding:0;overflow:hidden;">
+    <div style="padding:16px;border-left:4px solid ${isOggi?'var(--danger)':'var(--accent)'};">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-weight:700;font-size:1rem;">${r.titolo}</div>
+          <div style="font-size:.82rem;color:var(--muted);margin-top:2px;">
+            📅 ${isOggi?'<b style="color:var(--danger)">OGGI</b>':d.toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'long'})} · ${d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}
+            ${r.luogo?` · 📍 ${r.luogo}`:''}
+          </div>
+        </div>
+        <button class="btn btn-ghost" style="font-size:.82rem;" onclick="apriRiunione('${r.id}')">
+          📋 Ordine del giorno
+        </button>
+      </div>
+      ${r.note_coordinatore?`<div style="margin-top:8px;font-size:.82rem;color:var(--muted);font-style:italic;">📝 ${r.note_coordinatore}</div>`:''}
+    </div>
+  </div>`;
+}
+
+async function apriRiunione(riunioneId) {
+  const el = document.getElementById('content-cas');
+  el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
+  try {
+    const res = await supa(`riunioni_cas?id=eq.${riunioneId}&limit=1`) || [];
+    if(!res.length) return;
+    const r = res[0];
+    const d = new Date(r.data_ora);
+    const punti = await supa(`odg_riunioni_cas?riunione_id=eq.${riunioneId}&order=created_at`) || [];
+
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+        <button class="btn btn-ghost" onclick="showPageCAS('cas-equipe')">← Équipe</button>
+        <div>
+          <h2 style="font-size:1.1rem;margin:0;">${r.titolo}</h2>
+          <div style="font-size:.82rem;color:var(--muted);">
+            📅 ${d.toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})} · ${d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}
+            ${r.luogo?` · 📍 ${r.luogo}`:''}
+          </div>
+        </div>
+        ${SESSION.is_coordinatore_cas ? `<button class="btn btn-ghost" style="margin-left:auto;font-size:.82rem;" onclick="eliminaRiunione('${r.id}')">🗑️ Elimina</button>` : ''}
+      </div>
+
+      ${r.note_coordinatore ? `<div class="card" style="padding:14px;margin-bottom:16px;border-left:4px solid var(--accent);"><div style="font-size:.82rem;color:var(--muted);margin-bottom:4px;">Note del coordinatore</div><div style="font-size:.9rem;">${r.note_coordinatore}</div></div>` : ''}
+
+      <div class="card" style="padding:20px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3 style="font-size:1rem;margin:0;">📋 Ordine del giorno (${punti.length} punti)</h3>
+          <button class="btn btn-primary" style="font-size:.82rem;" onclick="aggiunciPuntoODG('${riunioneId}')">+ Aggiungi punto</button>
+        </div>
+        ${punti.length === 0 ? '<div style="color:var(--muted);text-align:center;padding:20px;">Nessun punto ancora. Sii il primo ad aggiungerne uno.</div>' :
+          `<div style="display:grid;gap:10px;">
+            ${punti.map((p,i) => `
+              <div style="padding:14px;background:var(--bg);border-radius:8px;border-left:3px solid ${tipoODGCol(p.tipo)};">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+                  <div style="flex:1;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                      <span style="background:${tipoODGCol(p.tipo)};color:#fff;border-radius:20px;padding:1px 10px;font-size:.72rem;">${p.tipo}</span>
+                      <span style="font-size:.78rem;color:var(--muted);">👤 ${p.inserito_da_nome||'—'}${p.struttura?' · 🏠 '+p.struttura:''}</span>
+                    </div>
+                    <div style="font-size:.92rem;font-weight:500;">${i+1}. ${p.punto}</div>
+                    ${p.note_decisione ? `<div style="margin-top:8px;padding:8px;background:rgba(16,185,129,.08);border-radius:6px;font-size:.82rem;color:var(--accent2);">✅ Decisione: ${p.note_decisione}</div>` : ''}
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
+                    ${SESSION.is_coordinatore_cas ? `<button class="btn btn-ghost" style="font-size:.72rem;padding:3px 8px;" onclick="aggiungiDecisione('${p.id}','${riunioneId}')">✅ Decisione</button>` : ''}
+                    ${(SESSION.is_coordinatore_cas || SESSION.utente.email === p.inserito_da_email) ? `<button onclick="eliminaPuntoODG('${p.id}','${riunioneId}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.75rem;">✕</button>` : ''}
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>`
+        }
+      </div>
+
+      ${SESSION.is_coordinatore_cas ? `
+        <div class="card" style="padding:16px;">
+          <div style="font-size:.85rem;font-weight:600;margin-bottom:8px;">Note del coordinatore</div>
+          <textarea id="note-coord-${riunioneId}" rows="3" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;" placeholder="Aggiungi note, decisioni generali, follow-up...">${r.note_coordinatore||''}</textarea>
+          <button class="btn btn-primary" style="margin-top:8px;font-size:.82rem;" onclick="salvaNoteCoord('${riunioneId}')">💾 Salva note</button>
+        </div>` : ''}
+    `;
+  } catch(e) { el.innerHTML = `<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
+}
+
+function tipoODGCol(tipo) {
+  const map = { 'Caso':'var(--accent)','Criticità struttura':'var(--danger)','Proposta':'var(--accent2)','Organizzativo':'var(--warn)','Altro':'#94a3b8' };
+  return map[tipo] || '#94a3b8';
+}
+
+function nuovaRiunione() {
+  document.getElementById('riu-titolo').value = '';
+  document.getElementById('riu-data').value = '';
+  document.getElementById('riu-ora').value = '';
+  document.getElementById('riu-luogo').value = '';
+  document.getElementById('riu-note').value = '';
+  openModal('modal-riunione');
+}
+
+async function salvaRiunione() {
+  const titolo = document.getElementById('riu-titolo').value.trim();
+  const data = document.getElementById('riu-data').value;
+  const ora = document.getElementById('riu-ora').value;
+  if(!titolo||!data||!ora) { alert('Compila titolo, data e ora.'); return; }
+  try {
+    await supa('riunioni_cas', { method:'POST', body: JSON.stringify({
+      titolo,
+      data_ora: `${data}T${ora}:00`,
+      luogo: document.getElementById('riu-luogo').value || null,
+      note_coordinatore: document.getElementById('riu-note').value || null
+    })});
+    closeModal('modal-riunione');
+    showPageCAS('cas-equipe');
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+async function eliminaRiunione(id) {
+  if(!confirm('Eliminare questa riunione e tutti i punti ODG?')) return;
+  try {
+    await supa(`riunioni_cas?id=eq.${id}`, {method:'DELETE', headers:{'Prefer':'return=minimal'}});
+    showPageCAS('cas-equipe');
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+let _odgRiunioneId = null;
+
+function aggiunciPuntoODG(riunioneId) {
+  _odgRiunioneId = riunioneId;
+  document.getElementById('odg-punto').value = '';
+  document.getElementById('odg-tipo').value = 'Altro';
+  openModal('modal-odg');
+}
+
+async function salvaPuntoODG() {
+  const punto = document.getElementById('odg-punto').value.trim();
+  if(!punto) { alert('Descrivi il punto da aggiungere.'); return; }
+  try {
+    await supa('odg_riunioni_cas', { method:'POST', body: JSON.stringify({
+      riunione_id: _odgRiunioneId,
+      punto,
+      tipo: document.getElementById('odg-tipo').value,
+      inserito_da_email: SESSION.utente.email,
+      inserito_da_nome: SESSION.utente.nome || SESSION.utente.email,
+      struttura: document.getElementById('odg-struttura').value || null
+    })});
+    closeModal('modal-odg');
+    apriRiunione(_odgRiunioneId);
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+async function eliminaPuntoODG(id, riunioneId) {
+  if(!confirm('Rimuovere questo punto?')) return;
+  try {
+    await supa(`odg_riunioni_cas?id=eq.${id}`, {method:'DELETE', headers:{'Prefer':'return=minimal'}});
+    apriRiunione(riunioneId);
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+async function aggiungiDecisione(puntoId, riunioneId) {
+  const decisione = prompt('Inserisci la decisione presa per questo punto:');
+  if(!decisione) return;
+  try {
+    await supa(`odg_riunioni_cas?id=eq.${puntoId}`, {method:'PATCH', body: JSON.stringify({note_decisione: decisione})});
+    apriRiunione(riunioneId);
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+async function salvaNoteCoord(riunioneId) {
+  const note = document.getElementById(`note-coord-${riunioneId}`)?.value || '';
+  try {
+    await supa(`riunioni_cas?id=eq.${riunioneId}`, {method:'PATCH', body: JSON.stringify({note_coordinatore: note})});
+    alert('Note salvate.');
+  } catch(e) { alert('Errore: '+e.message); }
+}
 const PRODOTTI_PS = [
   'Ghiaccio Istantaneo','Laccio Emostatico','Cotone gr. 20',
   'Flacone Iodoprovidone ml 125','Soluzione Fisiologica ml. 250',
@@ -4334,6 +4547,51 @@ async function salvaTrasferimento() {
   } catch(e){alert('Errore: '+e.message);}
 }
 </script>
+
+<!-- MODAL NUOVA RIUNIONE -->
+<div class="modal-overlay" id="modal-riunione">
+  <div class="modal">
+    <h3>👥 Nuova riunione di équipe</h3>
+    <div class="form-group"><label>Titolo *</label><input id="riu-titolo" placeholder="es. Équipe 16 luglio 2025"></div>
+    <div class="grid g2">
+      <div class="form-group"><label>Data *</label><input id="riu-data" type="date"></div>
+      <div class="form-group"><label>Ora *</label><input id="riu-ora" type="time" value="14:00"></div>
+    </div>
+    <div class="form-group"><label>Luogo</label><input id="riu-luogo" placeholder="es. Sede Metis, Via Marzabotto"></div>
+    <div class="form-group"><label>Note iniziali</label><textarea id="riu-note" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;" placeholder="Eventuali comunicazioni preliminari..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-riunione')">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaRiunione()">💾 Crea riunione</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PUNTO ODG -->
+<div class="modal-overlay" id="modal-odg">
+  <div class="modal">
+    <h3>📋 Aggiungi punto all'ordine del giorno</h3>
+    <div class="form-group"><label>Tipo</label>
+      <select id="odg-tipo">
+        <option value="Caso">🔵 Caso</option>
+        <option value="Criticità struttura">🔴 Criticità struttura</option>
+        <option value="Proposta">🟢 Proposta</option>
+        <option value="Organizzativo">🟡 Organizzativo</option>
+        <option value="Altro" selected>⚪ Altro</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Descrizione *</label><textarea id="odg-punto" rows="3" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;" placeholder="Descrivi il punto che vuoi portare in riunione..."></textarea></div>
+    <div class="form-group"><label>Struttura di riferimento (opzionale)</label>
+      <select id="odg-struttura">
+        <option value="">— nessuna struttura specifica —</option>
+        ${(SESSION?.strutture_cas||[]).map(s=>`<option value="${s.nome}">${s.nome}</option>`).join('')}
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-odg')">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaPuntoODG()">📋 Aggiungi</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL CASSETTA PRIMO SOCCORSO -->
 <div class="modal-overlay" id="modal-cassetta-ps">
