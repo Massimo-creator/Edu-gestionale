@@ -928,10 +928,14 @@ async function doLogin() {
       let struttureCAS = [];
       const isCoord = (email === 'm.andreoni@coopmetis.com' || (utenteCAS && utenteCAS.ruolo === 'Coordinatore'));
       if (isCoord) {
-        struttureCAS = await supa('strutture_cas?attiva=eq.true&order=nome');
+        struttureCAS = await supa('strutture_cas?attiva=eq.true&order=nome') || [];
       } else {
-        const assegnazioni = await supa(`operatori_strutture?operatore_email=eq.${encodeURIComponent(email)}&select=struttura_id,strutture_cas(id,nome,indirizzo)`);
-        struttureCAS = assegnazioni ? assegnazioni.map(a => a.strutture_cas).filter(Boolean) : [];
+        // Prima prendi gli ID strutture assegnate
+        const assegnazioni = await supa(`operatori_strutture?operatore_email=eq.${encodeURIComponent(email)}`) || [];
+        const struttureIds = assegnazioni.map(a => a.struttura_id).filter(Boolean);
+        if (struttureIds.length > 0) {
+          struttureCAS = await supa(`strutture_cas?id=in.(${struttureIds.join(',')})&order=nome`) || [];
+        }
       }
 
       setSession({
@@ -952,7 +956,6 @@ async function doLogin() {
       return;
     }
   }
-  // ── FINE LOGIN METIS CAS ─────────────────────────────────────
 
   try {
     // 1. Trova comunità
