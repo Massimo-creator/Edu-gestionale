@@ -3219,17 +3219,28 @@ function moveTask(id, nuovoStato){
   <div class="nav-item active" onclick="showPageCAS('cas-dashboard')"><span class="ico">📊</span> Dashboard</div>
   <div class="nav-item" onclick="showPageCAS('cas-ospiti')"><span class="ico">👤</span> Ospiti</div>
   <div class="nav-item" onclick="showPageCAS('cas-strutture')"><span class="ico">🏠</span> Strutture</div>
+
   <div style="padding:10px 16px 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-top:4px;">Appuntamenti e Scadenze</div>
   <div class="nav-item" onclick="showPageCAS('cas-scadenze')" style="padding-left:24px;"><span class="ico">⏰</span> Scadenze PDS</div>
   <div class="nav-item" onclick="showPageCAS('cas-calendario')" style="padding-left:24px;"><span class="ico">🏛️</span> Questura</div>
   <div class="nav-item" onclick="showPageCAS('cas-commissioni')" style="padding-left:24px;"><span class="ico">⚖️</span> Commissioni</div>
   <div class="nav-item" onclick="showPageCAS('cas-sanitari')" style="padding-left:24px;"><span class="ico">🏥</span> Visite sanitarie</div>
-  <div class="nav-item" onclick="showPageCAS('cas-equipe')"><span class="ico">👥</span> Équipe</div>
-  <div class="nav-item" onclick="showPageCAS('cas-turni')"><span class="ico">🔄</span> Turni</div>
-  <div class="nav-item" onclick="showPageCAS('cas-manutenzioni')"><span class="ico">🔧</span> Manutenzioni</div>
-  <div class="nav-item" onclick="showPageCAS('cas-cassettaps')"><span class="ico">🩺</span> Cassetta P.S.</div>
-  <div class="nav-item" onclick="showPageCAS('cas-pocketmoney')"><span class="ico">💶</span> Pocket Money</div>
-  <div class="nav-item" onclick="showPageCAS('cas-trasferimenti')"><span class="ico">🔀</span> Trasferimenti</div>
+
+  <div style="padding:10px 16px 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-top:4px;">Risorse Umane</div>
+  <div class="nav-item" onclick="showPageCAS('cas-turni')" style="padding-left:24px;"><span class="ico">🔄</span> Turni</div>
+  <div class="nav-item" onclick="showPageCAS('cas-ferie')" style="padding-left:24px;"><span class="ico">🌴</span> Programmazione ferie</div>
+
+  <div style="padding:10px 16px 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-top:4px;">Manutenzioni</div>
+  <div class="nav-item" onclick="showPageCAS('cas-manutenzioni')" style="padding-left:24px;"><span class="ico">🔧</span> Segnalazioni</div>
+  <div class="nav-item" onclick="showPageCAS('cas-cassettaps')" style="padding-left:24px;"><span class="ico">🩺</span> Cassetta P.S.</div>
+
+  <div style="padding:10px 16px 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-top:4px;">Équipe</div>
+  <div class="nav-item" onclick="showPageCAS('cas-pocketmoney')" style="padding-left:24px;"><span class="ico">💶</span> Pocket Money</div>
+  <div class="nav-item" onclick="showPageCAS('cas-trasferimenti')" style="padding-left:24px;"><span class="ico">🔀</span> Trasferimenti</div>
+  <div class="nav-item" onclick="showPageCAS('cas-equipe')" style="padding-left:24px;"><span class="ico">👥</span> Riunioni d'équipe</div>
+
+  <div style="padding:10px 16px 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-top:4px;">Progetti</div>
+  <div class="nav-item" onclick="showPageCAS('cas-progetti')" style="padding-left:24px;"><span class="ico">🗂️</span> Progetti</div>
   <div style="margin-top:auto;padding:12px 10px;border-top:1px solid rgba(255,255,255,.08);">
     <div id="sidebar-cas-user" style="padding:8px 6px 10px;font-size:.75rem;color:#94a3b8;line-height:1.4;"></div>
     <div class="nav-item" onclick="doLogout()" style="color:#f87171;border-radius:8px;margin:0;"><span class="ico">🚪</span> Esci</div>
@@ -3335,7 +3346,7 @@ function mostraAppCAS() {
 
 function showPageCAS(page) {
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
-  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-equipe':'Équipe','cas-turni':'Turni Operatori','cas-manutenzioni':'Manutenzioni','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni' };
+  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Programmazione Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
   if (page === 'cas-dashboard') renderCasDashboard(content);
@@ -3347,10 +3358,12 @@ function showPageCAS(page) {
   else if (page === 'cas-sanitari') renderCasAppuntamenti(content, 'Visita medica');
   else if (page === 'cas-equipe') renderCasEquipe(content);
   else if (page === 'cas-turni') renderCasTurni(content);
+  else if (page === 'cas-ferie') renderCasFerie(content);
   else if (page === 'cas-manutenzioni') renderCasManutenzioni(content);
   else if (page === 'cas-cassettaps') renderCassettePS(content);
   else if (page === 'cas-pocketmoney') renderCasPocketMoney(content);
   else if (page === 'cas-trasferimenti') renderCasTrasferimenti(content);
+  else if (page === 'cas-progetti') renderCasProgetti(content);
 }
 
 async function renderCasDashboard(el) {
@@ -4007,7 +4020,21 @@ async function modificaCapienza(strutturaId, strutturaNome, capienzaAttuale) {
   } catch(e){alert('Errore: '+e.message);}
 }
 
-// ── ÉQUIPE ─────────────────────────────────────────────────────
+function renderCasFerie(el) {
+  el.innerHTML = `<div class="card" style="padding:40px;text-align:center;">
+    <div style="font-size:2rem;margin-bottom:12px;">🌴</div>
+    <h3 style="font-size:1.1rem;margin-bottom:8px;">Programmazione Ferie</h3>
+    <p style="color:var(--muted);font-size:.9rem;">Modulo in arrivo. Qui gli operatori potranno richiedere ferie e permessi, e Simona potrà gestire il calendario.</p>
+  </div>`;
+}
+
+function renderCasProgetti(el) {
+  el.innerHTML = `<div class="card" style="padding:40px;text-align:center;">
+    <div style="font-size:2rem;margin-bottom:12px;">🗂️</div>
+    <h3 style="font-size:1.1rem;margin-bottom:8px;">Progetti</h3>
+    <p style="color:var(--muted);font-size:.9rem;">Modulo in arrivo. Qui potrai gestire i progetti attivi della rete CAS.</p>
+  </div>`;
+}
 async function renderCasEquipe(el) {
   el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
   try {
