@@ -822,7 +822,7 @@ tr:hover td{background:#f8fafc}
 <script src="./index_files/supabase.min.js.download"></script>
 <script>
 const SUPA_URL = 'https://nvwqykhosumrjkdlejtb.supabase.co';
-const SUPA_KEY = 'sb_publishable_p1Bci_nIcTZWIemx-4EJ8Q_4LSlzQ2b';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52eXh3bHd2dG9zam94amRpcGplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYwOTM3NjcsImV4cCI6MjA2MTY2OTc2N30.dz7A2aRZbFoI0tCnYLLtAPNhfvdoJ1J6cWyh17l_LuU';
 
 async function supa(path, opts={}) {
   const res = await fetch(SUPA_URL + '/rest/v1/' + path, {
@@ -947,11 +947,7 @@ async function doLogin() {
         is_coordinatore_cas: isCoord
       });
 
-      window._casSession = SESSION;
-      setTimeout(function() {
-        if(typeof mostraAppCAS === 'function') mostraAppCAS();
-        else if(typeof window.mostraAppCAS === 'function') window.mostraAppCAS();
-      }, 100);
+      mostraAppCAS();
       return;
     } catch(e) {
       errEl.textContent = e.message || 'Errore di accesso CAS.';
