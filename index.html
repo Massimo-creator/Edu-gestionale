@@ -3231,7 +3231,7 @@ function moveTask(id, nuovoStato){
 
   <div style="padding:10px 16px 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-top:4px;">Risorse Umane</div>
   <div class="nav-item" onclick="showPageCAS('cas-turni')" style="padding-left:24px;"><span class="ico">🔄</span> Turni</div>
-  <div class="nav-item" onclick="showPageCAS('cas-ferie')" style="padding-left:24px;"><span class="ico">🌴</span> Programmazione ferie</div>
+  <div class="nav-item" onclick="showPageCAS('cas-ferie')" style="padding-left:24px;"><span class="ico">🟥</span> Permessi e Ferie</div>
 
   <div style="padding:10px 16px 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-top:4px;">Manutenzioni</div>
   <div class="nav-item" onclick="showPageCAS('cas-manutenzioni')" style="padding-left:24px;"><span class="ico">🔧</span> Segnalazioni</div>
@@ -4022,9 +4022,9 @@ async function modificaCapienza(strutturaId, strutturaNome, capienzaAttuale) {
 
 function renderCasFerie(el) {
   el.innerHTML = `<div class="card" style="padding:40px;text-align:center;">
-    <div style="font-size:2rem;margin-bottom:12px;">🌴</div>
-    <h3 style="font-size:1.1rem;margin-bottom:8px;">Programmazione Ferie</h3>
-    <p style="color:var(--muted);font-size:.9rem;">Modulo in arrivo. Qui gli operatori potranno richiedere ferie e permessi, e Simona potrà gestire il calendario.</p>
+    <div style="font-size:2rem;margin-bottom:12px;">🟥</div>
+    <h3 style="font-size:1.1rem;margin-bottom:8px;">Permessi e Ferie</h3>
+    <p style="color:var(--muted);font-size:.9rem;">Modulo in arrivo. Qui gli operatori potranno richiedere permessi e ferie, e Simona potrà gestire il calendario.</p>
   </div>`;
 }
 
