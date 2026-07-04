@@ -3963,7 +3963,7 @@ async function renderCasManutenzioni(el) {
           </div>
           <div style="text-align:right;flex-shrink:0;">
             <div style="font-size:.75rem;color:var(--muted);">${new Date(s.created_at).toLocaleDateString('it-IT')}</div>
-            ${SESSION.is_max||SESSION.is_coordinatore_cas?`
+            ${SESSION.is_max?`
               <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
                 ${s.stato!=='In lavorazione'&&s.stato!=='Risolta'&&s.stato!=='Sospesa'?`<button class="btn btn-ghost" style="font-size:.72rem;padding:3px 8px;" onclick="aggiornaStatoManutenzione('${s.id}','In lavorazione')">▶ Prendi in carico</button>`:''}
                 ${s.stato!=='Risolta'?`<button class="btn btn-primary" style="font-size:.72rem;padding:3px 8px;" onclick="aggiornaStatoManutenzione('${s.id}','Risolta')">✓ Risolto</button>`:''}
