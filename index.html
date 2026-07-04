@@ -3358,7 +3358,7 @@ function mostraAppCAS() {
 
 function showPageCAS(page) {
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
-  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Programmazione Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti' };
+  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
   if (page === 'cas-dashboard') renderCasDashboard(content);
@@ -4061,12 +4061,149 @@ async function modificaCapienza(strutturaId, strutturaNome, capienzaAttuale) {
   } catch(e){alert('Errore: '+e.message);}
 }
 
-function renderCasFerie(el) {
-  el.innerHTML = `<div class="card" style="padding:40px;text-align:center;">
-    <div style="font-size:2rem;margin-bottom:12px;">🟥</div>
-    <h3 style="font-size:1.1rem;margin-bottom:8px;">Permessi e Ferie</h3>
-    <p style="color:var(--muted);font-size:.9rem;">Modulo in arrivo. Qui gli operatori potranno richiedere permessi e ferie, e Simona potrà gestire il calendario.</p>
-  </div>`;
+async function renderCasFerie(el) {
+  el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
+  try {
+    const mieEmail = SESSION.utente.email;
+    const mie = await supa(`richieste_ferie_cas?operatore_email=eq.${encodeURIComponent(mieEmail)}&order=created_at.desc`) || [];
+    let inAttesa = [];
+    if (SESSION.is_simona) {
+      inAttesa = await supa(`richieste_ferie_cas?stato=eq.In%20attesa&order=data_inizio`) || [];
+    }
+
+    const statoBadge = (s) => {
+      const col = s==='Approvata' ? 'var(--accent2)' : s==='Rifiutata' ? 'var(--danger)' : 'var(--warn)';
+      return `<span style="background:${col};color:#fff;border-radius:20px;padding:2px 10px;font-size:.75rem;white-space:nowrap;">${s}</span>`;
+    };
+    const fmtData = (d) => new Date(d+'T12:00:00').toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'});
+
+    el.innerHTML = `
+      <div class="card" style="padding:20px;margin-bottom:16px;">
+        <h3 style="font-size:1rem;margin-bottom:16px;">📨 Richiedi ferie o permesso</h3>
+        <div class="grid g2">
+          <div class="form-group"><label>Tipo</label>
+            <select id="ferie-tipo">
+              <option value="Ferie">🔴 Ferie</option>
+              <option value="Permesso">🟡 Permesso</option>
+            </select>
+          </div>
+          <div></div>
+          <div class="form-group"><label>Dal</label><input id="ferie-data-inizio" type="date"></div>
+          <div class="form-group"><label>Al</label><input id="ferie-data-fine" type="date"></div>
+        </div>
+        <div class="form-group"><label>Note</label><input id="ferie-note" placeholder="Opzionale"></div>
+        <button class="btn btn-primary" onclick="inviaRichiestaFerie()">📨 Invia richiesta a Simona</button>
+      </div>
+
+      ${SESSION.is_simona ? `
+      <div class="card" style="padding:20px;margin-bottom:16px;">
+        <h3 style="font-size:1rem;margin-bottom:16px;">📋 Richieste da approvare</h3>
+        ${inAttesa.length===0?'<div style="color:var(--muted);text-align:center;padding:16px;">Nessuna richiesta in attesa 👍</div>':''}
+        <div style="display:grid;gap:10px;">
+          ${inAttesa.map(r=>`
+            <div style="padding:12px 14px;background:var(--bg);border-radius:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+              <div>
+                <div style="font-weight:600;">${r.tipo==='Ferie'?'🔴':'🟡'} ${r.operatore_nome||r.operatore_email}</div>
+                <div style="font-size:.8rem;color:var(--muted);">${fmtData(r.data_inizio)} → ${fmtData(r.data_fine)}${r.note?` · ${r.note}`:''}</div>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-primary" style="font-size:.78rem;padding:5px 10px;" onclick="gestisciRichiestaFerie('${r.id}','Approvata')">✅ Approva</button>
+                <button class="btn btn-ghost" style="font-size:.78rem;padding:5px 10px;color:var(--danger);" onclick="gestisciRichiestaFerie('${r.id}','Rifiutata')">✕ Rifiuta</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>` : ''}
+
+      <div class="card" style="padding:20px;">
+        <h3 style="font-size:1rem;margin-bottom:16px;">📄 Le mie richieste</h3>
+        ${mie.length===0?'<div style="color:var(--muted);text-align:center;padding:16px;">Nessuna richiesta inviata</div>':''}
+        <div style="display:grid;gap:10px;">
+          ${mie.map(r=>`
+            <div style="padding:12px 14px;background:var(--bg);border-radius:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+              <div>
+                <div style="font-weight:600;">${r.tipo==='Ferie'?'🔴':'🟡'} ${r.tipo}</div>
+                <div style="font-size:.8rem;color:var(--muted);">${fmtData(r.data_inizio)} → ${fmtData(r.data_fine)}${r.note?` · ${r.note}`:''}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                ${statoBadge(r.stato)}
+                ${r.stato==='In attesa'?`<button class="btn btn-ghost" style="font-size:.75rem;padding:4px 8px;color:var(--danger);" onclick="annullaRichiestaFerie('${r.id}')">🗑️</button>`:''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  } catch(e) { el.innerHTML=`<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
+}
+
+async function inviaRichiestaFerie() {
+  const tipo = document.getElementById('ferie-tipo').value;
+  const dataInizio = document.getElementById('ferie-data-inizio').value;
+  const dataFine = document.getElementById('ferie-data-fine').value;
+  const note = document.getElementById('ferie-note').value || null;
+  if(!dataInizio || !dataFine) { alert('Seleziona data inizio e data fine.'); return; }
+  if(dataFine < dataInizio) { alert('La data di fine non può precedere la data di inizio.'); return; }
+  try {
+    await supa('richieste_ferie_cas', {method:'POST', body: JSON.stringify({
+      operatore_email: SESSION.utente.email,
+      operatore_nome: SESSION.utente.nome || SESSION.utente.email,
+      data_inizio: dataInizio,
+      data_fine: dataFine,
+      tipo,
+      note
+    })});
+    renderCasFerie(document.getElementById('content-cas'));
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+async function annullaRichiestaFerie(id) {
+  if(!confirm('Annullare questa richiesta?')) return;
+  try {
+    await supa(`richieste_ferie_cas?id=eq.${id}`, {method:'DELETE', headers:{'Prefer':'return=minimal'}});
+    renderCasFerie(document.getElementById('content-cas'));
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+async function gestisciRichiestaFerie(id, esito) {
+  if(!SESSION.is_simona) return;
+  try {
+    const righe = await supa(`richieste_ferie_cas?id=eq.${id}&limit=1`) || [];
+    if(!righe.length) return;
+    const r = righe[0];
+    await supa(`richieste_ferie_cas?id=eq.${id}`, {method:'PATCH', body: JSON.stringify({
+      stato: esito,
+      gestita_da: SESSION.utente.email,
+      gestita_il: new Date().toISOString()
+    })});
+    if(esito==='Approvata') {
+      await popolaTurniDaFerie(r);
+    }
+    renderCasFerie(document.getElementById('content-cas'));
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+async function popolaTurniDaFerie(richiesta) {
+  const inizio = new Date(richiesta.data_inizio+'T12:00:00');
+  const fine = new Date(richiesta.data_fine+'T12:00:00');
+  for (let d = new Date(inizio); d <= fine; d.setDate(d.getDate()+1)) {
+    const dataStr = d.toISOString().slice(0,10);
+    const esistenti = await supa(`turni_cas?operatore_email=eq.${encodeURIComponent(richiesta.operatore_email)}&data=eq.${dataStr}&limit=1`) || [];
+    const payload = {
+      operatore_email: richiesta.operatore_email,
+      operatore_nome: richiesta.operatore_nome,
+      data: dataStr,
+      tipo: richiesta.tipo,
+      ora_inizio: null,
+      ora_fine: null,
+      note: 'Da richiesta ferie/permesso approvata'
+    };
+    if(esistenti.length > 0) {
+      await supa(`turni_cas?id=eq.${esistenti[0].id}`, {method:'PATCH', body: JSON.stringify(payload)});
+    } else {
+      await supa('turni_cas', {method:'POST', body: JSON.stringify(payload)});
+    }
+  }
 }
 
 function renderCasProgetti(el) {
