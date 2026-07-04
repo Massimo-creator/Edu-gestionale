@@ -3344,6 +3344,8 @@ function mostraAppCAS() {
       <div class="form-group"><label>Struttura *</label><select id="cas-struttura-id"></select></div>
       <div class="form-group"><label>Data ingresso</label><input id="cas-data-ingresso" type="date"></div>
     </div>
+    <div class="form-group"><label>Nucleo familiare</label><input id="cas-nucleo-familiare" placeholder="es. Famiglia Jouari — lascia lo stesso nome a chi appartiene alla stessa famiglia"></div>
+    <div id="cas-nucleo-membri"></div>
     <div class="form-group"><label>Note</label><textarea id="cas-note" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-ospite-cas')">Annulla</button>
@@ -3893,9 +3895,10 @@ async function eliminaTurnoCAS(id) {
 function nuovoOspiteCAS(strutturaIdPreselezionata) {
   _casOspiteEditId = null;
   document.getElementById('modal-ospite-cas-title').textContent = 'Nuovo Ospite';
-  ['cas-nome','cas-cognome','cas-nui','cas-luogo-nascita','cas-nazionalita','cas-lingua','cas-note-iter','cas-tipo-permesso','cas-numero-permesso','cas-documenti','cas-note'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['cas-nome','cas-cognome','cas-nui','cas-luogo-nascita','cas-nazionalita','cas-lingua','cas-note-iter','cas-tipo-permesso','cas-numero-permesso','cas-documenti','cas-note','cas-nucleo-familiare'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   ['cas-dob','cas-data-audizione','cas-scadenza-permesso','cas-data-ingresso'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   ['cas-tipo-domanda','cas-esito-audizione'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  document.getElementById('cas-nucleo-membri').innerHTML = '';
   popolaSelectStrutture(strutturaIdPreselezionata);
   openModal('modal-ospite-cas');
 }
@@ -3912,10 +3915,21 @@ async function apriOspiteCAS(id) {
       'cas-nazionalita':o.nazionalita,'cas-lingua':o.lingua,'cas-tipo-domanda':o.tipo_domanda,'cas-nui':o.nui,
       'cas-data-audizione':o.data_audizione,'cas-esito-audizione':o.esito_audizione,'cas-note-iter':o.note_iter,
       'cas-tipo-permesso':o.tipo_permesso,'cas-numero-permesso':o.numero_permesso,'cas-scadenza-permesso':o.scadenza_permesso,
-      'cas-documenti':o.documenti_identita,'cas-data-ingresso':o.data_ingresso,'cas-note':o.note
+      'cas-documenti':o.documenti_identita,'cas-data-ingresso':o.data_ingresso,'cas-note':o.note,'cas-nucleo-familiare':o.nucleo_familiare
     };
     Object.entries(fields).forEach(([k,v])=>{const e=document.getElementById(k);if(e)e.value=v||'';});
     popolaSelectStrutture(o.struttura_id);
+    const membriEl = document.getElementById('cas-nucleo-membri');
+    membriEl.innerHTML = '';
+    if(o.nucleo_familiare) {
+      const membri = (await supa(`ospiti_cas?nucleo_familiare=eq.${encodeURIComponent(o.nucleo_familiare)}&id=neq.${id}`)) || [];
+      if(membri.length > 0) {
+        membriEl.innerHTML = `<div style="background:var(--bg);border-radius:8px;padding:8px 12px;margin:-6px 0 12px;font-size:.82rem;">
+          <span style="color:var(--muted);">👪 Altri membri dello stesso nucleo:</span>
+          ${membri.map(m=>`<span style="display:inline-block;margin:4px 6px 0 0;padding:2px 10px;background:var(--accent2);color:#fff;border-radius:20px;cursor:pointer;" onclick="apriOspiteCAS('${m.id}')">${m.cognome} ${m.nome}</span>`).join('')}
+        </div>`;
+      }
+    }
     openModal('modal-ospite-cas');
   } catch(e) { alert('Errore: '+e.message); }
 }
@@ -3947,6 +3961,7 @@ async function salvaOspiteCAS() {
     documenti_identita: document.getElementById('cas-documenti').value||null,
     data_ingresso: document.getElementById('cas-data-ingresso').value||null,
     note: document.getElementById('cas-note').value||null,
+    nucleo_familiare: document.getElementById('cas-nucleo-familiare').value.trim()||null,
     updated_at: new Date().toISOString()
   };
   try {
