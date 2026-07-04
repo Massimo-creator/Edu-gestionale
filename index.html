@@ -4286,6 +4286,8 @@ async function inviaODGEmail(riunioneId) {
     window.location.href = `mailto:educatori@coopmetis.com?subject=${encodeURIComponent(oggetto)}&body=${encodeURIComponent(corpo)}`;
   } catch(e) { alert('Errore: '+e.message); }
 }
+
+async function eliminaRiunione(id) {
   if(!confirm('Eliminare questa riunione e tutti i punti ODG?')) return;
   try {
     await supa(`riunioni_cas?id=eq.${id}`, {method:'DELETE', headers:{'Prefer':'return=minimal'}});
