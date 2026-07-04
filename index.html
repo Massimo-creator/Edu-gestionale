@@ -3489,20 +3489,40 @@ async function renderCasOspiti(el) {
     const struttureIds = strutture.map(s=>s.id);
     let ospiti = [];
     if (struttureIds.length>0) ospiti = await supa(`ospiti_cas?struttura_id=in.(${struttureIds.join(',')})&order=cognome`) || [];
-    const mapS = {}; strutture.forEach(s=>mapS[s.id]=s.nome);
+    const oggi = new Date();
+    const scadenzaVicina = (o) => o.scadenza_permesso && (new Date(o.scadenza_permesso)-oggi)/(1000*60*60*24) < 30;
+
+    const renderCardOspite = (o) => `<div class="card" style="padding:14px 16px;cursor:pointer;" onclick="apriOspiteCAS('${o.id}')">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div><div style="font-weight:600;">${o.cognome} ${o.nome}</div><div style="color:var(--muted);font-size:.82rem;">${o.nazionalita||''} ${o.nui?'· NUI: '+o.nui:''}</div></div>
+          <div style="text-align:right;">${o.scadenza_permesso?`<div style="font-size:.78rem;color:${scadenzaVicina(o)?'var(--danger)':'var(--muted)'};">Permesso: ${new Date(o.scadenza_permesso).toLocaleDateString('it-IT')}</div>`:''}</div>
+        </div>
+      </div>`;
+
+    const gruppi = strutture.map(s => {
+      const suoiOspiti = ospiti.filter(o=>o.struttura_id===s.id);
+      const urgenti = suoiOspiti.filter(scadenzaVicina).length;
+      return { struttura: s, ospiti: suoiOspiti, urgenti };
+    });
+
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
         <h2 style="font-size:1.1rem;">👤 Ospiti (${ospiti.length})</h2>
         ${SESSION.is_coordinatore_cas?`<button class="btn btn-primary" onclick="nuovoOspiteCAS()">+ Nuovo ospite</button>`:''}
       </div>
+      ${ospiti.length===0?'<div class="card" style="padding:30px;text-align:center;color:var(--muted);">Nessun ospite registrato</div>':''}
       <div style="display:grid;gap:10px;">
-        ${ospiti.length===0?'<div class="card" style="padding:30px;text-align:center;color:var(--muted);">Nessun ospite registrato</div>':
-          ospiti.map(o=>`<div class="card" style="padding:16px;cursor:pointer;" onclick="apriOspiteCAS('${o.id}')">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-              <div><div style="font-weight:600;">${o.cognome} ${o.nome}</div><div style="color:var(--muted);font-size:.82rem;">${o.nazionalita||''} · 🏠 ${mapS[o.struttura_id]||'—'} ${o.nui?'· NUI: '+o.nui:''}</div></div>
-              <div style="text-align:right;">${o.scadenza_permesso?`<div style="font-size:.78rem;color:${(new Date(o.scadenza_permesso)-new Date())/(1000*60*60*24)<30?'var(--danger)':'var(--muted)'};">Permesso: ${new Date(o.scadenza_permesso).toLocaleDateString('it-IT')}</div>`:''}</div>
+        ${gruppi.map(g => `
+          <details ${g.urgenti>0?'open':''} style="background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+            <summary style="cursor:pointer;padding:12px 16px;list-style:none;display:flex;justify-content:space-between;align-items:center;font-weight:600;">
+              <span>🏠 ${g.struttura.nome} <span style="font-weight:400;color:var(--muted);font-size:.85rem;">(${g.ospiti.length}${g.struttura.capienza?'/'+g.struttura.capienza:''})</span></span>
+              ${g.urgenti>0?`<span style="background:var(--danger);color:#fff;border-radius:20px;padding:2px 10px;font-size:.72rem;">${g.urgenti} in scadenza</span>`:''}
+            </summary>
+            <div style="padding:0 16px 16px;display:grid;gap:8px;">
+              ${g.ospiti.length===0?'<div style="color:var(--muted);font-size:.85rem;padding:8px 0;">Nessun ospite in questa struttura</div>':g.ospiti.map(renderCardOspite).join('')}
             </div>
-          </div>`).join('')}
+          </details>
+        `).join('')}
       </div>`;
   } catch(e) { el.innerHTML=`<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
 }
