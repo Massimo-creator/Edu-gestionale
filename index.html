@@ -3173,6 +3173,36 @@ function moveTask(id, nuovoStato){
   const t = tasks.find(x=>x.id===id);
   if(t){ t.stato = nuovoStato; DB.set('tasks', tasks); renderTaskBoard(); }
 }
+
+// ===== STUB CAS - chiamati dal login, implementati nel secondo script =====
+function mostraAppCAS() {
+  // Il DOM non è ancora pronto, aspetta 200ms
+  setTimeout(function() {
+    var el = document.getElementById('mainAppCAS');
+    if (!el) { setTimeout(arguments.callee, 100); return; }
+    document.getElementById('welcomeScreen').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'none';
+    el.style.display = 'flex';
+    if (SESSION) {
+      var nome = SESSION.utente.nome || SESSION.utente.email || '';
+      var isSimona = SESSION.utente.email === 'simona@coopmetis.com';
+      var isMax = SESSION.utente.email === 'm.ceccaroli@coopmetis.com';
+      var ruolo = SESSION.is_coordinatore_cas ? 'Coordinatore' : isSimona ? 'Responsabile RU' : isMax ? 'Manutentore' : 'Educatore';
+      SESSION.is_simona = isSimona;
+      SESSION.is_max = isMax;
+      var topbar = document.getElementById('cas-topbar-user');
+      var sidebar = document.getElementById('sidebar-cas-user');
+      if(topbar) topbar.textContent = nome + ' (' + ruolo + ') · Metis CAS Rimini';
+      if(sidebar) sidebar.innerHTML = '<b style="color:#cbd5e1">' + nome + '</b><br><span style="color:#4ade80">' + ruolo + '</span> · Metis CAS Rimini';
+      document.querySelectorAll('#sidebar-cas .nav-item').forEach(function(item) {
+        var t = item.textContent.trim();
+        if(isSimona && t.includes('Ospiti')) item.style.display='none';
+      });
+    }
+    if(typeof showPageCAS === 'function') showPageCAS('cas-dashboard');
+  }, 200);
+}
 </script>
 
 <!-- ===== MODAL TASK BOARD ===== -->
@@ -3323,26 +3353,7 @@ function moveTask(id, nuovoStato){
 
 <script>
 // ===== MODULO CAS =====
-
-function mostraAppCAS() {
-  document.getElementById('mainAppCAS').style.display = 'flex';
-  if (SESSION) {
-    const nome = SESSION.utente.nome || SESSION.utente.email || '';
-    const isSimona = SESSION.utente.email === 'simona@coopmetis.com';
-    const isMax = SESSION.utente.email === 'm.ceccaroli@coopmetis.com';
-    const ruolo = SESSION.is_coordinatore_cas ? 'Coordinatore' : isSimona ? 'Responsabile RU' : isMax ? 'Manutentore' : 'Educatore';
-    SESSION.is_simona = isSimona;
-    SESSION.is_max = isMax;
-    document.getElementById('cas-topbar-user').textContent = `${nome} (${ruolo}) · Metis CAS Rimini`;
-    document.getElementById('sidebar-cas-user').innerHTML = `<b style="color:#cbd5e1">${nome}</b><br><span style="color:#4ade80">${ruolo}</span> · Metis CAS Rimini`;
-    // Nasconde voce Ospiti per Simona
-    document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => {
-      const t = el.textContent.trim();
-      if(isSimona && t.includes('Ospiti')) el.style.display='none';
-    });
-  }
-  showPageCAS('cas-dashboard');
-}
+// mostraAppCAS è definita nel secondo script block per essere disponibile al login
 
 function showPageCAS(page) {
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
