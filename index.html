@@ -3788,6 +3788,8 @@ async function renderCasTurni(el) {
         <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;background:#3b82f6;border-radius:3px;display:inline-block;"></span> Mattina</span>
         <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;background:#10b981;border-radius:3px;display:inline-block;"></span> Pomeriggio</span>
         <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span> Personalizzato</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;background:#eab308;border-radius:3px;display:inline-block;"></span> Permesso</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;background:#ef4444;border-radius:3px;display:inline-block;"></span> Ferie</span>
       </div>
     `;
   } catch(e) { el.innerHTML=`<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
@@ -3796,11 +3798,15 @@ async function renderCasTurni(el) {
 function turnoColore(tipo) {
   if(tipo==='Mattina') return '#3b82f6';
   if(tipo==='Pomeriggio') return '#10b981';
+  if(tipo==='Permesso') return '#eab308';
+  if(tipo==='Ferie') return '#ef4444';
   return '#8b5cf6';
 }
 function turnoLabel(tipo, oraInizio, oraFine) {
   if(tipo==='Mattina') return 'M';
   if(tipo==='Pomeriggio') return 'P';
+  if(tipo==='Permesso') return 'PR';
+  if(tipo==='Ferie') return 'F';
   return oraInizio?oraInizio.slice(0,5):'C';
 }
 
@@ -3835,13 +3841,14 @@ let _turnoEditId = null;
 
 async function salvaTurnoCAS() {
   const tipo = document.getElementById('turno-tipo').value;
+  const senzaOrario = tipo==='Permesso' || tipo==='Ferie';
   const payload = {
     operatore_email: _turnoEditEmail,
     operatore_nome: _turnoEditNome,
     data: _turnoEditData,
     tipo,
-    ora_inizio: document.getElementById('turno-ora-inizio').value,
-    ora_fine: document.getElementById('turno-ora-fine').value,
+    ora_inizio: senzaOrario ? null : document.getElementById('turno-ora-inizio').value,
+    ora_fine: senzaOrario ? null : document.getElementById('turno-ora-fine').value,
     note: document.getElementById('turno-note').value||null
   };
   try {
@@ -4800,13 +4807,15 @@ async function salvaTrasferimento() {
   <div class="modal">
     <h3>🔄 <span id="turno-modal-title">Nuovo Turno</span></h3>
     <div class="form-group"><label>Tipo turno</label>
-      <select id="turno-tipo" onchange="const t=this.value;const i=document.getElementById('turno-ora-inizio');const f=document.getElementById('turno-ora-fine');if(t==='Mattina'){i.value='08:00';f.value='14:00';}else if(t==='Pomeriggio'){i.value='14:00';f.value='20:00';}">
+      <select id="turno-tipo" onchange="const t=this.value;const i=document.getElementById('turno-ora-inizio');const f=document.getElementById('turno-ora-fine');const orari=document.getElementById('turno-orari-wrap');if(t==='Mattina'){i.value='08:00';f.value='14:00';}else if(t==='Pomeriggio'){i.value='14:00';f.value='20:00';}orari.style.display=(t==='Permesso'||t==='Ferie')?'none':'grid';">
         <option value="Mattina">🔵 Mattina</option>
         <option value="Pomeriggio">🟢 Pomeriggio</option>
         <option value="Personalizzato">🟣 Personalizzato</option>
+        <option value="Permesso">🟡 Permesso</option>
+        <option value="Ferie">🔴 Ferie</option>
       </select>
     </div>
-    <div class="grid g2">
+    <div class="grid g2" id="turno-orari-wrap">
       <div class="form-group"><label>Ora inizio</label><input id="turno-ora-inizio" type="time" value="08:00"></div>
       <div class="form-group"><label>Ora fine</label><input id="turno-ora-fine" type="time" value="14:00"></div>
     </div>
