@@ -3796,20 +3796,30 @@ let _turnoEditData = null; let _turnoEditEmail = null; let _turnoEditNome = null
 
 async function toggleTurnoCAS(email, nome, data) {
   const turni = await supa(`turni_cas?operatore_email=eq.${encodeURIComponent(email)}&data=eq.${data}&limit=1`) || [];
-  if(turni.length>0) {
-    if(!confirm(`Rimuovere il turno di ${nome} per il ${data}?`)) return;
-    await supa(`turni_cas?id=eq.${turni[0].id}`,{method:'DELETE',headers:{'Prefer':'return=minimal'}});
-    renderCasTurni(document.getElementById('content-cas'));
-    return;
-  }
   _turnoEditEmail = email; _turnoEditNome = nome; _turnoEditData = data;
+  _turnoEditId = turni.length > 0 ? turni[0].id : null;
+
   document.getElementById('turno-modal-title').textContent = `Turno · ${nome} · ${new Date(data+'T12:00:00').toLocaleDateString('it-IT',{day:'2-digit',month:'long'})}`;
-  document.getElementById('turno-tipo').value = 'Mattina';
-  document.getElementById('turno-ora-inizio').value = '08:00';
-  document.getElementById('turno-ora-fine').value = '14:00';
+
+  if(turni.length > 0) {
+    // Modifica turno esistente
+    const t = turni[0];
+    document.getElementById('turno-tipo').value = t.tipo || 'Mattina';
+    document.getElementById('turno-ora-inizio').value = t.ora_inizio ? t.ora_inizio.slice(0,5) : '08:00';
+    document.getElementById('turno-ora-fine').value = t.ora_fine ? t.ora_fine.slice(0,5) : '14:00';
+    document.getElementById('turno-note').value = t.note || '';
+  } else {
+    // Nuovo turno
+    document.getElementById('turno-tipo').value = 'Mattina';
+    document.getElementById('turno-ora-inizio').value = '08:00';
+    document.getElementById('turno-ora-fine').value = '14:00';
+    document.getElementById('turno-note').value = '';
+  }
   document.getElementById('turno-tipo').dispatchEvent(new Event('change'));
   openModal('modal-turno-cas');
 }
+
+let _turnoEditId = null;
 
 async function salvaTurnoCAS() {
   const tipo = document.getElementById('turno-tipo').value;
@@ -3823,8 +3833,20 @@ async function salvaTurnoCAS() {
     note: document.getElementById('turno-note').value||null
   };
   try {
-    await supa('turni_cas',{method:'POST',body:JSON.stringify(payload)});
+    if(_turnoEditId) {
+      await supa(`turni_cas?id=eq.${_turnoEditId}`,{method:'PATCH',body:JSON.stringify(payload)});
+    } else {
+      await supa('turni_cas',{method:'POST',body:JSON.stringify(payload)});
+    }
     closeModal('modal-turno-cas');
+    renderCasTurni(document.getElementById('content-cas'));
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+async function eliminaTurnoCAS(id) {
+  if(!confirm('Eliminare questo turno?')) return;
+  try {
+    await supa(`turni_cas?id=eq.${id}`,{method:'DELETE',headers:{'Prefer':'return=minimal'}});
     renderCasTurni(document.getElementById('content-cas'));
   } catch(e) { alert('Errore: '+e.message); }
 }
@@ -4777,12 +4799,11 @@ async function salvaTrasferimento() {
     <div class="form-group"><label>Note</label><input id="turno-note" placeholder="Opzionale"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-turno-cas')">Annulla</button>
+      <button class="btn btn-ghost" style="color:var(--danger);" onclick="if(_turnoEditId){eliminaTurnoCAS(_turnoEditId);closeModal('modal-turno-cas');}else{closeModal('modal-turno-cas');}">🗑️ Elimina</button>
       <button class="btn btn-primary" onclick="salvaTurnoCAS()">💾 Salva</button>
     </div>
   </div>
 </div>
-
-<!-- MODAL POCKET MONEY -->
 <div class="modal-overlay" id="modal-pocket-money">
   <div class="modal" style="max-width:520px;">
     <input type="hidden" id="pm-struttura-id">
