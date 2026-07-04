@@ -947,7 +947,11 @@ async function doLogin() {
         is_coordinatore_cas: isCoord
       });
 
-      mostraAppCAS();
+      window._casSession = SESSION;
+      setTimeout(function() {
+        if(typeof mostraAppCAS === 'function') mostraAppCAS();
+        else if(typeof window.mostraAppCAS === 'function') window.mostraAppCAS();
+      }, 100);
       return;
     } catch(e) {
       errEl.textContent = e.message || 'Errore di accesso CAS.';
@@ -1002,17 +1006,6 @@ function doLogout() {
 async function sha256(msg) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-
-// Stub per mostraAppCAS — la funzione vera è nel secondo script block CAS
-// Viene sovrascritta quando il DOM è completamente caricato
-function mostraAppCAS() {
-  // Aspetta che il DOM sia pronto e richiama
-  setTimeout(() => {
-    if(typeof window._mostraAppCAS === 'function') {
-      window._mostraAppCAS();
-    }
-  }, 50);
 }
 
 // ===================== STORAGE (Supabase) =====================
@@ -3335,7 +3328,7 @@ function moveTask(id, nuovoStato){
 <script>
 // ===== MODULO CAS =====
 
-window._mostraAppCAS = function mostraAppCAS() {
+function mostraAppCAS() {
   document.getElementById('mainAppCAS').style.display = 'flex';
   if (SESSION) {
     const nome = SESSION.utente.nome || SESSION.utente.email || '';
