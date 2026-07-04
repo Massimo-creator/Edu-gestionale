@@ -825,15 +825,16 @@ const SUPA_URL = 'https://nvwqykhosumrjkdlejtb.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52d3F5a2hvc3VtcmprZGxlanRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MDY1NDcsImV4cCI6MjA4OTA4MjU0N30.HF0Yog0VpjosAeYH_CSW1x-BvVsPqEbhrtigbItq3YE';
 
 async function supa(path, opts={}) {
+  const { headers: extraHeaders, prefer, ...restOpts } = opts;
   const res = await fetch(SUPA_URL + '/rest/v1/' + path, {
     headers: {
       'apikey': SUPA_KEY,
       'Authorization': 'Bearer ' + SUPA_KEY,
       'Content-Type': 'application/json',
-      'Prefer': opts.prefer || 'return=representation',
-      ...opts.headers
+      'Prefer': prefer || 'return=representation',
+      ...extraHeaders
     },
-    ...opts
+    ...restOpts
   });
   if (!res.ok) {
     const err = await res.text();
