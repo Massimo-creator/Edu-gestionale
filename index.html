@@ -3187,7 +3187,7 @@ function mostraAppCAS() {
     el.style.display = 'flex';
     if (SESSION) {
       var nome = SESSION.utente.nome || SESSION.utente.email || '';
-      var isSimona = SESSION.utente.email === 'simona@coopmetis.com';
+      var isSimona = SESSION.utente.email === 's.demartino@coopmetis.com';
       var isMax = SESSION.utente.email === 'm.ceccaroli@coopmetis.com';
       var ruolo = SESSION.is_coordinatore_cas ? 'Coordinatore' : isSimona ? 'Responsabile RU' : isMax ? 'Manutentore' : 'Educatore';
       SESSION.is_simona = isSimona;
@@ -3747,7 +3747,7 @@ let _turniAnno = new Date().getFullYear();
 
 async function renderCasTurni(el) {
   el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
-  const puoModificare = SESSION.utente.email === 'simona@coopmetis.com' || SESSION.is_coordinatore_cas;
+  const puoModificare = SESSION.utente.email === 's.demartino@coopmetis.com' || SESSION.is_coordinatore_cas;
   try {
     const mese = _turniMese; const anno = _turniAnno;
     const dataInizio = `${anno}-${String(mese+1).padStart(2,'0')}-01`;
