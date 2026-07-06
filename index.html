@@ -914,6 +914,11 @@ async function doLogin() {
         if (utenti && utenti.length > 0) utenteCAS = utenti[0];
       } catch(e) {}
 
+      // Se trovato in utenti, verifica la password contro l'hash salvato
+      if (utenteCAS && utenteCAS.password_hash && pwHash !== utenteCAS.password_hash) {
+        throw new Error('Password non corretta.');
+      }
+
       // Se non trovato in utenti, crea sessione operatore CAS da email
       if (!utenteCAS) {
         // Verifica che l'email sia un operatore registrato in operatori_strutture
