@@ -930,6 +930,16 @@ async function doLogin() {
         utenteCAS = { nome: email.split('@')[0], cognome: '', ruolo: 'Educatore', email: email, id: null };
       }
 
+      // Migrazione silenziosa verso Supabase Auth: se l'account vero non esiste ancora, lo crea ora
+      // con la stessa email e la stessa password appena verificata. Non blocca il login in caso di errore.
+      try {
+        const authClient = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+        const { error: signInErr } = await authClient.auth.signInWithPassword({ email, password });
+        if (signInErr) {
+          await authClient.auth.signUp({ email, password });
+        }
+      } catch(e) { /* non bloccante: si ritenta al prossimo accesso */ }
+
       // Carica strutture dell'operatore
       let struttureCAS = [];
       const isCoord = (email === 'm.andreoni@coopmetis.com' || (utenteCAS && utenteCAS.ruolo === 'Coordinatore'));
