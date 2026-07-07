@@ -823,13 +823,19 @@ tr:hover td{background:#f8fafc}
 <script>
 const SUPA_URL = 'https://nvwqykhosumrjkdlejtb.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52d3F5a2hvc3VtcmprZGxlanRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MDY1NDcsImV4cCI6MjA4OTA4MjU0N30.HF0Yog0VpjosAeYH_CSW1x-BvVsPqEbhrtigbItq3YE';
+const supabaseClient = window.supabase.createClient(SUPA_URL, SUPA_KEY);
 
 async function supa(path, opts={}) {
   const { headers: extraHeaders, prefer, ...restOpts } = opts;
+  let token = SUPA_KEY;
+  try {
+    const { data } = await supabaseClient.auth.getSession();
+    if (data && data.session && data.session.access_token) token = data.session.access_token;
+  } catch(e) {}
   const res = await fetch(SUPA_URL + '/rest/v1/' + path, {
     headers: {
       'apikey': SUPA_KEY,
-      'Authorization': 'Bearer ' + SUPA_KEY,
+      'Authorization': 'Bearer ' + token,
       'Content-Type': 'application/json',
       'Prefer': prefer || 'return=representation',
       ...extraHeaders
@@ -933,10 +939,9 @@ async function doLogin() {
       // Migrazione silenziosa verso Supabase Auth: se l'account vero non esiste ancora, lo crea ora
       // con la stessa email e la stessa password appena verificata. Non blocca il login in caso di errore.
       try {
-        const authClient = window.supabase.createClient(SUPA_URL, SUPA_KEY);
-        const { error: signInErr } = await authClient.auth.signInWithPassword({ email, password });
+        const { error: signInErr } = await supabaseClient.auth.signInWithPassword({ email, password });
         if (signInErr) {
-          await authClient.auth.signUp({ email, password });
+          await supabaseClient.auth.signUp({ email, password });
         }
       } catch(e) { /* non bloccante: si ritenta al prossimo accesso */ }
 
@@ -1717,7 +1722,7 @@ async function inviaMessaggio(){
 function avviaRealtime(){
   if(_chatRealtime){try{_chatRealtime.unsubscribe();}catch(e){}}
   try{
-    const client=window.supabase.createClient(SUPA_URL,SUPA_KEY);
+    const client=supabaseClient;
     _chatRealtime=client.channel('chat-'+SESSION.comunita_id)
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'messaggi',filter:`comunita_id=eq.${SESSION.comunita_id}`},()=>{
         if(currentPage==='chat')caricaMessaggi();
