@@ -3636,7 +3636,8 @@ async function renderCasAppuntamenti(el, tipo) {
                 <div style="text-align:right;flex-shrink:0;margin-left:12px;">
                   <div style="font-weight:700;color:${isOggi?'var(--danger)':'var(--text)'};">${isOggi?'OGGI':d.toLocaleDateString('it-IT',{day:'2-digit',month:'short'})}</div>
                   <div style="font-size:.82rem;color:var(--muted);">${d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</div>
-                  <button onclick="eliminaAppuntamentoCAS('${a.id}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.75rem;margin-top:4px;">✕</button>
+                  <button onclick="modificaAppuntamentoCAS('${a.id}','${tipo}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85rem;margin-top:4px;margin-right:8px;">✏️</button>
+                  <button onclick="eliminaAppuntamentoCAS('${a.id}','${tipo}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.75rem;margin-top:4px;">✕</button>
                 </div>
               </div>
             </div>`;
@@ -3653,7 +3654,7 @@ async function renderCasCalendario(el) {
     const struttureIds = strutture.map(s=>s.id);
     let appuntamenti = [];
     if (struttureIds.length>0) {
-      appuntamenti = await supa(`appuntamenti_cas?struttura_id=in.(${struttureIds.join(',')})&order=data_ora`) || [];
+      appuntamenti = await supa(`appuntamenti_cas?struttura_id=in.(${struttureIds.join(',')})&tipo=eq.Questura&order=data_ora`) || [];
     }
     const mapS = {}; strutture.forEach(s=>mapS[s.id]=s.nome);
     const oggi = new Date(); oggi.setHours(0,0,0,0);
@@ -3681,6 +3682,7 @@ async function renderCasCalendario(el) {
                 <div style="text-align:right;flex-shrink:0;margin-left:12px;">
                   <div style="font-weight:700;color:${isOggi?'var(--accent2)':'var(--text)'};">${isOggi?'OGGI':d.toLocaleDateString('it-IT',{day:'2-digit',month:'short'})}</div>
                   <div style="font-size:.82rem;color:var(--muted);">${d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</div>
+                  <button onclick="modificaAppuntamentoCAS('${a.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85rem;margin-top:4px;margin-right:8px;">✏️</button>
                   <button onclick="eliminaAppuntamentoCAS('${a.id}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.75rem;margin-top:4px;">✕ elimina</button>
                 </div>
               </div>
@@ -3711,24 +3713,57 @@ function tipoAppuntamentoIcon(tipo) {
   return map[tipo]||'📌';
 }
 
+let _appEditId = null;
+let _appReturnPage = 'cas-calendario';
+let _appReturnTipo = null;
+
 function nuovoAppuntamentoCAS(tipoPreselezionato) {
+  _appEditId = null;
+  _appReturnPage = tipoPreselezionato ? 'cas-appuntamenti-tipo' : 'cas-calendario';
+  _appReturnTipo = tipoPreselezionato || null;
+  document.getElementById('app-modal-title').textContent = 'Nuovo Appuntamento';
   document.getElementById('app-titolo').value='';
   document.getElementById('app-data').value='';
   document.getElementById('app-ora').value='';
   document.getElementById('app-ospite').value='';
   document.getElementById('app-note').value='';
-  if(tipoPreselezionato) document.getElementById('app-tipo').value=tipoPreselezionato;
+  document.getElementById('app-tipo').value = tipoPreselezionato || 'Questura';
   const sel = document.getElementById('app-struttura');
   const strutture = SESSION.strutture_cas||[];
   sel.innerHTML = strutture.map(s=>`<option value="${s.id}">${s.nome}</option>`).join('');
   openModal('modal-appuntamento-cas');
 }
 
-async function eliminaAppuntamentoCAS(id) {
+async function modificaAppuntamentoCAS(id, tipoPagina) {
+  try {
+    const res = await supa(`appuntamenti_cas?id=eq.${id}&limit=1`);
+    if(!res || res.length===0) return;
+    const a = res[0];
+    _appEditId = id;
+    _appReturnPage = tipoPagina ? 'cas-appuntamenti-tipo' : 'cas-calendario';
+    _appReturnTipo = tipoPagina || null;
+    document.getElementById('app-modal-title').textContent = 'Modifica Appuntamento';
+    document.getElementById('app-titolo').value = a.titolo || '';
+    document.getElementById('app-tipo').value = a.tipo || 'Questura';
+    const sel = document.getElementById('app-struttura');
+    const strutture = SESSION.strutture_cas||[];
+    sel.innerHTML = strutture.map(s=>`<option value="${s.id}">${s.nome}</option>`).join('');
+    sel.value = a.struttura_id || '';
+    const d = new Date(a.data_ora);
+    document.getElementById('app-data').value = d.toISOString().slice(0,10);
+    document.getElementById('app-ora').value = d.toTimeString().slice(0,5);
+    document.getElementById('app-ospite').value = a.ospite_nome || '';
+    document.getElementById('app-note').value = a.note || '';
+    openModal('modal-appuntamento-cas');
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+async function eliminaAppuntamentoCAS(id, tipoPagina) {
   if(!confirm('Eliminare questo appuntamento?')) return;
   try {
     await supa(`appuntamenti_cas?id=eq.${id}`,{method:'DELETE',headers:{'Prefer':'return=minimal'}});
-    showPageCAS('cas-calendario');
+    if(tipoPagina) renderCasAppuntamenti(document.getElementById('content-cas'), tipoPagina);
+    else showPageCAS('cas-calendario');
   } catch(e) { alert('Errore: '+e.message); }
 }
 
@@ -3746,9 +3781,14 @@ async function salvaAppuntamentoCAS() {
     note: document.getElementById('app-note').value||null
   };
   try {
-    await supa('appuntamenti_cas',{method:'POST',body:JSON.stringify(payload)});
+    if(_appEditId) {
+      await supa(`appuntamenti_cas?id=eq.${_appEditId}`,{method:'PATCH',body:JSON.stringify(payload)});
+    } else {
+      await supa('appuntamenti_cas',{method:'POST',body:JSON.stringify(payload)});
+    }
     closeModal('modal-appuntamento-cas');
-    showPageCAS('cas-calendario');
+    if(_appReturnPage==='cas-appuntamenti-tipo' && _appReturnTipo) renderCasAppuntamenti(document.getElementById('content-cas'), _appReturnTipo);
+    else showPageCAS('cas-calendario');
   } catch(e) { alert('Errore: '+e.message); }
 }
 
@@ -4969,7 +5009,7 @@ async function salvaTrasferimento() {
 <!-- MODAL APPUNTAMENTO CAS -->
 <div class="modal-overlay" id="modal-appuntamento-cas">
   <div class="modal">
-    <h3>📅 Nuovo Appuntamento</h3>
+    <h3>📅 <span id="app-modal-title">Nuovo Appuntamento</span></h3>
     <div class="form-group"><label>Titolo *</label><input id="app-titolo" placeholder="es. Audizione Commissione - Ahmed"></div>
     <div class="grid g2">
       <div class="form-group"><label>Tipo *</label>
