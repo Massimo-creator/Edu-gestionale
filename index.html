@@ -3776,7 +3776,7 @@ async function salvaAppuntamentoCAS() {
   if(!titolo||!data||!ora) { alert('Compila titolo, data e ora.'); return; }
   const payload = {
     titolo, tipo, struttura_id,
-    data_ora: `${data}T${ora}:00`,
+    data_ora: new Date(`${data}T${ora}:00`).toISOString(),
     ospite_nome: document.getElementById('app-ospite').value||null,
     note: document.getElementById('app-note').value||null
   };
@@ -4482,7 +4482,7 @@ async function salvaRiunione(riunioneId) {
   const ora = document.getElementById('riu-ora').value;
   const payload = {
     titolo,
-    data_ora: ora ? `${data}T${ora}:00` : `${data}T00:00:00`,
+    data_ora: ora ? new Date(`${data}T${ora}:00`).toISOString() : new Date(`${data}T00:00:00`).toISOString(),
     ora_da_definire: !ora,
     luogo: document.getElementById('riu-luogo').value || null,
     note_coordinatore: document.getElementById('riu-note').value || null
