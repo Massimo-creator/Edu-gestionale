@@ -2145,7 +2145,6 @@ function apriScheda(id){
       <div class="tab" onclick="switchTab('t-relazioni')">Relazioni (${relazioni.length})</div>
       <div class="tab" onclick="switchTab('t-docs')">Note/Doc (${note.length})</div>
       <div class="tab" onclick="switchTab('t-eventi')">Appuntamenti (${eventi.length})</div>
-      <div class="tab" onclick="switchTab('t-documenti')">📎 Documenti</div>
     </div>
 
     <div id="t-info" class="tab-pane active">
@@ -2233,33 +2232,6 @@ function apriScheda(id){
           ${e.luogo?`<div style="font-size:.78rem;color:var(--muted)">📍 ${e.luogo}</div>`:''}
           ${e.note?`<div style="font-size:.78rem;color:var(--muted);margin-top:2px">${e.note}</div>`:''}
         </div>`).join('')}</div>`:`<div class="empty-state"><div class="es-icon">📅</div><p>Nessun appuntamento registrato.</p></div>`}
-    </div>
-
-    <div id="t-documenti" class="tab-pane">
-      <div style="margin-bottom:16px;font-size:.82rem;color:var(--muted)">Compila i campi per tenere traccia dei documenti presenti e delle scadenze.</div>
-      <div class="grid g2" style="gap:14px;margin-bottom:20px">
-        <div style="display:flex;align-items:center;gap:10px;background:#f8fafc;border-radius:8px;padding:12px;">
-          <input type="checkbox" id="doc-cf-presente" ${m.cfPresente?'checked':''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--accent)">
-          <label for="doc-cf-presente" style="margin:0;font-weight:600;cursor:pointer">Codice fiscale presente</label>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;background:#f8fafc;border-radius:8px;padding:12px;">
-          <input type="checkbox" id="doc-residenza" ${m.residenzaPresente?'checked':''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--accent)">
-          <label for="doc-residenza" style="margin:0;font-weight:600;cursor:pointer">Residenza presente</label>
-        </div>
-        <div class="form-group" style="margin:0">
-          <label>Tessera sanitaria — scadenza</label>
-          <input type="date" id="doc-tessera-scad" value="${m.tesseraSanitariaScad||''}" style="width:100%">
-        </div>
-        <div class="form-group" style="margin:0">
-          <label>Permesso di soggiorno — scadenza</label>
-          <input type="date" id="doc-pds-scad" value="${m.scadPermesso||''}" style="width:100%">
-        </div>
-        <div class="form-group" style="margin:0">
-          <label>Carta d'identità — scadenza</label>
-          <input type="date" id="doc-ci-scad" value="${m.cartaIdentitaScad||''}" style="width:100%">
-        </div>
-      </div>
-      <button class="btn btn-primary" id="btn-salva-documenti" onclick="salvaDocumenti('${id}')">💾 Salva documenti</button>
     </div>`;
   document.getElementById('modal-scheda').classList.add('open');
 }
@@ -2269,22 +2241,8 @@ function switchTab(tabId){
   cont.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
   cont.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById(tabId).classList.add('active');
-  const map={'t-info':0,'t-legale':1,'t-pei':2,'t-relazioni':3,'t-docs':4,'t-eventi':5,'t-documenti':6};
+  const map={'t-info':0,'t-legale':1,'t-pei':2,'t-relazioni':3,'t-docs':4,'t-eventi':5};
   cont.querySelectorAll('.tab')[map[tabId]]?.classList.add('active');
-}
-
-function salvaDocumenti(id){
-  const minori=DB.get('minori');
-  const idx=minori.findIndex(x=>x.id===id);
-  if(idx<0)return;
-  minori[idx].cfPresente=document.getElementById('doc-cf-presente').checked;
-  minori[idx].residenzaPresente=document.getElementById('doc-residenza').checked;
-  minori[idx].tesseraSanitariaScad=document.getElementById('doc-tessera-scad').value;
-  minori[idx].scadPermesso=document.getElementById('doc-pds-scad').value;
-  minori[idx].cartaIdentitaScad=document.getElementById('doc-ci-scad').value;
-  DB.set('minori',minori);
-  const btn=document.getElementById('btn-salva-documenti');
-  if(btn){const orig=btn.textContent;btn.textContent='✅ Salvato!';btn.disabled=true;setTimeout(()=>{btn.textContent=orig;btn.disabled=false;},1800);}
 }
 
 // ===================== PEI =====================
@@ -3401,6 +3359,14 @@ function mostraAppCAS() {
       <div class="form-group"><label>Documenti identità</label><input id="cas-documenti" placeholder="es. Passaporto, C3"></div>
     </div>
     <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
+    <h4 style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Documenti amministrativi</h4>
+    <div class="grid g2">
+      <label style="display:flex;align-items:center;gap:8px;font-size:.88rem;"><input type="checkbox" id="cas-ha-cf"> Codice Fiscale</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:.88rem;"><input type="checkbox" id="cas-ha-tessera-sanitaria"> Tessera Sanitaria valida</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:.88rem;"><input type="checkbox" id="cas-ha-carta-identita"> Carta d'Identità</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:.88rem;"><input type="checkbox" id="cas-ha-residenza"> Residenza</label>
+    </div>
+    <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
     <h4 style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Struttura e ingresso</h4>
     <div class="grid g2">
       <div class="form-group"><label>Struttura *</label><select id="cas-struttura-id"></select></div>
@@ -4007,6 +3973,7 @@ function nuovoOspiteCAS(strutturaIdPreselezionata) {
   ['cas-dob','cas-data-audizione','cas-scadenza-permesso','cas-data-ingresso'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   ['cas-tipo-domanda','cas-esito-audizione'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   document.getElementById('cas-nucleo-membri').innerHTML = '';
+  ['cas-ha-cf','cas-ha-tessera-sanitaria','cas-ha-carta-identita','cas-ha-residenza'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
   popolaSelectStrutture(strutturaIdPreselezionata);
   openModal('modal-ospite-cas');
 }
@@ -4026,6 +3993,10 @@ async function apriOspiteCAS(id) {
       'cas-documenti':o.documenti_identita,'cas-data-ingresso':o.data_ingresso,'cas-note':o.note,'cas-nucleo-familiare':o.nucleo_familiare
     };
     Object.entries(fields).forEach(([k,v])=>{const e=document.getElementById(k);if(e)e.value=v||'';});
+    document.getElementById('cas-ha-cf').checked = !!o.ha_codice_fiscale;
+    document.getElementById('cas-ha-tessera-sanitaria').checked = !!o.ha_tessera_sanitaria;
+    document.getElementById('cas-ha-carta-identita').checked = !!o.ha_carta_identita;
+    document.getElementById('cas-ha-residenza').checked = !!o.ha_residenza;
     popolaSelectStrutture(o.struttura_id);
     const membriEl = document.getElementById('cas-nucleo-membri');
     membriEl.innerHTML = '';
@@ -4070,6 +4041,10 @@ async function salvaOspiteCAS() {
     data_ingresso: document.getElementById('cas-data-ingresso').value||null,
     note: document.getElementById('cas-note').value||null,
     nucleo_familiare: document.getElementById('cas-nucleo-familiare').value.trim()||null,
+    ha_codice_fiscale: document.getElementById('cas-ha-cf').checked,
+    ha_tessera_sanitaria: document.getElementById('cas-ha-tessera-sanitaria').checked,
+    ha_carta_identita: document.getElementById('cas-ha-carta-identita').checked,
+    ha_residenza: document.getElementById('cas-ha-residenza').checked,
     updated_at: new Date().toISOString()
   };
   try {
