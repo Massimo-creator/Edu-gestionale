@@ -4145,6 +4145,19 @@ async function renderCasManutenzioni(el) {
   } catch(e) { el.innerHTML=`<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
 }
 
+async function inviaEmailApprodo(to, subject, html, replyTo) {
+  try {
+    const { data } = await supabaseClient.auth.getSession();
+    const token = (data && data.session && data.session.access_token) || SUPA_KEY;
+    const res = await fetch(`${SUPA_URL}/functions/v1/send-email`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'apikey': SUPA_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: Array.isArray(to)?to:[to], subject, html, replyTo: replyTo||undefined })
+    });
+    if(!res.ok) console.error('Invio email non riuscito:', await res.text());
+  } catch(e) { console.error('Invio email fallito:', e); }
+}
+
 function nuovaSegnalazioneCAS() {
   document.getElementById('man-titolo').value='';
   document.getElementById('man-descrizione').value='';
@@ -4184,6 +4197,19 @@ async function salvaManutenzioneCAS() {
   };
   try {
     await supa('manutenzioni_cas',{method:'POST',body:JSON.stringify(payload)});
+    const struttura = (SESSION.strutture_cas||[]).find(s=>s.id===payload.struttura_id);
+    inviaEmailApprodo(
+      'm.ceccaroli@coopmetis.com',
+      `🔧 Nuova segnalazione — ${struttura?struttura.nome:''}`,
+      `<p><strong>Struttura:</strong> ${struttura?struttura.nome:'—'}</p>
+       <p><strong>Titolo:</strong> ${titolo}</p>
+       <p><strong>Urgenza:</strong> ${payload.urgenza}</p>
+       ${payload.descrizione?`<p><strong>Descrizione:</strong> ${payload.descrizione}</p>`:''}
+       <p><strong>Segnalato da:</strong> ${payload.segnalato_da_nome}</p>
+       ${foto_url?`<p><a href="${foto_url}">Vedi foto allegata</a></p>`:''}
+       <p style="color:#888;font-size:.85em;">Approdo — Gestionale CAS Metis Rimini</p>`,
+      payload.segnalato_da
+    );
     closeModal('modal-manutenzione-cas');
     showPageCAS('cas-manutenzioni');
   } catch(e){alert('Errore: '+e.message);}
@@ -4744,11 +4770,14 @@ async function salvaVerificaPS(invia) {
     if(!presente||invia){
       const nomiMesi=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
       const operatore=SESSION.utente.nome||SESSION.utente.email;
-      const dest='m.andreoni@coopmetis.com,m.ceccaroli@coopmetis.com';
       let oggetto,corpo;
       if(!presente){oggetto=`⚠️ CASSETTA P.S. ASSENTE — ${_psStrutturaNome}`;corpo=`ALERT CASSETTA PRIMO SOCCORSO\n\nStruttura: ${_psStrutturaNome}\nMese: ${nomiMesi[_psMese]} ${_psAnno}\nSegnalato da: ${operatore}\n\nLA CASSETTA DI PRIMO SOCCORSO NON È PRESENTE IN STRUTTURA.\n\nSi prega di provvedere immediatamente.\n\nApprodo — Gestionale CAS Metis Rimini`;}
       else{const mancanti=Object.values(prodotti).filter(p=>p.no).map(p=>p.nome);const scaduti=Object.values(prodotti).filter(p=>p.scaduto).map(p=>`${p.nome} (scad. ${p.scaduto})`);oggetto=`📋 Verifica Cassetta P.S. — ${_psStrutturaNome} — ${nomiMesi[_psMese]} ${_psAnno}`;corpo=`VERIFICA MENSILE CASSETTA PRIMO SOCCORSO\n\nStruttura: ${_psStrutturaNome}\nMese: ${nomiMesi[_psMese]} ${_psAnno}\nVerificata da: ${operatore}\nData: ${document.getElementById('ps-data').value||''}\n\nCassetta presente: SÌ\n${mancanti.length>0?`\nPRODOTTI MANCANTI:\n${mancanti.map(p=>'- '+p).join('\n')}`:'Tutti i prodotti presenti ✓'}\n${scaduti.length>0?`\nPRODOTTI SCADUTI:\n${scaduti.map(p=>'- '+p).join('\n')}`:''}\n\nApprodo — Gestionale CAS Metis Rimini`;}
-      window.location.href=`mailto:${dest}?subject=${encodeURIComponent(oggetto)}&body=${encodeURIComponent(corpo)}`;
+      inviaEmailApprodo(
+        ['m.andreoni@coopmetis.com','m.ceccaroli@coopmetis.com'],
+        oggetto,
+        corpo.replace(/\n/g,'<br>')+`<p style="color:#888;font-size:.85em;">Approdo — Gestionale CAS Metis Rimini</p>`
+      );
     }
     closeModal('modal-cassetta-ps');
     renderCassettePS(document.getElementById('content-cas'));
