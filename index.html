@@ -4889,8 +4889,7 @@ async function salvaPocketMoney(invia) {
     else await supa('pocket_money_cas',{method:'POST',body:JSON.stringify(payload)});
 
     if(invia) {
-      // Email in amministrazione (Isabella - da configurare)
-      const ADMIN_EMAIL = 'amministrazione@coopmetis.com'; // da aggiornare con email Isabella
+      const ADMIN_EMAIL = 'i.mei@coopmetis.com';
       const importo = document.getElementById('pm-importo').value;
       const data = new Date(document.getElementById('pm-data').value).toLocaleDateString('it-IT');
       const educatore = SESSION.utente.nome || SESSION.utente.email;
@@ -4898,7 +4897,12 @@ async function salvaPocketMoney(invia) {
 
       const corpo = `RICEVUTA POCKET MONEY\n\nStruttura: ${strutturaNome}\nMese: ${nomiMesi[_pmMese]} ${_pmAnno}\nImporto per ospite: € ${importo}\nData distribuzione: ${data}\nDistribuito da: ${educatore}\nDistribuito a tutti gli ospiti presenti: ${distribuito?'SÌ':'NO'}${criticita?'\nCriticità: '+criticita:''}\n\nRicevuta generata da Approdo — Gestionale CAS Metis Rimini`;
 
-      window.location.href = `mailto:${ADMIN_EMAIL}?subject=Ricevuta Pocket Money — ${strutturaNome} — ${nomiMesi[_pmMese]} ${_pmAnno}&body=${encodeURIComponent(corpo)}`;
+      inviaEmailApprodo(
+        ADMIN_EMAIL,
+        `Ricevuta Pocket Money — ${strutturaNome} — ${nomiMesi[_pmMese]} ${_pmAnno}`,
+        corpo.replace(/\n/g,'<br>'),
+        SESSION.utente.email
+      );
     }
 
     closeModal('modal-pocket-money');
