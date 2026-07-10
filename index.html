@@ -3305,6 +3305,14 @@ function mostraAppCAS() {
 <div id="main-cas">
   <div id="topbar-cas" style="display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:56px;background:var(--card);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;">
     <h3 id="cas-page-title" style="font-size:1rem;font-weight:600;">Dashboard CAS</h3>
+    <div style="position:relative;flex:1;max-width:320px;margin:0 20px;">
+      <input id="cas-ricerca-ospiti" type="text" placeholder="🔍 Cerca ospite per nome o cognome..." autocomplete="off"
+        style="width:100%;padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;box-sizing:border-box;"
+        oninput="cercaOspitiTopbar(this.value)"
+        onfocus="if(this.value.trim().length>=2) cercaOspitiTopbar(this.value)"
+        onblur="setTimeout(()=>{const r=document.getElementById('cas-ricerca-risultati');if(r)r.style.display='none';},150)">
+      <div id="cas-ricerca-risultati" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-top:4px;max-height:340px;overflow-y:auto;z-index:50;box-shadow:0 6px 16px rgba(0,0,0,.12);"></div>
+    </div>
     <span id="cas-topbar-user" style="font-size:.78rem;color:var(--muted);"></span>
   </div>
   <div id="content-cas" style="padding:24px;overflow-y:auto;height:calc(100vh - 56px);"></div>
@@ -3509,6 +3517,38 @@ async function renderCasDashboard(el) {
       </div>
     `;
   } catch(e) { el.innerHTML=`<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
+}
+
+let _ricercaOspitiTimeout = null;
+async function cercaOspitiTopbar(query) {
+  const risultatiEl = document.getElementById('cas-ricerca-risultati');
+  if(!risultatiEl) return;
+  clearTimeout(_ricercaOspitiTimeout);
+  const q = query.trim();
+  if(q.length < 2) { risultatiEl.style.display='none'; risultatiEl.innerHTML=''; return; }
+  _ricercaOspitiTimeout = setTimeout(async () => {
+    try {
+      const strutture = SESSION.strutture_cas || [];
+      const struttureIds = strutture.map(s=>s.id);
+      if(struttureIds.length===0) { risultatiEl.style.display='none'; return; }
+      const mapS = {}; strutture.forEach(s=>mapS[s.id]=s.nome);
+      const qEnc = encodeURIComponent(q);
+      const risultati = await supa(`ospiti_cas?struttura_id=in.(${struttureIds.join(',')})&or=(nome.ilike.*${qEnc}*,cognome.ilike.*${qEnc}*)&order=cognome&limit=15`) || [];
+      if(risultati.length===0) {
+        risultatiEl.innerHTML = '<div style="padding:10px 14px;color:var(--muted);font-size:.85rem;">Nessun risultato</div>';
+      } else {
+        risultatiEl.innerHTML = risultati.map(o=>`
+          <div onmousedown="apriOspiteCAS('${o.id}')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'">
+            <div style="font-weight:600;font-size:.88rem;">${o.cognome} ${o.nome}</div>
+            <div style="font-size:.78rem;color:var(--muted);">🏠 ${mapS[o.struttura_id]||'—'}</div>
+          </div>`).join('');
+      }
+      risultatiEl.style.display = 'block';
+    } catch(e) {
+      risultatiEl.innerHTML = `<div style="padding:10px 14px;color:var(--danger);font-size:.85rem;">Errore ricerca</div>`;
+      risultatiEl.style.display = 'block';
+    }
+  }, 250);
 }
 
 async function renderCasOspiti(el) {
