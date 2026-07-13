@@ -4782,8 +4782,10 @@ async function salvaVerificaPS(invia) {
   }catch(e){alert('Errore: '+e.message);}
 }
 
-let _pmMese = new Date().getMonth();
-let _pmAnno = new Date().getFullYear();
+let _pmOggi = new Date();
+let _pmMese = _pmOggi.getMonth() - 1;
+let _pmAnno = _pmOggi.getFullYear();
+if (_pmMese < 0) { _pmMese = 11; _pmAnno--; }
 
 async function renderCasPocketMoney(el) {
   el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
