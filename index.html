@@ -854,15 +854,15 @@ async function supa(path, opts={}) {
 let SESSION = null; // { utente, comunita_id, comunita_nome }
 
 function getSession() {
-  try { return JSON.parse(sessionStorage.getItem('educare_session')) || null; } catch { return null; }
+  try { return JSON.parse(localStorage.getItem('educare_session')) || null; } catch { return null; }
 }
 function setSession(s) {
   SESSION = s;
-  sessionStorage.setItem('educare_session', JSON.stringify(s));
+  localStorage.setItem('educare_session', JSON.stringify(s));
 }
 function clearSession() {
   SESSION = null;
-  sessionStorage.removeItem('educare_session');
+  localStorage.removeItem('educare_session');
 }
 
 // ===================== LOGIN SCREEN =====================
