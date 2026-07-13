@@ -4099,10 +4099,8 @@ async function salvaOspiteCAS() {
 async function renderCasManutenzioni(el) {
   el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
   try {
-    const strutture = SESSION.strutture_cas || [];
-    const struttureIds = strutture.map(s=>s.id);
-    let segn = [];
-    if(struttureIds.length>0) segn = await supa(`manutenzioni_cas?struttura_id=in.(${struttureIds.join(',')})&order=created_at.desc`) || [];
+    const strutture = await supa('strutture_cas?order=nome') || [];
+    let segn = await supa('manutenzioni_cas?order=created_at.desc') || [];
     const mapS = {}; strutture.forEach(s=>mapS[s.id]=s.nome);
     const aperte = segn.filter(s=>s.stato==='Aperta');
     const inLavoro = segn.filter(s=>s.stato==='In lavorazione');
