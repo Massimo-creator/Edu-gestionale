@@ -4936,7 +4936,7 @@ async function renderCasTrasferimenti(el) {
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
                   <span style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.82rem;font-weight:600;">🏠 ${mapS[t.struttura_origine_id]||'—'}</span>
                   <span style="font-size:1.2rem;color:var(--accent);">→</span>
-                  <span style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.82rem;font-weight:600;">🏠 ${mapS[t.struttura_destinazione_id]||'—'}</span>
+                  <span style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.82rem;font-weight:600;">🏠 ${mapS[t.struttura_destinazione_id]||'Non Metis'}</span>
                 </div>
                 ${t.data_richiesta?`<div style="font-size:.78rem;color:var(--muted);">📅 Richiesto: ${new Date(t.data_richiesta).toLocaleDateString('it-IT')}</div>`:''}
                 ${t.data_autorizzazione?`<div style="font-size:.78rem;color:#8b5cf6;">✓ Autorizzato: ${new Date(t.data_autorizzazione).toLocaleDateString('it-IT')}</div>`:''}
@@ -4965,7 +4965,7 @@ function nuovoTrasferimento() {
   const strutture = SESSION.strutture_cas||[];
   const opts = strutture.map(s=>`<option value="${s.id}">${s.nome}</option>`).join('');
   document.getElementById('tr-origine').innerHTML=opts;
-  document.getElementById('tr-destinazione').innerHTML=opts;
+  document.getElementById('tr-destinazione').innerHTML='<option value="">Non Metis</option>'+opts;
   openModal('modal-trasferimento-cas');
 }
 
@@ -4981,7 +4981,7 @@ async function modificaTrasferimento(id) {
   document.getElementById('tr-note').value=t.note||'';
   const strutture = SESSION.strutture_cas||[];
   const opts = strutture.map(s=>`<option value="${s.id}" ${s.id===t.struttura_origine_id?'selected':''}>${s.nome}</option>`).join('');
-  const optsD = strutture.map(s=>`<option value="${s.id}" ${s.id===t.struttura_destinazione_id?'selected':''}>${s.nome}</option>`).join('');
+  const optsD = '<option value="">Non Metis</option>' + strutture.map(s=>`<option value="${s.id}" ${s.id===t.struttura_destinazione_id?'selected':''}>${s.nome}</option>`).join('');
   document.getElementById('tr-origine').innerHTML=opts;
   document.getElementById('tr-destinazione').innerHTML=optsD;
   openModal('modal-trasferimento-cas');
@@ -4994,7 +4994,7 @@ async function salvaTrasferimento() {
   const payload = {
     ospite_nome: ospiteNome,
     struttura_origine_id: document.getElementById('tr-origine').value,
-    struttura_destinazione_id: document.getElementById('tr-destinazione').value,
+    struttura_destinazione_id: document.getElementById('tr-destinazione').value || null,
     stato,
     data_richiesta: document.getElementById('tr-data-richiesta').value||null,
     data_autorizzazione: stato==='Autorizzato'||stato==='Effettuato' ? document.getElementById('tr-data-autorizzazione').value||null : null,
