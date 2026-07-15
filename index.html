@@ -3569,19 +3569,34 @@ async function renderCasDashboard(el) {
         </div>
       </div>`;
 
+    // Calcolo posti vuoti per struttura, per l'elenco a comparsa
+    const occupatiPerStruttura = {};
+    ospiti.forEach(o => { occupatiPerStruttura[o.struttura_id] = (occupatiPerStruttura[o.struttura_id]||0) + 1; });
+    const struttureConPostiVuoti = strutture
+      .map(s => ({ nome: s.nome, vuoti: (s.capienza||0) - (occupatiPerStruttura[s.id]||0) }))
+      .filter(s => s.vuoti > 0)
+      .sort((a,b) => b.vuoti - a.vuoti);
+
     el.innerHTML = `
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px;">
-        <div class="card" style="padding:20px;text-align:center;"><div style="font-size:2.2rem;font-weight:700;color:var(--accent);">${strutture.length}</div><div style="color:var(--muted);font-size:.85rem;margin-top:4px;">Strutture</div></div>
-        <div class="card" style="padding:20px;text-align:center;"><div style="font-size:2.2rem;font-weight:700;color:var(--accent2);">${ospiti.length}</div><div style="color:var(--muted);font-size:.85rem;margin-top:4px;">Beneficiari presenti</div></div>
-        ${postiVuoti!==null?`<div class="card" style="padding:20px;text-align:center;"><div style="font-size:2.2rem;font-weight:700;color:${postiVuoti>0?'var(--warn)':'var(--danger)'};">${postiVuoti}</div><div style="color:var(--muted);font-size:.85rem;margin-top:4px;">Posti vuoti</div></div>`:''}
-        <div class="card" style="padding:20px;text-align:center;"><div style="font-size:2.2rem;font-weight:700;color:var(--danger);">${fascia7.length}</div><div style="color:var(--muted);font-size:.85rem;margin-top:4px;">Urgenti (7gg)</div></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:8px;">
+        <div class="card" style="padding:20px;text-align:center;cursor:pointer;" onclick="showPageCAS('cas-strutture')"><div style="font-size:2.2rem;font-weight:700;color:var(--accent);">${strutture.length}</div><div style="color:var(--muted);font-size:.85rem;margin-top:4px;">Strutture</div></div>
+        <div class="card" style="padding:20px;text-align:center;cursor:pointer;" onclick="showPageCAS('cas-ospiti')"><div style="font-size:2.2rem;font-weight:700;color:var(--accent2);">${ospiti.length}</div><div style="color:var(--muted);font-size:.85rem;margin-top:4px;">Beneficiari presenti</div></div>
+        ${postiVuoti!==null?`<div class="card" style="padding:20px;text-align:center;cursor:pointer;" onclick="const l=document.getElementById('dash-posti-vuoti-lista');l.style.display=l.style.display==='none'?'block':'none';"><div style="font-size:2.2rem;font-weight:700;color:${postiVuoti>0?'var(--warn)':'var(--danger)'};">${postiVuoti}</div><div style="color:var(--muted);font-size:.85rem;margin-top:4px;">Posti vuoti</div></div>`:''}
+        <div class="card" style="padding:20px;text-align:center;cursor:pointer;" onclick="document.getElementById('dash-fascia-7gg').scrollIntoView({behavior:'smooth',block:'start'})"><div style="font-size:2.2rem;font-weight:700;color:var(--danger);">${fascia7.length}</div><div style="color:var(--muted);font-size:.85rem;margin-top:4px;">Urgenti (7gg)</div></div>
       </div>
+
+      ${postiVuoti!==null?`<div id="dash-posti-vuoti-lista" style="display:none;margin-bottom:24px;">
+        <div class="card" style="padding:16px;">
+          ${struttureConPostiVuoti.length===0?'<div style="color:var(--muted);font-size:.85rem;">Nessun posto vuoto al momento 🎉</div>':
+            struttureConPostiVuoti.map(s=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:.88rem;"><span>🏠 ${s.nome}</span><span style="font-weight:600;color:var(--warn);">${s.vuoti} post${s.vuoti===1?'o':'i'} vuot${s.vuoti===1?'o':'i'}</span></div>`).join('')}
+        </div>
+      </div>`:''}
 
       <div class="card" style="padding:20px;margin-bottom:16px;">
         <h3 style="font-size:1rem;margin-bottom:16px;">📅 Appuntamenti e Scadenze</h3>
         ${fascia7.length===0&&fascia15.length===0&&fascia30.length===0?'<div style="color:var(--muted);text-align:center;padding:16px;">Nessun appuntamento o scadenza nei prossimi 30 giorni 👍</div>':''}
         ${renderFascia('Da aggiornare','#64748b','🗂️',daAggiornare,false)}
-        ${renderFascia('Entro 7 giorni','var(--danger)','🔴',fascia7,true)}
+        <div id="dash-fascia-7gg">${renderFascia('Entro 7 giorni','var(--danger)','🔴',fascia7,true)}</div>
         ${renderFascia('Entro 15 giorni','var(--warn)','🟠',fascia15,fascia7.length===0)}
         ${renderFascia('Entro 30 giorni','var(--accent2)','🟡',fascia30,false)}
       </div>
