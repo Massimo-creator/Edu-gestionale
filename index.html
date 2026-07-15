@@ -3520,8 +3520,14 @@ async function renderCasDashboard(el) {
       const diff = Math.round((dGiorno - oggi) / (1000*60*60*24));
       items.push({ id: a.id, tipo: a.tipo, label: a.ospite_nome||a.titolo, struttura: mapS[a.struttura_id]||'—', data: d, diff, icon: tipoAppuntamentoIcon(a.tipo), categoria: 'appuntamento' });
     });
+    // Chi ha già un appuntamento Questura fissato non deve comparire anche come scadenza PDS grezza: sarebbe ridondante
+    const normNome = (s) => (s||'').toLowerCase().trim().replace(/\s+/g,' ');
+    const conAppuntamentoQuestura = new Set(
+      appuntamenti.filter(a=>a.tipo==='Questura' && a.ospite_nome).map(a=>normNome(a.ospite_nome))
+    );
     ospiti.forEach(o => {
       if(!o.scadenza_permesso) return;
+      if(conAppuntamentoQuestura.has(normNome(`${o.nome} ${o.cognome}`)) || conAppuntamentoQuestura.has(normNome(`${o.cognome} ${o.nome}`))) return;
       const d = new Date(o.scadenza_permesso);
       const dGiorno = new Date(d.getFullYear(), d.getMonth(), d.getDate());
       const diff = Math.round((dGiorno - oggi) / (1000*60*60*24));
