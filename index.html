@@ -3430,7 +3430,21 @@ function mostraAppCAS() {
 // ===== MODULO CAS =====
 // mostraAppCAS è definita nel secondo script block per essere disponibile al login
 
+let _casPaginaAttuale = 'cas-dashboard';
+
+async function aggiornaEsitoAppuntamentoCAS(id) {
+  const esito = prompt('Com\'è andato l\'appuntamento? (scrivi l\'esito, poi verrà archiviato)');
+  if (esito === null) return; // annullato
+  if (!esito.trim()) { alert('Scrivi almeno una breve nota sull\'esito.'); return; }
+  try {
+    await supa(`appuntamenti_cas?id=eq.${id}`, {method:'PATCH', body: JSON.stringify({ stato: 'Svolto', esito: esito.trim() })});
+    if (_casPaginaAttuale === 'cas-dashboard') renderCasDashboard(document.getElementById('content-cas'));
+    else showPageCAS(_casPaginaAttuale);
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
 function showPageCAS(page) {
+  _casPaginaAttuale = page;
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
   const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
@@ -3464,11 +3478,12 @@ async function renderCasDashboard(el) {
     const postiVuoti = totaleCapienza > 0 ? totaleCapienza - ospiti.length : null;
     const mapS = {}; strutture.forEach(s=>mapS[s.id]=s.nome);
 
-    // Carica appuntamenti prossimi 30 giorni
+    // Carica appuntamenti prossimi 30 giorni (usa la data locale, non UTC, per evitare lo sfasamento di fuso orario)
     const fra30 = new Date(oggi); fra30.setDate(fra30.getDate()+30);
+    const dataLocaleISO = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     let appuntamenti = [];
     if(struttureIds.length>0) {
-      appuntamenti = await supa(`appuntamenti_cas?struttura_id=in.(${struttureIds.join(',')})&data_ora=gte.${oggi.toISOString().split('T')[0]}&data_ora=lte.${fra30.toISOString().split('T')[0]}T23:59:59&order=data_ora`) || [];
+      appuntamenti = await supa(`appuntamenti_cas?struttura_id=in.(${struttureIds.join(',')})&stato=eq.Da svolgere&data_ora=lte.${dataLocaleISO(fra30)}T23:59:59&order=data_ora`) || [];
     }
 
     // Unifica appuntamenti e scadenze PDS in un unico array
@@ -3476,7 +3491,7 @@ async function renderCasDashboard(el) {
     appuntamenti.forEach(a => {
       const d = new Date(a.data_ora);
       const diff = Math.ceil((d - oggi) / (1000*60*60*24));
-      items.push({ tipo: a.tipo, label: a.ospite_nome||a.titolo, struttura: mapS[a.struttura_id]||'—', data: d, diff, icon: tipoAppuntamentoIcon(a.tipo), categoria: 'appuntamento' });
+      items.push({ id: a.id, tipo: a.tipo, label: a.ospite_nome||a.titolo, struttura: mapS[a.struttura_id]||'—', data: d, diff, icon: tipoAppuntamentoIcon(a.tipo), categoria: 'appuntamento' });
     });
     ospiti.forEach(o => {
       if(!o.scadenza_permesso) return;
@@ -3496,8 +3511,10 @@ async function renderCasDashboard(el) {
         <div style="font-size:.78rem;color:var(--muted);">🏠 ${i.struttura} · ${i.tipo}</div>
       </div>
       <div style="text-align:right;flex-shrink:0;margin-left:10px;">
-        <div style="font-weight:700;color:${i.diff<=7?'var(--danger)':i.diff<=15?'var(--warn)':'var(--accent2)'};font-size:.85rem;">${i.diff===0?'OGGI':i.diff+' gg'}</div>
-        <div style="font-size:.75rem;color:var(--muted);">${i.data.toLocaleDateString('it-IT',{day:'2-digit',month:'short'})}</div>
+        ${i.categoria==='appuntamento' && i.diff<0
+          ? `<button onclick="aggiornaEsitoAppuntamentoCAS('${i.id}')" class="btn btn-primary" style="font-size:.72rem;padding:4px 10px;">✅ Aggiorna esito</button>`
+          : `<div style="font-weight:700;color:${i.diff<=7?'var(--danger)':i.diff<=15?'var(--warn)':'var(--accent2)'};font-size:.85rem;">${i.diff===0?'OGGI':i.diff+' gg'}</div>
+             <div style="font-size:.75rem;color:var(--muted);">${i.data.toLocaleDateString('it-IT',{day:'2-digit',month:'short'})}</div>`}
       </div>
     </div>`;
 
@@ -3727,7 +3744,19 @@ async function renderCasAppuntamenti(el, tipo) {
             </div>`;
           }).join('')}
       </div>
-      ${passati.length>0?`<details><summary style="cursor:pointer;color:var(--muted);font-size:.85rem;padding:8px 0;">Passati (${passati.length})</summary><div style="display:grid;gap:8px;margin-top:10px;opacity:.6;">${passati.reverse().map(a=>{const d=new Date(a.data_ora);return `<div class="card" style="padding:12px;"><div style="display:flex;justify-content:space-between;"><span style="font-weight:500;">${a.titolo}</span><span style="font-size:.82rem;color:var(--muted);">${d.toLocaleDateString('it-IT')}</span></div></div>`;}).join('')}</div></details>`:''}
+      ${passati.length>0?`<details><summary style="cursor:pointer;color:var(--muted);font-size:.85rem;padding:8px 0;">Passati (${passati.length})</summary><div style="display:grid;gap:8px;margin-top:10px;">${passati.reverse().map(a=>{
+        const d=new Date(a.data_ora);
+        const daSvolgere = a.stato !== 'Svolto';
+        return `<div class="card" style="padding:12px;${daSvolgere?'':'opacity:.6;'}">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:500;">${a.titolo}</span>
+            <span style="font-size:.82rem;color:var(--muted);">${d.toLocaleDateString('it-IT')}</span>
+          </div>
+          ${daSvolgere
+            ? `<div style="margin-top:8px;text-align:right;"><button onclick="aggiornaEsitoAppuntamentoCAS('${a.id}')" class="btn btn-primary" style="font-size:.75rem;padding:4px 10px;">✅ Aggiorna esito</button></div>`
+            : (a.esito?`<div style="font-size:.8rem;color:var(--muted);margin-top:6px;">📝 ${a.esito}</div>`:'')}
+        </div>`;
+      }).join('')}</div></details>`:''}
     `;
   } catch(e) { el.innerHTML=`<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
 }
@@ -3776,14 +3805,18 @@ async function renderCasCalendario(el) {
       ${passati.length>0?`
         <details style="margin-top:8px;">
           <summary style="cursor:pointer;color:var(--muted);font-size:.85rem;padding:8px 0;">Appuntamenti passati (${passati.length})</summary>
-          <div style="display:grid;gap:8px;margin-top:10px;opacity:.6;">
+          <div style="display:grid;gap:8px;margin-top:10px;">
             ${passati.reverse().map(a=>{
               const d=new Date(a.data_ora);
-              return `<div class="card" style="padding:12px;">
-                <div style="display:flex;justify-content:space-between;">
+              const daSvolgere = a.stato !== 'Svolto';
+              return `<div class="card" style="padding:12px;${daSvolgere?'':'opacity:.6;'}">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
                   <div><span style="font-weight:500;">${a.titolo}</span> <span style="font-size:.78rem;color:var(--muted);">· ${tipoAppuntamentoIcon(a.tipo)} ${a.tipo}</span></div>
                   <div style="font-size:.82rem;color:var(--muted);">${d.toLocaleDateString('it-IT')} ${d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</div>
                 </div>
+                ${daSvolgere
+                  ? `<div style="margin-top:8px;text-align:right;"><button onclick="aggiornaEsitoAppuntamentoCAS('${a.id}')" class="btn btn-primary" style="font-size:.75rem;padding:4px 10px;">✅ Aggiorna esito</button></div>`
+                  : (a.esito?`<div style="font-size:.8rem;color:var(--muted);margin-top:6px;">📝 ${a.esito}</div>`:'')}
               </div>`;
             }).join('')}
           </div>
