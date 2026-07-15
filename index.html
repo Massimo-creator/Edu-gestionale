@@ -3432,14 +3432,40 @@ function mostraAppCAS() {
 
 let _casPaginaAttuale = 'cas-dashboard';
 
+let _esitoAppuntamentoId = null;
+
 async function aggiornaEsitoAppuntamentoCAS(id) {
-  const esito = prompt('Com\'è andato l\'appuntamento? (scrivi l\'esito, poi verrà archiviato)');
-  if (esito === null) return; // annullato
-  if (!esito.trim()) { alert('Scrivi almeno una breve nota sull\'esito.'); return; }
   try {
-    await supa(`appuntamenti_cas?id=eq.${id}`, {method:'PATCH', body: JSON.stringify({ stato: 'Svolto', esito: esito.trim() })});
-    if (_casPaginaAttuale === 'cas-dashboard') renderCasDashboard(document.getElementById('content-cas'));
-    else showPageCAS(_casPaginaAttuale);
+    const res = await supa(`appuntamenti_cas?id=eq.${id}&limit=1`);
+    if(!res || res.length===0) return;
+    const a = res[0];
+    _esitoAppuntamentoId = id;
+    document.getElementById('esito-testo').value = '';
+    const d = new Date(a.data_ora);
+    document.getElementById('esito-appuntamento-riepilogo').textContent = `${a.titolo} — ${d.toLocaleDateString('it-IT')}`;
+    openModal('modal-esito-appuntamento-cas');
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+async function salvaEsitoAppuntamentoCAS(prendiNuovo) {
+  const esito = document.getElementById('esito-testo').value.trim();
+  if (!esito) { alert('Scrivi almeno una breve nota sull\'esito.'); return; }
+  try {
+    const res = await supa(`appuntamenti_cas?id=eq.${_esitoAppuntamentoId}&limit=1`);
+    const a = (res && res[0]) || null;
+    await supa(`appuntamenti_cas?id=eq.${_esitoAppuntamentoId}`, {method:'PATCH', body: JSON.stringify({ stato: 'Svolto', esito })});
+    closeModal('modal-esito-appuntamento-cas');
+    if (prendiNuovo && a) {
+      nuovoAppuntamentoCAS(a.tipo === 'Questura' ? undefined : a.tipo);
+      document.getElementById('app-titolo').value = a.titolo;
+      document.getElementById('app-tipo').value = a.tipo;
+      document.getElementById('app-struttura').value = a.struttura_id;
+      document.getElementById('app-ospite').value = a.ospite_nome || '';
+    } else if (_casPaginaAttuale === 'cas-dashboard') {
+      renderCasDashboard(document.getElementById('content-cas'));
+    } else {
+      showPageCAS(_casPaginaAttuale);
+    }
   } catch(e) { alert('Errore: '+e.message); }
 }
 
@@ -3490,13 +3516,15 @@ async function renderCasDashboard(el) {
     const items = [];
     appuntamenti.forEach(a => {
       const d = new Date(a.data_ora);
-      const diff = Math.ceil((d - oggi) / (1000*60*60*24));
+      const dGiorno = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const diff = Math.round((dGiorno - oggi) / (1000*60*60*24));
       items.push({ id: a.id, tipo: a.tipo, label: a.ospite_nome||a.titolo, struttura: mapS[a.struttura_id]||'—', data: d, diff, icon: tipoAppuntamentoIcon(a.tipo), categoria: 'appuntamento' });
     });
     ospiti.forEach(o => {
       if(!o.scadenza_permesso) return;
       const d = new Date(o.scadenza_permesso);
-      const diff = Math.ceil((d - oggi) / (1000*60*60*24));
+      const dGiorno = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const diff = Math.round((dGiorno - oggi) / (1000*60*60*24));
       if(diff >= 0 && diff <= 30) items.push({ tipo: 'Scadenza PDS', label: `${o.nome} ${o.cognome}`, struttura: mapS[o.struttura_id]||'—', data: d, diff, icon: '📋', categoria: 'scadenza' });
     });
     items.sort((a,b) => a.diff - b.diff);
@@ -5195,6 +5223,20 @@ async function salvaTrasferimento() {
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-appuntamento-cas')">Annulla</button>
       <button class="btn btn-primary" onclick="salvaAppuntamentoCAS()">💾 Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL AGGIORNA ESITO APPUNTAMENTO CAS -->
+<div class="modal-overlay" id="modal-esito-appuntamento-cas">
+  <div class="modal">
+    <h3>✅ Aggiorna esito</h3>
+    <div id="esito-appuntamento-riepilogo" style="font-size:.85rem;color:var(--muted);margin-bottom:12px;"></div>
+    <div class="form-group"><label>Com'è andato l'appuntamento? *</label><textarea id="esito-testo" rows="3" placeholder="es. Rinnovo concesso, ritiro permesso tra 30 giorni" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
+    <div class="modal-footer" style="flex-wrap:wrap;gap:8px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-esito-appuntamento-cas')">Annulla</button>
+      <button class="btn btn-ghost" onclick="salvaEsitoAppuntamentoCAS(false)">💾 Salva esito</button>
+      <button class="btn btn-primary" onclick="salvaEsitoAppuntamentoCAS(true)">💾 Salva e prendi nuovo appuntamento</button>
     </div>
   </div>
 </div>
