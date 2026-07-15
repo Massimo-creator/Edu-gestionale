@@ -3531,7 +3531,7 @@ async function renderCasDashboard(el) {
       const d = new Date(o.scadenza_permesso);
       const dGiorno = new Date(d.getFullYear(), d.getMonth(), d.getDate());
       const diff = Math.round((dGiorno - oggi) / (1000*60*60*24));
-      if(diff >= 0 && diff <= 30) items.push({ tipo: 'Scadenza PDS', label: `${o.nome} ${o.cognome}`, struttura: mapS[o.struttura_id]||'—', data: d, diff, icon: '📋', categoria: 'scadenza' });
+      if(diff >= 0 && diff <= 30) items.push({ id: o.id, tipo: 'Scadenza PDS', label: `${o.nome} ${o.cognome}`, struttura: mapS[o.struttura_id]||'—', data: d, diff, icon: '📋', categoria: 'scadenza' });
     });
     items.sort((a,b) => a.diff - b.diff);
 
@@ -3541,12 +3541,12 @@ async function renderCasDashboard(el) {
     const fascia15 = itemsFuturi.filter(i=>i.diff>7&&i.diff<=15);
     const fascia30 = itemsFuturi.filter(i=>i.diff>15&&i.diff<=30);
 
-    const renderItem = (i) => `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:10px 14px;background:var(--bg);border-radius:8px;border-left:3px solid ${i.diff<=7?'var(--danger)':i.diff<=15?'var(--warn)':'var(--accent2)'};">
+    const renderItem = (i) => `<div onclick="${i.categoria==='appuntamento'?`modificaAppuntamentoCAS('${i.id}','DASHBOARD')`:`apriOspiteCAS('${i.id}')`}" style="display:flex;justify-content:space-between;align-items:flex-start;padding:10px 14px;background:var(--bg);border-radius:8px;border-left:3px solid ${i.diff<=7?'var(--danger)':i.diff<=15?'var(--warn)':'var(--accent2)'};cursor:pointer;">
       <div>
         <div style="font-weight:600;font-size:.88rem;">${i.icon} ${i.label}</div>
         <div style="font-size:.78rem;color:var(--muted);">🏠 ${i.struttura} · ${i.tipo}</div>
       </div>
-      <div style="text-align:right;flex-shrink:0;margin-left:10px;">
+      <div style="text-align:right;flex-shrink:0;margin-left:10px;" onclick="event.stopPropagation()">
         ${i.categoria==='appuntamento' && i.diff<0
           ? `<button onclick="aggiornaEsitoAppuntamentoCAS('${i.id}')" class="btn btn-primary" style="font-size:.72rem;padding:4px 10px;">✅ Aggiorna esito</button>`
           : `<div style="font-weight:700;color:${i.diff<=7?'var(--danger)':i.diff<=15?'var(--warn)':'var(--accent2)'};font-size:.85rem;">${i.diff===0?'OGGI':i.diff+' gg'}</div>
@@ -3894,8 +3894,13 @@ async function modificaAppuntamentoCAS(id, tipoPagina) {
     if(!res || res.length===0) return;
     const a = res[0];
     _appEditId = id;
-    _appReturnPage = tipoPagina ? 'cas-appuntamenti-tipo' : 'cas-calendario';
-    _appReturnTipo = tipoPagina || null;
+    if (tipoPagina === 'DASHBOARD') {
+      _appReturnPage = 'cas-dashboard';
+      _appReturnTipo = null;
+    } else {
+      _appReturnPage = tipoPagina ? 'cas-appuntamenti-tipo' : 'cas-calendario';
+      _appReturnTipo = tipoPagina || null;
+    }
     document.getElementById('app-modal-title').textContent = 'Modifica Appuntamento';
     document.getElementById('app-titolo').value = a.titolo || '';
     document.getElementById('app-tipo').value = a.tipo || 'Questura';
@@ -3941,7 +3946,8 @@ async function salvaAppuntamentoCAS() {
       await supa('appuntamenti_cas',{method:'POST',body:JSON.stringify(payload)});
     }
     closeModal('modal-appuntamento-cas');
-    if(_appReturnPage==='cas-appuntamenti-tipo' && _appReturnTipo) renderCasAppuntamenti(document.getElementById('content-cas'), _appReturnTipo);
+    if(_appReturnPage==='cas-dashboard') renderCasDashboard(document.getElementById('content-cas'));
+    else if(_appReturnPage==='cas-appuntamenti-tipo' && _appReturnTipo) renderCasAppuntamenti(document.getElementById('content-cas'), _appReturnTipo);
     else showPageCAS('cas-calendario');
   } catch(e) { alert('Errore: '+e.message); }
 }
