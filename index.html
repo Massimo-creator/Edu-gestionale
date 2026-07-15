@@ -3529,9 +3529,11 @@ async function renderCasDashboard(el) {
     });
     items.sort((a,b) => a.diff - b.diff);
 
-    const fascia7 = items.filter(i=>i.diff<=7);
-    const fascia15 = items.filter(i=>i.diff>7&&i.diff<=15);
-    const fascia30 = items.filter(i=>i.diff>15&&i.diff<=30);
+    const daAggiornare = items.filter(i=>i.categoria==='appuntamento' && i.diff<0);
+    const itemsFuturi = items.filter(i=>!(i.categoria==='appuntamento' && i.diff<0));
+    const fascia7 = itemsFuturi.filter(i=>i.diff<=7);
+    const fascia15 = itemsFuturi.filter(i=>i.diff>7&&i.diff<=15);
+    const fascia30 = itemsFuturi.filter(i=>i.diff>15&&i.diff<=30);
 
     const renderItem = (i) => `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:10px 14px;background:var(--bg);border-radius:8px;border-left:3px solid ${i.diff<=7?'var(--danger)':i.diff<=15?'var(--warn)':'var(--accent2)'};">
       <div>
@@ -3568,6 +3570,7 @@ async function renderCasDashboard(el) {
       <div class="card" style="padding:20px;margin-bottom:16px;">
         <h3 style="font-size:1rem;margin-bottom:16px;">📅 Appuntamenti e Scadenze</h3>
         ${fascia7.length===0&&fascia15.length===0&&fascia30.length===0?'<div style="color:var(--muted);text-align:center;padding:16px;">Nessun appuntamento o scadenza nei prossimi 30 giorni 👍</div>':''}
+        ${renderFascia('Da aggiornare','#64748b','🗂️',daAggiornare,false)}
         ${renderFascia('Entro 7 giorni','var(--danger)','🔴',fascia7,true)}
         ${renderFascia('Entro 15 giorni','var(--warn)','🟠',fascia15,fascia7.length===0)}
         ${renderFascia('Entro 30 giorni','var(--accent2)','🟡',fascia30,false)}
@@ -5236,7 +5239,7 @@ async function salvaTrasferimento() {
     <div class="modal-footer" style="flex-wrap:wrap;gap:8px;">
       <button class="btn btn-ghost" onclick="closeModal('modal-esito-appuntamento-cas')">Annulla</button>
       <button class="btn btn-ghost" onclick="salvaEsitoAppuntamentoCAS(false)">💾 Salva esito</button>
-      <button class="btn btn-primary" onclick="salvaEsitoAppuntamentoCAS(true)">💾 Salva e prendi nuovo appuntamento</button>
+      <button class="btn btn-primary" onclick="salvaEsitoAppuntamentoCAS(true)">💾 Salva e registra altro appuntamento</button>
     </div>
   </div>
 </div>
