@@ -4607,7 +4607,7 @@ async function apriRiunione(riunioneId) {
           </div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;">
-          <button class="btn btn-primary" style="font-size:.82rem;" onclick="inviaODGEmail('${r.id}')">📧 Invia a équipe</button>
+          ${SESSION.is_coordinatore_cas ? `<button class="btn btn-primary" style="font-size:.82rem;" onclick="inviaODGEmail('${r.id}')">📧 Invia a équipe</button>` : ''}
           ${SESSION.is_coordinatore_cas ? `<button class="btn btn-ghost" style="font-size:.82rem;" onclick="modificaRiunione('${r.id}')">✏️</button>` : ''}
           ${SESSION.is_coordinatore_cas ? `<button class="btn btn-ghost" style="font-size:.82rem;color:var(--danger);" onclick="eliminaRiunione('${r.id}')">🗑️</button>` : ''}
         </div>
@@ -4739,9 +4739,15 @@ async function inviaODGEmail(riunioneId) {
 
     corpo += `──────────────────────\n`;
     if(r.note_coordinatore) corpo += `\nNote del coordinatore:\n${r.note_coordinatore}\n\n`;
-    corpo += `Potete aggiungere punti all'ordine del giorno su Approdo: https://approdo-metis.netlify.app\n\nUn saluto,\nMassimo`;
+    corpo += `Potete aggiungere punti all'ordine del giorno su Approdo: https://approdocas.it\n\nUn saluto,\nMassimo`;
 
-    window.location.href = `mailto:educatori@coopmetis.com?subject=${encodeURIComponent(oggetto)}&body=${encodeURIComponent(corpo)}`;
+    inviaEmailApprodo(
+      'educatori@coopmetis.com',
+      oggetto,
+      corpo.replace(/\n/g,'<br>'),
+      SESSION.utente.email
+    );
+    alert('Ordine del giorno inviato al gruppo educatori.');
   } catch(e) { alert('Errore: '+e.message); }
 }
 
