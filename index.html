@@ -3318,6 +3318,7 @@ function mostraAppCAS() {
   <div class="nav-item" onclick="showPageCAS('cas-calendario')" style="padding-left:24px;"><span class="ico">🏛️</span> Questura</div>
   <div class="nav-item" onclick="showPageCAS('cas-commissioni')" style="padding-left:24px;"><span class="ico">⚖️</span> Commissioni</div>
   <div class="nav-item" onclick="showPageCAS('cas-sanitari')" style="padding-left:24px;"><span class="ico">🏥</span> Visite sanitarie</div>
+  <div class="nav-item" onclick="showPageCAS('cas-avvocato')" style="padding-left:24px;"><span class="ico">👨‍⚖️</span> Appuntamenti Avvocato</div>
 
   <div style="padding:10px 16px 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-top:4px;">Risorse Umane</div>
   <div class="nav-item" onclick="showPageCAS('cas-turni')" style="padding-left:24px;"><span class="ico">🔄</span> Turni</div>
@@ -3476,7 +3477,7 @@ async function salvaEsitoAppuntamentoCAS(prendiNuovo) {
 function showPageCAS(page) {
   _casPaginaAttuale = page;
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
-  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti' };
+  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
   if (page === 'cas-dashboard') renderCasDashboard(content);
@@ -3486,6 +3487,7 @@ function showPageCAS(page) {
   else if (page === 'cas-calendario') renderCasCalendario(content);
   else if (page === 'cas-commissioni') renderCasAppuntamenti(content, 'Commissione Territoriale');
   else if (page === 'cas-sanitari') renderCasAppuntamenti(content, 'Visita medica');
+  else if (page === 'cas-avvocato') renderCasAppuntamenti(content, 'Avvocato');
   else if (page === 'cas-equipe') renderCasEquipe(content);
   else if (page === 'cas-turni') renderCasTurni(content);
   else if (page === 'cas-ferie') renderCasFerie(content);
@@ -3770,7 +3772,7 @@ async function renderCasAppuntamenti(el, tipo) {
     const oggi = new Date(); oggi.setHours(0,0,0,0);
     const prossimi = appuntamenti.filter(a => new Date(a.data_ora) >= oggi);
     const passati = appuntamenti.filter(a => new Date(a.data_ora) < oggi);
-    const icona = tipo === 'Commissione Territoriale' ? '⚖️' : '🏥';
+    const icona = tipoAppuntamentoIcon(tipo);
 
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
@@ -3788,6 +3790,7 @@ async function renderCasAppuntamenti(el, tipo) {
                   <div style="font-weight:600;">${a.titolo}</div>
                   <div style="font-size:.82rem;color:var(--muted);">🏠 ${mapS[a.struttura_id]||'—'}</div>
                   ${a.ospite_nome?`<div style="font-size:.82rem;color:var(--muted);">👤 ${a.ospite_nome}</div>`:''}
+                  ${a.nome_avvocato?`<div style="font-size:.82rem;color:var(--muted);">⚖️ ${a.nome_avvocato}</div>`:''}
                   ${a.note?`<div style="font-size:.82rem;color:var(--muted);margin-top:4px;">${a.note}</div>`:''}
                 </div>
                 <div style="text-align:right;flex-shrink:0;margin-left:12px;">
@@ -3900,7 +3903,9 @@ function nuovoAppuntamentoCAS(tipoPreselezionato) {
   document.getElementById('app-ora').value='';
   document.getElementById('app-ospite').value='';
   document.getElementById('app-note').value='';
+  document.getElementById('app-nome-avvocato').value='';
   document.getElementById('app-tipo').value = tipoPreselezionato || 'Questura';
+  document.getElementById('app-avvocato-wrap').style.display = (tipoPreselezionato==='Avvocato')?'block':'none';
   const sel = document.getElementById('app-struttura');
   const strutture = SESSION.strutture_cas||[];
   sel.innerHTML = strutture.map(s=>`<option value="${s.id}">${s.nome}</option>`).join('');
@@ -3932,6 +3937,8 @@ async function modificaAppuntamentoCAS(id, tipoPagina) {
     document.getElementById('app-ora').value = d.toTimeString().slice(0,5);
     document.getElementById('app-ospite').value = a.ospite_nome || '';
     document.getElementById('app-note').value = a.note || '';
+    document.getElementById('app-nome-avvocato').value = a.nome_avvocato || '';
+    document.getElementById('app-avvocato-wrap').style.display = (a.tipo==='Avvocato')?'block':'none';
     openModal('modal-appuntamento-cas');
   } catch(e) { alert('Errore: '+e.message); }
 }
@@ -3956,7 +3963,8 @@ async function salvaAppuntamentoCAS() {
     titolo, tipo, struttura_id,
     data_ora: new Date(`${data}T${ora}:00`).toISOString(),
     ospite_nome: document.getElementById('app-ospite').value||null,
-    note: document.getElementById('app-note').value||null
+    note: document.getElementById('app-note').value||null,
+    nome_avvocato: tipo==='Avvocato' ? (document.getElementById('app-nome-avvocato').value||null) : null
   };
   try {
     if(_appEditId) {
@@ -5240,7 +5248,7 @@ async function salvaTrasferimento() {
     <div class="form-group"><label>Titolo *</label><input id="app-titolo" placeholder="es. Audizione Commissione - Ahmed"></div>
     <div class="grid g2">
       <div class="form-group"><label>Tipo *</label>
-        <select id="app-tipo">
+        <select id="app-tipo" onchange="document.getElementById('app-avvocato-wrap').style.display=this.value==='Avvocato'?'block':'none';">
           <option>Questura</option>
           <option>Commissione Territoriale</option>
           <option>Avvocato</option>
@@ -5258,6 +5266,7 @@ async function salvaTrasferimento() {
       <div class="form-group"><label>Data *</label><input id="app-data" type="date"></div>
       <div class="form-group"><label>Ora *</label><input id="app-ora" type="time"></div>
     </div>
+    <div class="form-group" id="app-avvocato-wrap" style="display:none;"><label>Nome avvocato</label><input id="app-nome-avvocato" placeholder="es. Avv. Rossi"></div>
     <div class="form-group"><label>Ospite</label><input id="app-ospite" placeholder="Nome e cognome ospite (opzionale)"></div>
     <div class="form-group"><label>Note</label><textarea id="app-note" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
     <div class="modal-footer">
