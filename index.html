@@ -5089,7 +5089,7 @@ async function renderCasTrasferimenti(el) {
               </div>
               <div style="text-align:right;flex-shrink:0;">
                 <div style="font-weight:700;color:${col};font-size:.85rem;background:${col}18;padding:4px 10px;border-radius:20px;">${t.stato}</div>
-                ${SESSION.is_coordinatore_cas?`<button class="btn btn-ghost" style="font-size:.75rem;padding:3px 8px;margin-top:8px;" onclick="modificaTrasferimento('${t.id}')">✏️ Aggiorna</button>`:''}
+                ${SESSION.is_coordinatore_cas?`<button class="btn btn-ghost" style="font-size:.75rem;padding:3px 8px;margin-top:8px;" onclick="modificaTrasferimento('${t.id}')">✏️ Aggiorna</button> <button class="btn btn-ghost" style="font-size:.75rem;padding:3px 8px;margin-top:8px;color:var(--danger);" onclick="eliminaTrasferimento('${t.id}')">🗑️ Elimina</button>`:''}
               </div>
             </div>
           </div>`;
@@ -5130,6 +5130,14 @@ async function modificaTrasferimento(id) {
   document.getElementById('tr-origine').innerHTML=opts;
   document.getElementById('tr-destinazione').innerHTML=optsD;
   openModal('modal-trasferimento-cas');
+}
+
+async function eliminaTrasferimento(id) {
+  if(!confirm('Eliminare questo trasferimento?')) return;
+  try {
+    await supa(`trasferimenti_cas?id=eq.${id}`,{method:'DELETE',headers:{'Prefer':'return=minimal'}});
+    showPageCAS('cas-trasferimenti');
+  } catch(e) { alert('Errore: '+e.message); }
 }
 
 async function salvaTrasferimento() {
