@@ -5361,7 +5361,7 @@ async function salvaTrasferimento() {
   <div class="modal">
     <h3>🔄 <span id="turno-modal-title">Nuovo Turno</span></h3>
     <div class="form-group"><label>Tipo turno</label>
-      <select id="turno-tipo" onchange="const t=this.value;const i=document.getElementById('turno-ora-inizio');const f=document.getElementById('turno-ora-fine');const orari=document.getElementById('turno-orari-wrap');if(t==='Mattina'){i.value='08:00';f.value='14:00';}else if(t==='Pomeriggio'){i.value='14:00';f.value='20:00';}orari.style.display=(t==='Permesso'||t==='Ferie'||t==='Riposo')?'none':'grid';">
+      <select id="turno-tipo" onchange="const t=this.value;const orari=document.getElementById('turno-orari-wrap');orari.style.display=(t==='Permesso'||t==='Ferie'||t==='Riposo')?'none':'grid';">
         <option value="Mattina">🔵 Mattina</option>
         <option value="Pomeriggio">🟢 Pomeriggio</option>
         <option value="Personalizzato">🟣 Personalizzato</option>
@@ -5389,7 +5389,7 @@ async function salvaTrasferimento() {
     <h3>📋 Compila periodo</h3>
     <div class="form-group"><label>Operatore</label><select id="cp-operatore"></select></div>
     <div class="form-group"><label>Tipo turno</label>
-      <select id="cp-tipo" onchange="const t=this.value;const i=document.getElementById('cp-ora-inizio');const f=document.getElementById('cp-ora-fine');const orari=document.getElementById('cp-orari-wrap');if(t==='Mattina'){i.value='08:00';f.value='14:00';}else if(t==='Pomeriggio'){i.value='14:00';f.value='20:00';}orari.style.display=(t==='Permesso'||t==='Ferie'||t==='Riposo')?'none':'grid';">
+      <select id="cp-tipo" onchange="const t=this.value;const orari=document.getElementById('cp-orari-wrap');orari.style.display=(t==='Permesso'||t==='Ferie'||t==='Riposo')?'none':'grid';">
         <option value="Mattina">🔵 Mattina</option>
         <option value="Pomeriggio">🟢 Pomeriggio</option>
         <option value="Personalizzato">🟣 Personalizzato</option>
