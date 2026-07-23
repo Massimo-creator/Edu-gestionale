@@ -3981,6 +3981,7 @@ async function salvaAppuntamentoCAS() {
 
 // ── TURNI OPERATORI ────────────────────────────────────────────
 const OPERATORI_CAS = [
+  {nome:'Massimo', email:'m.andreoni@coopmetis.com'},
   {nome:'Ziad', email:'z.fkir@coopmetis.com'},
   {nome:'Parfé', email:'p.ndri@coopmetis.com'},
   {nome:'Remo', email:'remo@coopmetis.com'},
@@ -4014,6 +4015,7 @@ async function renderCasTurni(el) {
         <div style="display:flex;gap:8px;align-items:center;">
           <button class="btn btn-ghost" onclick="_turniMese--;if(_turniMese<0){_turniMese=11;_turniAnno--;}renderCasTurni(document.getElementById('content-cas'))">←</button>
           <button class="btn btn-ghost" onclick="_turniMese++;if(_turniMese>11){_turniMese=0;_turniAnno++;}renderCasTurni(document.getElementById('content-cas'))">→</button>
+          ${puoModificare?`<button class="btn btn-primary" onclick="apriCompilaPeriodoTurni()">📋 Compila periodo</button>`:''}
         </div>
       </div>
       ${!puoModificare?'<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;font-size:.82rem;margin-bottom:16px;">👁️ Visualizzazione in sola lettura. I turni vengono gestiti da Simona.</div>':''}
@@ -4086,6 +4088,62 @@ function turnoLabel(tipo, oraInizio, oraFine) {
 }
 
 let _turnoEditData = null; let _turnoEditEmail = null; let _turnoEditNome = null;
+
+function apriCompilaPeriodoTurni() {
+  const sel = document.getElementById('cp-operatore');
+  sel.innerHTML = OPERATORI_CAS.map(o=>`<option value="${o.email}" data-nome="${o.nome}">${o.nome}</option>`).join('');
+  document.getElementById('cp-data-inizio').value = '';
+  document.getElementById('cp-data-fine').value = '';
+  document.getElementById('cp-solo-feriali').checked = false;
+  document.getElementById('cp-tipo').value = 'Mattina';
+  document.getElementById('cp-tipo').dispatchEvent(new Event('change'));
+  openModal('modal-compila-periodo-cas');
+}
+
+async function salvaCompilaPeriodoTurni() {
+  const sel = document.getElementById('cp-operatore');
+  const email = sel.value;
+  const nome = sel.options[sel.selectedIndex].getAttribute('data-nome');
+  const tipo = document.getElementById('cp-tipo').value;
+  const dataInizio = document.getElementById('cp-data-inizio').value;
+  const dataFine = document.getElementById('cp-data-fine').value;
+  const soloFeriali = document.getElementById('cp-solo-feriali').checked;
+  const senzaOrario = tipo==='Permesso' || tipo==='Ferie' || tipo==='Riposo';
+  const oraInizio = senzaOrario ? null : document.getElementById('cp-ora-inizio').value;
+  const oraFine = senzaOrario ? null : document.getElementById('cp-ora-fine').value;
+
+  if(!email || !dataInizio || !dataFine) { alert('Seleziona operatore, data inizio e data fine.'); return; }
+  if(dataFine < dataInizio) { alert('La data di fine non può precedere la data di inizio.'); return; }
+
+  const btn = document.getElementById('cp-salva-btn');
+  btn.disabled = true; btn.textContent = 'Compilazione in corso...';
+  try {
+    let d = new Date(dataInizio+'T12:00:00');
+    const fine = new Date(dataFine+'T12:00:00');
+    let scritti = 0;
+    while (d <= fine) {
+      const giornoSettimana = d.getDay(); // 0=domenica, 6=sabato
+      if (!soloFeriali || (giornoSettimana>=1 && giornoSettimana<=5)) {
+        const dataStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const esistenti = await supa(`turni_cas?operatore_email=eq.${encodeURIComponent(email)}&data=eq.${dataStr}&limit=1`) || [];
+        const payload = { operatore_email: email, operatore_nome: nome, data: dataStr, tipo, ora_inizio: oraInizio, ora_fine: oraFine, note: null };
+        if (esistenti.length > 0) {
+          await supa(`turni_cas?id=eq.${esistenti[0].id}`, {method:'PATCH', body: JSON.stringify(payload)});
+        } else {
+          await supa('turni_cas', {method:'POST', body: JSON.stringify(payload)});
+        }
+        scritti++;
+      }
+      d.setDate(d.getDate()+1);
+    }
+    closeModal('modal-compila-periodo-cas');
+    renderCasTurni(document.getElementById('content-cas'));
+  } catch(e) {
+    alert('Errore: '+e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '💾 Compila';
+  }
+}
 
 async function toggleTurnoCAS(email, nome, data) {
   const turni = await supa(`turni_cas?operatore_email=eq.${encodeURIComponent(email)}&data=eq.${data}&limit=1`) || [];
@@ -5321,6 +5379,38 @@ async function salvaTrasferimento() {
       <button class="btn btn-ghost" onclick="closeModal('modal-turno-cas')">Annulla</button>
       <button class="btn btn-ghost" style="color:var(--danger);" onclick="if(_turnoEditId){eliminaTurnoCAS(_turnoEditId);closeModal('modal-turno-cas');}else{closeModal('modal-turno-cas');}">🗑️ Elimina</button>
       <button class="btn btn-primary" onclick="salvaTurnoCAS()">💾 Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL COMPILA PERIODO TURNI CAS -->
+<div class="modal-overlay" id="modal-compila-periodo-cas">
+  <div class="modal">
+    <h3>📋 Compila periodo</h3>
+    <div class="form-group"><label>Operatore</label><select id="cp-operatore"></select></div>
+    <div class="form-group"><label>Tipo turno</label>
+      <select id="cp-tipo" onchange="const t=this.value;const i=document.getElementById('cp-ora-inizio');const f=document.getElementById('cp-ora-fine');const orari=document.getElementById('cp-orari-wrap');if(t==='Mattina'){i.value='08:00';f.value='14:00';}else if(t==='Pomeriggio'){i.value='14:00';f.value='20:00';}orari.style.display=(t==='Permesso'||t==='Ferie'||t==='Riposo')?'none':'grid';">
+        <option value="Mattina">🔵 Mattina</option>
+        <option value="Pomeriggio">🟢 Pomeriggio</option>
+        <option value="Personalizzato">🟣 Personalizzato</option>
+        <option value="Permesso">🟡 Permesso</option>
+        <option value="Ferie">🔴 Ferie</option>
+        <option value="Riposo">⚪ Riposo</option>
+      </select>
+    </div>
+    <div class="grid g2" id="cp-orari-wrap">
+      <div class="form-group"><label>Ora inizio</label><input id="cp-ora-inizio" type="time" value="08:00"></div>
+      <div class="form-group"><label>Ora fine</label><input id="cp-ora-fine" type="time" value="14:00"></div>
+    </div>
+    <div class="grid g2">
+      <div class="form-group"><label>Dal</label><input id="cp-data-inizio" type="date"></div>
+      <div class="form-group"><label>Al</label><input id="cp-data-fine" type="date"></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:.88rem;margin-top:4px;"><input type="checkbox" id="cp-solo-feriali"> Solo dal lunedì al venerdì (esclude sabato e domenica)</label>
+    <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:8px 12px;font-size:.78rem;margin-top:12px;">⚠️ Se in qualche giorno del periodo c'è già un turno diverso segnato, verrà sovrascritto.</div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-compila-periodo-cas')">Annulla</button>
+      <button class="btn btn-primary" id="cp-salva-btn" onclick="salvaCompilaPeriodoTurni()">💾 Compila</button>
     </div>
   </div>
 </div>
