@@ -3437,6 +3437,7 @@ function mostraAppCAS() {
   <div class="modal">
     <h3>🔀 Sposta <span id="sposta-ospite-nome"></span></h3>
     <div class="form-group"><label>Nuova struttura</label><select id="sposta-nuova-struttura"></select></div>
+    <div class="form-group"><label>Data effettiva del trasferimento</label><input id="sposta-data" type="date"></div>
     <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:8px 12px;font-size:.78rem;">⚠️ L'ospite verrà rimosso dalla struttura attuale e spostato in quella scelta. Verrà anche registrato un trasferimento nello storico.</div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-sposta-ospite-cas')">Annulla</button>
@@ -4280,23 +4281,25 @@ function apriSpostaOspite(ospiteId, strutturaAttualeId, ospiteNome) {
   const sel = document.getElementById('sposta-nuova-struttura');
   const strutture = (SESSION.strutture_cas||[]).filter(s=>s.id!==strutturaAttualeId);
   sel.innerHTML = strutture.map(s=>`<option value="${s.id}">${s.nome}</option>`).join('');
+  document.getElementById('sposta-data').value = new Date().toISOString().split('T')[0];
   openModal('modal-sposta-ospite-cas');
 }
 
 async function confermaSpostaOspite() {
   const nuovaStrutturaId = document.getElementById('sposta-nuova-struttura').value;
+  const dataTrasferimento = document.getElementById('sposta-data').value;
   if(!nuovaStrutturaId) { alert('Seleziona la struttura di destinazione.'); return; }
+  if(!dataTrasferimento) { alert('Seleziona la data del trasferimento.'); return; }
   try {
     await supa(`ospiti_cas?id=eq.${_spostaOspiteId}`, {method:'PATCH', body: JSON.stringify({ struttura_id: nuovaStrutturaId })});
-    const oggi = new Date().toISOString().split('T')[0];
     await supa('trasferimenti_cas', {method:'POST', body: JSON.stringify({
       ospite_id: _spostaOspiteId,
       ospite_nome: _spostaOspiteNome,
       struttura_origine_id: _spostaStrutturaOrigineId,
       struttura_destinazione_id: nuovaStrutturaId,
       stato: 'Trasferimento effettuato',
-      data_richiesta: oggi,
-      data_effettuazione: oggi,
+      data_richiesta: dataTrasferimento,
+      data_effettuazione: dataTrasferimento,
       note: 'Spostamento rapido dalla scheda ospite'
     })});
     closeModal('modal-sposta-ospite-cas');
