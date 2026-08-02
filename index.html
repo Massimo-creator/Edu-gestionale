@@ -3426,7 +3426,21 @@ function mostraAppCAS() {
     <div class="form-group"><label>Note</label><textarea id="cas-note" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-ospite-cas')">Annulla</button>
+      ${''}<span id="cas-sposta-wrap"></span>
       <button class="btn btn-primary" onclick="salvaOspiteCAS()">💾 Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SPOSTA OSPITE CAS -->
+<div class="modal-overlay" id="modal-sposta-ospite-cas">
+  <div class="modal">
+    <h3>🔀 Sposta <span id="sposta-ospite-nome"></span></h3>
+    <div class="form-group"><label>Nuova struttura</label><select id="sposta-nuova-struttura"></select></div>
+    <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:8px 12px;font-size:.78rem;">⚠️ L'ospite verrà rimosso dalla struttura attuale e spostato in quella scelta. Verrà anche registrato un trasferimento nello storico.</div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-sposta-ospite-cas')">Annulla</button>
+      <button class="btn btn-primary" onclick="confermaSpostaOspite()">🔀 Conferma spostamento</button>
     </div>
   </div>
 </div>
@@ -4210,6 +4224,7 @@ function nuovoOspiteCAS(strutturaIdPreselezionata) {
   ['cas-dob','cas-data-audizione','cas-scadenza-permesso','cas-data-ingresso'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   ['cas-tipo-domanda','cas-esito-audizione'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   document.getElementById('cas-nucleo-membri').innerHTML = '';
+  document.getElementById('cas-sposta-wrap').innerHTML = '';
   ['cas-ha-cf','cas-ha-tessera-sanitaria','cas-ha-carta-identita','cas-ha-residenza'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='No';});
   popolaSelectStrutture(strutturaIdPreselezionata);
   openModal('modal-ospite-cas');
@@ -4246,7 +4261,47 @@ async function apriOspiteCAS(id) {
         </div>`;
       }
     }
+    document.getElementById('cas-sposta-wrap').innerHTML = SESSION.is_coordinatore_cas
+      ? `<button class="btn btn-ghost" onclick="apriSpostaOspite('${o.id}','${o.struttura_id}','${(o.cognome+' '+o.nome).replace(/'/g,"\\'")}')">🔀 Sposta</button>`
+      : '';
     openModal('modal-ospite-cas');
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+let _spostaOspiteId = null;
+let _spostaStrutturaOrigineId = null;
+let _spostaOspiteNome = null;
+
+function apriSpostaOspite(ospiteId, strutturaAttualeId, ospiteNome) {
+  _spostaOspiteId = ospiteId;
+  _spostaStrutturaOrigineId = strutturaAttualeId;
+  _spostaOspiteNome = ospiteNome;
+  document.getElementById('sposta-ospite-nome').textContent = ospiteNome;
+  const sel = document.getElementById('sposta-nuova-struttura');
+  const strutture = (SESSION.strutture_cas||[]).filter(s=>s.id!==strutturaAttualeId);
+  sel.innerHTML = strutture.map(s=>`<option value="${s.id}">${s.nome}</option>`).join('');
+  openModal('modal-sposta-ospite-cas');
+}
+
+async function confermaSpostaOspite() {
+  const nuovaStrutturaId = document.getElementById('sposta-nuova-struttura').value;
+  if(!nuovaStrutturaId) { alert('Seleziona la struttura di destinazione.'); return; }
+  try {
+    await supa(`ospiti_cas?id=eq.${_spostaOspiteId}`, {method:'PATCH', body: JSON.stringify({ struttura_id: nuovaStrutturaId })});
+    const oggi = new Date().toISOString().split('T')[0];
+    await supa('trasferimenti_cas', {method:'POST', body: JSON.stringify({
+      ospite_id: _spostaOspiteId,
+      ospite_nome: _spostaOspiteNome,
+      struttura_origine_id: _spostaStrutturaOrigineId,
+      struttura_destinazione_id: nuovaStrutturaId,
+      stato: 'Trasferimento effettuato',
+      data_richiesta: oggi,
+      data_effettuazione: oggi,
+      note: 'Spostamento rapido dalla scheda ospite'
+    })});
+    closeModal('modal-sposta-ospite-cas');
+    closeModal('modal-ospite-cas');
+    if (_casPaginaAttuale) showPageCAS(_casPaginaAttuale);
   } catch(e) { alert('Errore: '+e.message); }
 }
 
