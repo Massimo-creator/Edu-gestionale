@@ -3518,54 +3518,98 @@ function showPageCAS(page) {
   else if (page === 'cas-progetti') renderCasProgetti(content);
 }
 
+let _calCoordMese = new Date().getMonth();
+let _calCoordAnno = new Date().getFullYear();
+
 async function renderCalendarioCoordinatoreCAS(el) {
   el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
   try {
     const puoModificare = SESSION.is_coordinatore_cas || SESSION.is_segreteria;
     const appuntamenti = await supa('calendario_coordinatore_cas?order=data_ora') || [];
-    const oggi = new Date(); oggi.setHours(0,0,0,0);
-    const prossimi = appuntamenti.filter(a => new Date(a.data_ora) >= oggi);
-    const passati = appuntamenti.filter(a => new Date(a.data_ora) < oggi).reverse();
+    const nomiMesi = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 
-    const cardAppuntamento = (a) => {
+    // Avvisi: oggi e domani
+    const oggiMezzanotte = new Date(); oggiMezzanotte.setHours(0,0,0,0);
+    const dopoDomani = new Date(oggiMezzanotte); dopoDomani.setDate(dopoDomani.getDate()+2);
+    const perAvviso = appuntamenti.filter(a=>{
       const d = new Date(a.data_ora);
-      const isOggi = d.toDateString() === new Date().toDateString();
-      return `<div class="card" style="padding:16px;border-left:3px solid ${isOggi?'var(--accent2)':'var(--accent)'};">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-          <div>
-            <div style="font-weight:600;">${a.titolo}</div>
-            ${a.luogo?`<div style="font-size:.82rem;color:var(--muted);margin-top:2px;">📍 ${a.luogo}</div>`:''}
-            ${a.note?`<div style="font-size:.82rem;color:var(--muted);margin-top:4px;">${a.note}</div>`:''}
-          </div>
-          <div style="text-align:right;flex-shrink:0;margin-left:12px;">
-            <div style="font-weight:700;color:${isOggi?'var(--accent2)':'var(--text)'};">${isOggi?'OGGI':d.toLocaleDateString('it-IT',{day:'2-digit',month:'short'})}</div>
-            <div style="font-size:.82rem;color:var(--muted);">${d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</div>
-            ${puoModificare?`<button onclick="modificaCalendarioCoordinatoreCAS('${a.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85rem;margin-top:4px;margin-right:8px;">✏️</button><button onclick="eliminaCalendarioCoordinatoreCAS('${a.id}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.75rem;margin-top:4px;">✕</button>`:''}
-          </div>
-        </div>
+      return d >= oggiMezzanotte && d < dopoDomani;
+    }).sort((a,b)=>new Date(a.data_ora)-new Date(b.data_ora));
+
+    // Griglia del mese (settimana da lunedì)
+    const primoGiorno = new Date(_calCoordAnno, _calCoordMese, 1);
+    const ultimoGiorno = new Date(_calCoordAnno, _calCoordMese+1, 0);
+    const offsetPrimo = (primoGiorno.getDay()+6)%7;
+    const celle = [];
+    for(let i=0;i<offsetPrimo;i++) celle.push(null);
+    for(let d=1; d<=ultimoGiorno.getDate(); d++) celle.push(new Date(_calCoordAnno,_calCoordMese,d));
+    while(celle.length % 7 !== 0) celle.push(null);
+
+    const appPerGiorno = {};
+    appuntamenti.forEach(a=>{
+      const d = new Date(a.data_ora);
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      (appPerGiorno[key] = appPerGiorno[key]||[]).push(a);
+    });
+
+    const cellaHtml = (data) => {
+      if(!data) return `<div style="min-height:92px;background:var(--bg);border-radius:6px;"></div>`;
+      const key = `${data.getFullYear()}-${data.getMonth()}-${data.getDate()}`;
+      const eventi = (appPerGiorno[key]||[]).sort((a,b)=>new Date(a.data_ora)-new Date(b.data_ora));
+      const isOggi = data.toDateString() === new Date().toDateString();
+      const dataStr = `${data.getFullYear()}-${String(data.getMonth()+1).padStart(2,'0')}-${String(data.getDate()).padStart(2,'0')}`;
+      return `<div ${puoModificare?`onclick="nuovoCalendarioCoordinatoreCAS('${dataStr}')"`:''} style="min-height:92px;background:var(--card);border:1px solid ${isOggi?'var(--accent2)':'var(--border)'};border-radius:6px;padding:6px;cursor:${puoModificare?'pointer':'default'};display:flex;flex-direction:column;gap:3px;">
+        <div style="font-size:.78rem;font-weight:${isOggi?'700':'500'};color:${isOggi?'var(--accent2)':'var(--text)'};">${data.getDate()}</div>
+        ${eventi.map(ev=>{
+          const dEv = new Date(ev.data_ora);
+          return `<div onclick="event.stopPropagation();modificaCalendarioCoordinatoreCAS('${ev.id}')" style="background:var(--accent);color:#fff;border-radius:4px;padding:2px 5px;font-size:.7rem;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${ev.titolo}">${dEv.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})} ${ev.titolo}</div>`;
+        }).join('')}
       </div>`;
     };
 
+    const settimane = [];
+    for(let i=0;i<celle.length;i+=7) settimane.push(celle.slice(i,i+7));
+
     el.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
         <h2 style="font-size:1.1rem;">📅 Calendario Coordinatore</h2>
         ${puoModificare?`<button class="btn btn-primary" onclick="nuovoCalendarioCoordinatoreCAS()">+ Nuovo appuntamento</button>`:''}
       </div>
-      <div style="display:grid;gap:10px;margin-bottom:28px;">
-        ${prossimi.length===0?'<div class="card" style="padding:20px;text-align:center;color:var(--muted);">Nessun appuntamento in programma</div>':prossimi.map(cardAppuntamento).join('')}
+
+      ${perAvviso.length>0?`<div class="card" style="padding:14px 16px;margin-bottom:16px;border-left:3px solid var(--danger);">
+        <div style="font-weight:600;font-size:.85rem;margin-bottom:6px;">🔔 In arrivo</div>
+        ${perAvviso.map(a=>{
+          const d=new Date(a.data_ora);
+          const isOggi = d.toDateString()===new Date().toDateString();
+          return `<div style="font-size:.85rem;padding:3px 0;">${isOggi?'<b>Oggi</b>':'<b>Domani</b>'} alle ${d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})} — ${a.titolo}${a.luogo?' · 📍 '+a.luogo:''}</div>`;
+        }).join('')}
+      </div>`:''}
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-ghost" onclick="_calCoordMese--;if(_calCoordMese<0){_calCoordMese=11;_calCoordAnno--;}renderCalendarioCoordinatoreCAS(document.getElementById('content-cas'))">←</button>
+          <button class="btn btn-ghost" onclick="_calCoordMese++;if(_calCoordMese>11){_calCoordMese=0;_calCoordAnno++;}renderCalendarioCoordinatoreCAS(document.getElementById('content-cas'))">→</button>
+          <button class="btn btn-ghost" onclick="_calCoordMese=new Date().getMonth();_calCoordAnno=new Date().getFullYear();renderCalendarioCoordinatoreCAS(document.getElementById('content-cas'))">Oggi</button>
+        </div>
+        <div style="font-weight:600;">${nomiMesi[_calCoordMese]} ${_calCoordAnno}</div>
+        <div style="width:120px;"></div>
       </div>
-      ${passati.length>0?`<details><summary style="cursor:pointer;color:var(--muted);font-size:.85rem;padding:8px 0;">Passati (${passati.length})</summary><div style="display:grid;gap:8px;margin-top:10px;opacity:.6;">${passati.map(cardAppuntamento).join('')}</div></details>`:''}
+
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;">
+        ${['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].map(g=>`<div style="text-align:center;font-size:.75rem;color:var(--muted);font-weight:600;padding:4px 0;">${g}</div>`).join('')}
+      </div>
+      ${settimane.map(sett=>`<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;">${sett.map(cellaHtml).join('')}</div>`).join('')}
     `;
   } catch(e) { el.innerHTML = `<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
 }
 
 let _calCoordEditId = null;
 
-function nuovoCalendarioCoordinatoreCAS() {
+function nuovoCalendarioCoordinatoreCAS(dataPreselezionata) {
   _calCoordEditId = null;
   document.getElementById('calcoord-modal-title').textContent = 'Nuovo Appuntamento';
   document.getElementById('calcoord-titolo').value = '';
-  document.getElementById('calcoord-data').value = '';
+  document.getElementById('calcoord-data').value = dataPreselezionata || '';
   document.getElementById('calcoord-ora').value = '';
   document.getElementById('calcoord-luogo').value = '';
   document.getElementById('calcoord-note').value = '';
