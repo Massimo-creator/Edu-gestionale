@@ -3248,9 +3248,11 @@ function mostraAppCAS() {
       var nome = SESSION.utente.nome || SESSION.utente.email || '';
       var isSimona = SESSION.utente.email === 's.demartino@coopmetis.com';
       var isMax = SESSION.utente.email === 'm.ceccaroli@coopmetis.com';
-      var ruolo = SESSION.is_coordinatore_cas ? 'Coordinatore' : isSimona ? 'Responsabile RU' : isMax ? 'Manutentore' : 'Educatore';
+      var isSegreteria = SESSION.utente.email === 'polizzanosamirachiara@gmail.com';
+      var ruolo = SESSION.is_coordinatore_cas ? 'Coordinatore' : isSimona ? 'Responsabile RU' : isMax ? 'Manutentore' : isSegreteria ? 'Segreteria' : 'Educatore';
       SESSION.is_simona = isSimona;
       SESSION.is_max = isMax;
+      SESSION.is_segreteria = isSegreteria;
       var topbar = document.getElementById('cas-topbar-user');
       var sidebar = document.getElementById('sidebar-cas-user');
       if(topbar) topbar.textContent = nome + ' (' + ruolo + ') · Metis CAS Rimini';
@@ -3260,7 +3262,7 @@ function mostraAppCAS() {
         if(isSimona && t.includes('Ospiti')) item.style.display='none';
       });
     }
-    if(typeof showPageCAS === 'function') showPageCAS('cas-dashboard');
+    if(typeof showPageCAS === 'function') showPageCAS(isSegreteria ? 'cas-calendario-coordinatore' : 'cas-dashboard');
   }, 200);
 }
 </script>
@@ -3310,6 +3312,7 @@ function mostraAppCAS() {
   </div>
   <h2>Navigazione</h2>
   <div class="nav-item active" onclick="showPageCAS('cas-dashboard')"><span class="ico">📊</span> Dashboard</div>
+  <div class="nav-item" onclick="showPageCAS('cas-calendario-coordinatore')"><span class="ico">📅</span> Calendario Coordinatore</div>
   <div class="nav-item" onclick="showPageCAS('cas-ospiti')"><span class="ico">👤</span> Ospiti</div>
   <div class="nav-item" onclick="showPageCAS('cas-strutture')"><span class="ico">🏠</span> Strutture</div>
 
@@ -3490,12 +3493,14 @@ async function salvaEsitoAppuntamentoCAS(prendiNuovo) {
 }
 
 function showPageCAS(page) {
+  if (SESSION.is_segreteria && page !== 'cas-calendario-coordinatore') return;
   _casPaginaAttuale = page;
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
-  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti' };
+  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
-  if (page === 'cas-dashboard') renderCasDashboard(content);
+  if (page === 'cas-calendario-coordinatore') renderCalendarioCoordinatoreCAS(content);
+  else if (page === 'cas-dashboard') renderCasDashboard(content);
   else if (page === 'cas-ospiti') renderCasOspiti(content);
   else if (page === 'cas-strutture') renderCasStrutture(content);
   else if (page === 'cas-scadenze') renderCasScadenze(content);
@@ -3511,6 +3516,106 @@ function showPageCAS(page) {
   else if (page === 'cas-pocketmoney') renderCasPocketMoney(content);
   else if (page === 'cas-trasferimenti') renderCasTrasferimenti(content);
   else if (page === 'cas-progetti') renderCasProgetti(content);
+}
+
+async function renderCalendarioCoordinatoreCAS(el) {
+  el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
+  try {
+    const puoModificare = SESSION.is_coordinatore_cas || SESSION.is_segreteria;
+    const appuntamenti = await supa('calendario_coordinatore_cas?order=data_ora') || [];
+    const oggi = new Date(); oggi.setHours(0,0,0,0);
+    const prossimi = appuntamenti.filter(a => new Date(a.data_ora) >= oggi);
+    const passati = appuntamenti.filter(a => new Date(a.data_ora) < oggi).reverse();
+
+    const cardAppuntamento = (a) => {
+      const d = new Date(a.data_ora);
+      const isOggi = d.toDateString() === new Date().toDateString();
+      return `<div class="card" style="padding:16px;border-left:3px solid ${isOggi?'var(--accent2)':'var(--accent)'};">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div style="font-weight:600;">${a.titolo}</div>
+            ${a.luogo?`<div style="font-size:.82rem;color:var(--muted);margin-top:2px;">📍 ${a.luogo}</div>`:''}
+            ${a.note?`<div style="font-size:.82rem;color:var(--muted);margin-top:4px;">${a.note}</div>`:''}
+          </div>
+          <div style="text-align:right;flex-shrink:0;margin-left:12px;">
+            <div style="font-weight:700;color:${isOggi?'var(--accent2)':'var(--text)'};">${isOggi?'OGGI':d.toLocaleDateString('it-IT',{day:'2-digit',month:'short'})}</div>
+            <div style="font-size:.82rem;color:var(--muted);">${d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</div>
+            ${puoModificare?`<button onclick="modificaCalendarioCoordinatoreCAS('${a.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85rem;margin-top:4px;margin-right:8px;">✏️</button><button onclick="eliminaCalendarioCoordinatoreCAS('${a.id}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.75rem;margin-top:4px;">✕</button>`:''}
+          </div>
+        </div>
+      </div>`;
+    };
+
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <h2 style="font-size:1.1rem;">📅 Calendario Coordinatore</h2>
+        ${puoModificare?`<button class="btn btn-primary" onclick="nuovoCalendarioCoordinatoreCAS()">+ Nuovo appuntamento</button>`:''}
+      </div>
+      <div style="display:grid;gap:10px;margin-bottom:28px;">
+        ${prossimi.length===0?'<div class="card" style="padding:20px;text-align:center;color:var(--muted);">Nessun appuntamento in programma</div>':prossimi.map(cardAppuntamento).join('')}
+      </div>
+      ${passati.length>0?`<details><summary style="cursor:pointer;color:var(--muted);font-size:.85rem;padding:8px 0;">Passati (${passati.length})</summary><div style="display:grid;gap:8px;margin-top:10px;opacity:.6;">${passati.map(cardAppuntamento).join('')}</div></details>`:''}
+    `;
+  } catch(e) { el.innerHTML = `<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
+}
+
+let _calCoordEditId = null;
+
+function nuovoCalendarioCoordinatoreCAS() {
+  _calCoordEditId = null;
+  document.getElementById('calcoord-modal-title').textContent = 'Nuovo Appuntamento';
+  document.getElementById('calcoord-titolo').value = '';
+  document.getElementById('calcoord-data').value = '';
+  document.getElementById('calcoord-ora').value = '';
+  document.getElementById('calcoord-luogo').value = '';
+  document.getElementById('calcoord-note').value = '';
+  openModal('modal-calcoord-cas');
+}
+
+async function modificaCalendarioCoordinatoreCAS(id) {
+  try {
+    const res = await supa(`calendario_coordinatore_cas?id=eq.${id}&limit=1`);
+    if(!res || res.length===0) return;
+    const a = res[0];
+    _calCoordEditId = id;
+    document.getElementById('calcoord-modal-title').textContent = 'Modifica Appuntamento';
+    document.getElementById('calcoord-titolo').value = a.titolo || '';
+    const d = new Date(a.data_ora);
+    document.getElementById('calcoord-data').value = d.toISOString().slice(0,10);
+    document.getElementById('calcoord-ora').value = d.toTimeString().slice(0,5);
+    document.getElementById('calcoord-luogo').value = a.luogo || '';
+    document.getElementById('calcoord-note').value = a.note || '';
+    openModal('modal-calcoord-cas');
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+async function eliminaCalendarioCoordinatoreCAS(id) {
+  if(!confirm('Eliminare questo appuntamento?')) return;
+  try {
+    await supa(`calendario_coordinatore_cas?id=eq.${id}`, {method:'DELETE', headers:{'Prefer':'return=minimal'}});
+    showPageCAS('cas-calendario-coordinatore');
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+async function salvaCalendarioCoordinatoreCAS() {
+  const titolo = document.getElementById('calcoord-titolo').value.trim();
+  const data = document.getElementById('calcoord-data').value;
+  const ora = document.getElementById('calcoord-ora').value;
+  if(!titolo||!data||!ora) { alert('Compila titolo, data e ora.'); return; }
+  const payload = {
+    titolo,
+    data_ora: new Date(`${data}T${ora}:00`).toISOString(),
+    luogo: document.getElementById('calcoord-luogo').value || null,
+    note: document.getElementById('calcoord-note').value || null,
+    inserito_da_email: SESSION.utente.email,
+    inserito_da_nome: SESSION.utente.nome || SESSION.utente.email
+  };
+  try {
+    if(_calCoordEditId) await supa(`calendario_coordinatore_cas?id=eq.${_calCoordEditId}`, {method:'PATCH', body: JSON.stringify(payload)});
+    else await supa('calendario_coordinatore_cas', {method:'POST', body: JSON.stringify(payload)});
+    closeModal('modal-calcoord-cas');
+    showPageCAS('cas-calendario-coordinatore');
+  } catch(e) { alert('Errore: '+e.message); }
 }
 
 async function renderCasDashboard(el) {
@@ -5396,6 +5501,24 @@ async function salvaTrasferimento() {
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-appuntamento-cas')">Annulla</button>
       <button class="btn btn-primary" onclick="salvaAppuntamentoCAS()">💾 Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CALENDARIO COORDINATORE CAS -->
+<div class="modal-overlay" id="modal-calcoord-cas">
+  <div class="modal">
+    <h3>📅 <span id="calcoord-modal-title">Nuovo Appuntamento</span></h3>
+    <div class="form-group"><label>Titolo *</label><input id="calcoord-titolo" placeholder="es. Riunione con..."></div>
+    <div class="grid g2">
+      <div class="form-group"><label>Data *</label><input id="calcoord-data" type="date"></div>
+      <div class="form-group"><label>Ora *</label><input id="calcoord-ora" type="time"></div>
+    </div>
+    <div class="form-group"><label>Luogo</label><input id="calcoord-luogo" placeholder="es. Prefettura di Rimini"></div>
+    <div class="form-group"><label>Note</label><textarea id="calcoord-note" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-calcoord-cas')">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaCalendarioCoordinatoreCAS()">💾 Salva</button>
     </div>
   </div>
 </div>
