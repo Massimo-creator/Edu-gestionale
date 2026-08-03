@@ -5016,10 +5016,12 @@ async function inviaODGEmail(riunioneId) {
     if(r.note_coordinatore) corpo += `\nNote del coordinatore:\n${r.note_coordinatore}\n\n`;
     corpo += `Potete aggiungere punti all'ordine del giorno su Approdo: https://approdocas.it\n\nUn saluto,\nMassimo`;
 
+    const corpoHtml = corpo.replace(/\n/g,'<br>').replace('https://approdocas.it','<a href="https://approdocas.it" target="_blank">https://approdocas.it</a>');
+
     inviaEmailApprodo(
       'educatori@coopmetis.com',
       oggetto,
-      corpo.replace(/\n/g,'<br>'),
+      corpoHtml,
       SESSION.utente.email
     );
     alert('Ordine del giorno inviato al gruppo educatori.');
