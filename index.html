@@ -3262,7 +3262,7 @@ function mostraAppCAS() {
         if(isSimona && t.includes('Ospiti')) item.style.display='none';
       });
     }
-    if(typeof showPageCAS === 'function') showPageCAS(isSegreteria ? 'cas-calendario-coordinatore' : 'cas-dashboard');
+    if(typeof showPageCAS === 'function') showPageCAS('cas-dashboard');
   }, 200);
 }
 </script>
@@ -3493,7 +3493,6 @@ async function salvaEsitoAppuntamentoCAS(prendiNuovo) {
 }
 
 function showPageCAS(page) {
-  if (SESSION.is_segreteria && page !== 'cas-calendario-coordinatore') return;
   _casPaginaAttuale = page;
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
   const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti' };
