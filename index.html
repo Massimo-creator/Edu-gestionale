@@ -3322,6 +3322,7 @@ function mostraAppCAS() {
   <div class="nav-item" onclick="showPageCAS('cas-commissioni')" style="padding-left:24px;"><span class="ico">⚖️</span> Commissioni</div>
   <div class="nav-item" onclick="showPageCAS('cas-sanitari')" style="padding-left:24px;"><span class="ico">🏥</span> Visite sanitarie</div>
   <div class="nav-item" onclick="showPageCAS('cas-avvocato')" style="padding-left:24px;"><span class="ico">👨‍⚖️</span> Appuntamenti Avvocato</div>
+  <div class="nav-item" onclick="showPageCAS('cas-accompagnamenti')" style="padding-left:24px;"><span class="ico">🚗</span> Accompagnamenti</div>
 
   <div style="padding:10px 16px 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-top:4px;">Risorse Umane</div>
   <div class="nav-item" onclick="showPageCAS('cas-turni')" style="padding-left:24px;"><span class="ico">🔄</span> Turni</div>
@@ -3495,7 +3496,7 @@ async function salvaEsitoAppuntamentoCAS(prendiNuovo) {
 function showPageCAS(page) {
   _casPaginaAttuale = page;
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
-  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti' };
+  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-accompagnamenti':'Accompagnamenti','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
   if (page === 'cas-calendario-coordinatore') renderCalendarioCoordinatoreCAS(content);
@@ -3507,6 +3508,7 @@ function showPageCAS(page) {
   else if (page === 'cas-commissioni') renderCasAppuntamenti(content, 'Commissione Territoriale');
   else if (page === 'cas-sanitari') renderCasAppuntamenti(content, 'Visita medica');
   else if (page === 'cas-avvocato') renderCasAppuntamenti(content, 'Avvocato');
+  else if (page === 'cas-accompagnamenti') renderAccompagnamentiCAS(content);
   else if (page === 'cas-equipe') renderCasEquipe(content);
   else if (page === 'cas-turni') renderCasTurni(content);
   else if (page === 'cas-ferie') renderCasFerie(content);
@@ -3660,6 +3662,147 @@ async function salvaCalendarioCoordinatoreCAS() {
     else await supa('calendario_coordinatore_cas', {method:'POST', body: JSON.stringify(payload)});
     closeModal('modal-calcoord-cas');
     showPageCAS('cas-calendario-coordinatore');
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+let _accMese = 7; // agosto (0-based)
+let _accAnno = new Date().getFullYear();
+
+async function renderAccompagnamentiCAS(el) {
+  el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
+  try {
+    const nomiMesi = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+    const inizioMese = new Date(_accAnno, _accMese, 1);
+    const fineMese = new Date(_accAnno, _accMese+1, 0, 23, 59, 59);
+    const iniISO = `${inizioMese.getFullYear()}-${String(inizioMese.getMonth()+1).padStart(2,'0')}-01`;
+    const fineISO = `${fineMese.getFullYear()}-${String(fineMese.getMonth()+1).padStart(2,'0')}-${String(fineMese.getDate()).padStart(2,'0')}`;
+
+    const struttureIds = (SESSION.strutture_cas||[]).map(s=>s.id);
+    const mapS = {}; (SESSION.strutture_cas||[]).forEach(s=>mapS[s.id]=s.nome);
+
+    let appuntamenti = [];
+    if(struttureIds.length>0) {
+      appuntamenti = await supa(`appuntamenti_cas?struttura_id=in.(${struttureIds.join(',')})&data_ora=gte.${iniISO}T00:00:00&data_ora=lte.${fineISO}T23:59:59&order=data_ora`) || [];
+    }
+
+    let richieste = [];
+    if(SESSION.is_coordinatore_cas) {
+      richieste = await supa(`richieste_cambio_accompagnatore_cas?stato=eq.In attesa&order=created_at`) || [];
+    }
+
+    // raggruppa per giorno
+    const perGiorno = {};
+    appuntamenti.forEach(a=>{
+      const d = new Date(a.data_ora);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      (perGiorno[key] = perGiorno[key]||[]).push(a);
+    });
+    const giorniOrdinati = Object.keys(perGiorno).sort();
+
+    const opzioniOperatori = OPERATORI_CAS.map(o=>`<option value="${o.nome}">${o.nome}</option>`).join('');
+
+    const rigaAppuntamento = (a) => {
+      const d = new Date(a.data_ora);
+      const ora = d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg);border-radius:8px;margin-bottom:6px;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div style="font-weight:600;font-size:.88rem;">${ora} · ${tipoAppuntamentoIcon(a.tipo)} ${a.ospite_nome||a.titolo}</div>
+          <div style="font-size:.78rem;color:var(--muted);">🏠 ${mapS[a.struttura_id]||'—'} · ${a.tipo}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${SESSION.is_coordinatore_cas
+            ? `<select onchange="assegnaAccompagnatoreCAS('${a.id}', this.value)" style="font-size:.82rem;padding:4px 8px;border-radius:6px;border:1px solid var(--border);">
+                <option value="">— Non assegnato —</option>
+                ${OPERATORI_CAS.map(o=>`<option value="${o.nome}" ${o.nome===a.operatore_accompagnatore?'selected':''}>${o.nome}</option>`).join('')}
+              </select>`
+            : `<span style="font-size:.85rem;font-weight:600;color:${a.operatore_accompagnatore?'var(--text)':'var(--muted)'};">${a.operatore_accompagnatore||'Non assegnato'}</span>
+               <button class="btn btn-ghost" style="font-size:.72rem;padding:3px 8px;" onclick="apriProponiCambioCAS('${a.id}','${(a.operatore_accompagnatore||'').replace(/'/g,"\\'")}')">Proponi</button>`}
+        </div>
+      </div>`;
+    };
+
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+        <h2 style="font-size:1.1rem;">🚗 Accompagnamenti</h2>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-ghost" onclick="_accMese--;if(_accMese<0){_accMese=11;_accAnno--;}renderAccompagnamentiCAS(document.getElementById('content-cas'))">←</button>
+          <div style="font-weight:600;min-width:140px;text-align:center;">${nomiMesi[_accMese]} ${_accAnno}</div>
+          <button class="btn btn-ghost" onclick="_accMese++;if(_accMese>11){_accMese=0;_accAnno++;}renderAccompagnamentiCAS(document.getElementById('content-cas'))">→</button>
+        </div>
+      </div>
+
+      ${richieste.length>0?`<div class="card" style="padding:16px;margin-bottom:20px;border-left:3px solid var(--warn);">
+        <div style="font-weight:600;margin-bottom:10px;">📋 Richieste di cambio da approvare (${richieste.length})</div>
+        ${richieste.map(r=>`<div style="padding:10px 0;border-bottom:1px solid var(--border);">
+          <div style="font-size:.85rem;"><b>${r.operatore_attuale||'Non assegnato'}</b> → <b>${r.operatore_proposto}</b></div>
+          <div style="font-size:.8rem;color:var(--muted);margin:4px 0;">Motivo: ${r.motivazione} — richiesto da ${r.richiesto_da_nome||r.richiesto_da_email}</div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-primary" style="font-size:.75rem;padding:4px 10px;" onclick="gestisciRichiestaAccompagnatoreCAS('${r.id}',true)">✅ Approva</button>
+            <button class="btn btn-ghost" style="font-size:.75rem;padding:4px 10px;color:var(--danger);" onclick="gestisciRichiestaAccompagnatoreCAS('${r.id}',false)">✕ Rifiuta</button>
+          </div>
+        </div>`).join('')}
+      </div>`:''}
+
+      ${giorniOrdinati.length===0?'<div class="card" style="padding:30px;text-align:center;color:var(--muted);">Nessun appuntamento in questo mese</div>':
+        giorniOrdinati.map(giorno=>{
+          const d = new Date(giorno+'T12:00:00');
+          return `<div style="margin-bottom:18px;">
+            <div style="font-weight:600;font-size:.9rem;margin-bottom:8px;">${d.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'})}</div>
+            ${perGiorno[giorno].map(rigaAppuntamento).join('')}
+          </div>`;
+        }).join('')}
+    `;
+  } catch(e) { el.innerHTML = `<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
+}
+
+async function assegnaAccompagnatoreCAS(appuntamentoId, operatore) {
+  try {
+    await supa(`appuntamenti_cas?id=eq.${appuntamentoId}`, {method:'PATCH', body: JSON.stringify({ operatore_accompagnatore: operatore || null })});
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+let _proponiCambioAppuntamentoId = null;
+
+function apriProponiCambioCAS(appuntamentoId, operatoreAttuale) {
+  _proponiCambioAppuntamentoId = appuntamentoId;
+  document.getElementById('pc-operatore-attuale').textContent = operatoreAttuale || 'Non assegnato';
+  document.getElementById('pc-nuovo-operatore').innerHTML = OPERATORI_CAS.map(o=>`<option value="${o.nome}">${o.nome}</option>`).join('');
+  document.getElementById('pc-motivazione').value = '';
+  openModal('modal-proponi-cambio-cas');
+}
+
+async function salvaProponiCambioCAS() {
+  const nuovoOperatore = document.getElementById('pc-nuovo-operatore').value;
+  const motivazione = document.getElementById('pc-motivazione').value.trim();
+  if(!motivazione) { alert('Scrivi una motivazione per il cambio.'); return; }
+  try {
+    const attualeTxt = document.getElementById('pc-operatore-attuale').textContent;
+    await supa('richieste_cambio_accompagnatore_cas', {method:'POST', body: JSON.stringify({
+      appuntamento_id: _proponiCambioAppuntamentoId,
+      operatore_attuale: attualeTxt === 'Non assegnato' ? null : attualeTxt,
+      operatore_proposto: nuovoOperatore,
+      motivazione,
+      richiesto_da_email: SESSION.utente.email,
+      richiesto_da_nome: SESSION.utente.nome || SESSION.utente.email
+    })});
+    closeModal('modal-proponi-cambio-cas');
+    alert('Richiesta inviata, in attesa di approvazione del coordinatore.');
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+async function gestisciRichiestaAccompagnatoreCAS(id, approva) {
+  try {
+    const res = await supa(`richieste_cambio_accompagnatore_cas?id=eq.${id}&limit=1`);
+    const r = res && res[0];
+    await supa(`richieste_cambio_accompagnatore_cas?id=eq.${id}`, {method:'PATCH', body: JSON.stringify({
+      stato: approva ? 'Approvata' : 'Rifiutata',
+      gestita_da_email: SESSION.utente.email,
+      gestita_il: new Date().toISOString()
+    })});
+    if(approva && r) {
+      await supa(`appuntamenti_cas?id=eq.${r.appuntamento_id}`, {method:'PATCH', body: JSON.stringify({ operatore_accompagnatore: r.operatore_proposto })});
+    }
+    renderAccompagnamentiCAS(document.getElementById('content-cas'));
   } catch(e) { alert('Errore: '+e.message); }
 }
 
@@ -5548,6 +5691,21 @@ async function salvaTrasferimento() {
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-appuntamento-cas')">Annulla</button>
       <button class="btn btn-primary" onclick="salvaAppuntamentoCAS()">💾 Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PROPONI CAMBIO ACCOMPAGNATORE CAS -->
+<div class="modal-overlay" id="modal-proponi-cambio-cas">
+  <div class="modal">
+    <h3>🔄 Proponi cambio accompagnatore</h3>
+    <div class="form-group"><label>Operatore attuale</label><div id="pc-operatore-attuale" style="padding:8px;color:var(--muted);"></div></div>
+    <div class="form-group"><label>Nuovo operatore proposto</label><select id="pc-nuovo-operatore"></select></div>
+    <div class="form-group"><label>Motivazione *</label><textarea id="pc-motivazione" rows="3" placeholder="Spiega il motivo del cambio" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
+    <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:8px 12px;font-size:.78rem;">⚠️ Il cambio non è immediato: resta in attesa finché il coordinatore non lo approva.</div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-proponi-cambio-cas')">Annulla</button>
+      <button class="btn btn-primary" onclick="salvaProponiCambioCAS()">📩 Invia richiesta</button>
     </div>
   </div>
 </div>
