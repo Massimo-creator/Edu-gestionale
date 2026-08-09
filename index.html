@@ -3714,6 +3714,7 @@ async function renderAccompagnamentiCAS(el) {
           ${SESSION.is_coordinatore_cas
             ? `<select onchange="assegnaAccompagnatoreCAS('${a.id}', this.value)" style="font-size:.82rem;padding:4px 8px;border-radius:6px;border:1px solid var(--border);">
                 <option value="">— Non assegnato —</option>
+                <option value="In autonomia" ${a.operatore_accompagnatore==='In autonomia'?'selected':''}>In autonomia</option>
                 ${OPERATORI_CAS.map(o=>`<option value="${o.nome}" ${o.nome===a.operatore_accompagnatore?'selected':''}>${o.nome}</option>`).join('')}
               </select>`
             : `<span style="font-size:.85rem;font-weight:600;color:${a.operatore_accompagnatore?'var(--text)':'var(--muted)'};">${a.operatore_accompagnatore||'Non assegnato'}</span>
@@ -3767,7 +3768,7 @@ let _proponiCambioAppuntamentoId = null;
 function apriProponiCambioCAS(appuntamentoId, operatoreAttuale) {
   _proponiCambioAppuntamentoId = appuntamentoId;
   document.getElementById('pc-operatore-attuale').textContent = operatoreAttuale || 'Non assegnato';
-  document.getElementById('pc-nuovo-operatore').innerHTML = OPERATORI_CAS.map(o=>`<option value="${o.nome}">${o.nome}</option>`).join('');
+  document.getElementById('pc-nuovo-operatore').innerHTML = '<option value="In autonomia">In autonomia</option>' + OPERATORI_CAS.map(o=>`<option value="${o.nome}">${o.nome}</option>`).join('');
   document.getElementById('pc-motivazione').value = '';
   openModal('modal-proponi-cambio-cas');
 }
