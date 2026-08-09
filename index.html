@@ -3431,6 +3431,7 @@ function mostraAppCAS() {
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-ospite-cas')">Annulla</button>
       <span id="cas-sposta-wrap"></span>
+      <span id="cas-nuovo-app-wrap"></span>
       <button class="btn btn-primary" onclick="salvaOspiteCAS()">💾 Salva</button>
     </div>
   </div>
@@ -4200,6 +4201,18 @@ function tipoAppuntamentoIcon(tipo) {
 let _appEditId = null;
 let _appReturnPage = 'cas-calendario';
 let _appReturnTipo = null;
+let _appReturnOspiteId = null;
+
+function nuovoAppuntamentoDaOspiteCAS(tipo, ospiteId, ospiteNome, strutturaId) {
+  closeModal('modal-ospite-cas');
+  nuovoAppuntamentoCAS(tipo);
+  document.getElementById('app-titolo').value = `${tipo} — ${ospiteNome}`;
+  document.getElementById('app-ospite').value = ospiteNome;
+  const sel = document.getElementById('app-struttura');
+  if(strutturaId) sel.value = strutturaId;
+  _appReturnPage = 'cas-ospiti-riapri';
+  _appReturnOspiteId = ospiteId;
+}
 
 function nuovoAppuntamentoCAS(tipoPreselezionato) {
   _appEditId = null;
@@ -4281,7 +4294,8 @@ async function salvaAppuntamentoCAS() {
       await supa('appuntamenti_cas',{method:'POST',body:JSON.stringify(payload)});
     }
     closeModal('modal-appuntamento-cas');
-    if(_appReturnPage==='cas-dashboard') renderCasDashboard(document.getElementById('content-cas'));
+    if(_appReturnPage==='cas-ospiti-riapri' && _appReturnOspiteId) apriOspiteCAS(_appReturnOspiteId);
+    else if(_appReturnPage==='cas-dashboard') renderCasDashboard(document.getElementById('content-cas'));
     else if(_appReturnPage==='cas-appuntamenti-tipo' && _appReturnTipo) renderCasAppuntamenti(document.getElementById('content-cas'), _appReturnTipo);
     else showPageCAS('cas-calendario');
   } catch(e) { alert('Errore: '+e.message); }
@@ -4519,6 +4533,7 @@ function nuovoOspiteCAS(strutturaIdPreselezionata) {
   ['cas-tipo-domanda','cas-esito-audizione'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   document.getElementById('cas-nucleo-membri').innerHTML = '';
   document.getElementById('cas-sposta-wrap').innerHTML = '';
+  document.getElementById('cas-nuovo-app-wrap').innerHTML = '';
   ['cas-ha-cf','cas-ha-tessera-sanitaria','cas-ha-carta-identita','cas-ha-residenza'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='No';});
   popolaSelectStrutture(strutturaIdPreselezionata);
   openModal('modal-ospite-cas');
@@ -4558,6 +4573,14 @@ async function apriOspiteCAS(id) {
     document.getElementById('cas-sposta-wrap').innerHTML = SESSION.is_coordinatore_cas
       ? `<button class="btn btn-ghost" onclick="apriSpostaOspite('${o.id}','${o.struttura_id}','${(o.cognome+' '+o.nome).replace(/'/g,"\\'")}')">🔀 Sposta</button>`
       : '';
+    document.getElementById('cas-nuovo-app-wrap').innerHTML =
+      `<select onchange="if(this.value){nuovoAppuntamentoDaOspiteCAS(this.value,'${o.id}','${(o.cognome+' '+o.nome).replace(/'/g,"\\'")}','${o.struttura_id}');this.value='';}" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;">
+        <option value="">+ Nuovo appuntamento</option>
+        <option value="Questura">Questura</option>
+        <option value="Commissione Territoriale">Commissione Territoriale</option>
+        <option value="Avvocato">Avvocato</option>
+        <option value="Visita medica">Sanitario</option>
+      </select>`;
     openModal('modal-ospite-cas');
   } catch(e) { alert('Errore: '+e.message); }
 }
