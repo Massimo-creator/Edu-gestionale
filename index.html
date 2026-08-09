@@ -3427,7 +3427,7 @@ function mostraAppCAS() {
     </div>
     <div class="form-group"><label>Nucleo familiare</label><input id="cas-nucleo-familiare" placeholder="es. Famiglia Jouari — lascia lo stesso nome a chi appartiene alla stessa famiglia"></div>
     <div id="cas-nucleo-membri"></div>
-    <div class="form-group"><label>Note</label><textarea id="cas-note" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
+    <div class="form-group"><label>Storico Interventi</label><textarea id="cas-note" rows="4" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-ospite-cas')">Annulla</button>
       <span id="cas-sposta-wrap"></span>
@@ -3479,6 +3479,21 @@ async function salvaEsitoAppuntamentoCAS(prendiNuovo) {
     const res = await supa(`appuntamenti_cas?id=eq.${_esitoAppuntamentoId}&limit=1`);
     const a = (res && res[0]) || null;
     await supa(`appuntamenti_cas?id=eq.${_esitoAppuntamentoId}`, {method:'PATCH', body: JSON.stringify({ stato: 'Svolto', esito })});
+
+    // Se l'appuntamento è collegato a un ospite, aggiunge l'esito anche allo Storico Interventi della sua scheda
+    if (a && a.ospite_id) {
+      try {
+        const ospiteRes = await supa(`ospiti_cas?id=eq.${a.ospite_id}&limit=1`);
+        const ospite = ospiteRes && ospiteRes[0];
+        if (ospite) {
+          const dataAppuntamento = new Date(a.data_ora).toLocaleDateString('it-IT');
+          const rigaStorico = `[${dataAppuntamento}] ${a.tipo}: ${esito}`;
+          const notaAggiornata = ospite.note ? `${ospite.note}\n${rigaStorico}` : rigaStorico;
+          await supa(`ospiti_cas?id=eq.${a.ospite_id}`, {method:'PATCH', body: JSON.stringify({ note: notaAggiornata })});
+        }
+      } catch(e2) { /* non blocca il salvataggio dell'esito se questo passaggio fallisce */ }
+    }
+
     closeModal('modal-esito-appuntamento-cas');
     if (prendiNuovo && a) {
       nuovoAppuntamentoCAS(a.tipo === 'Questura' ? undefined : a.tipo);
@@ -3486,6 +3501,7 @@ async function salvaEsitoAppuntamentoCAS(prendiNuovo) {
       document.getElementById('app-tipo').value = a.tipo;
       document.getElementById('app-struttura').value = a.struttura_id;
       document.getElementById('app-ospite').value = a.ospite_nome || '';
+      _appReturnOspiteId = a.ospite_id || null;
     } else if (_casPaginaAttuale === 'cas-dashboard') {
       renderCasDashboard(document.getElementById('content-cas'));
     } else {
@@ -4217,6 +4233,7 @@ function nuovoAppuntamentoDaOspiteCAS(tipo, ospiteId, ospiteNome, strutturaId) {
 
 function nuovoAppuntamentoCAS(tipoPreselezionato) {
   _appEditId = null;
+  _appReturnOspiteId = null;
   _appReturnPage = tipoPreselezionato ? 'cas-appuntamenti-tipo' : 'cas-calendario';
   _appReturnTipo = tipoPreselezionato || null;
   document.getElementById('app-modal-title').textContent = 'Nuovo Appuntamento';
@@ -4240,6 +4257,7 @@ async function modificaAppuntamentoCAS(id, tipoPagina) {
     if(!res || res.length===0) return;
     const a = res[0];
     _appEditId = id;
+    _appReturnOspiteId = a.ospite_id || null;
     if (tipoPagina === 'DASHBOARD') {
       _appReturnPage = 'cas-dashboard';
       _appReturnTipo = null;
@@ -4286,7 +4304,8 @@ async function salvaAppuntamentoCAS() {
     data_ora: new Date(`${data}T${ora}:00`).toISOString(),
     ospite_nome: document.getElementById('app-ospite').value||null,
     note: document.getElementById('app-note').value||null,
-    nome_avvocato: tipo==='Avvocato' ? (document.getElementById('app-nome-avvocato').value||null) : null
+    nome_avvocato: tipo==='Avvocato' ? (document.getElementById('app-nome-avvocato').value||null) : null,
+    ospite_id: _appReturnOspiteId || null
   };
   try {
     if(_appEditId) {
