@@ -4418,6 +4418,16 @@ function turnoColore(tipo) {
   if(tipo==='Permesso') return '#eab308';
   if(tipo==='Ferie') return '#ef4444';
   if(tipo==='Riposo') return '#94a3b8';
+  if(tipo==='M1') return '#2563eb';
+  if(tipo==='M2') return '#0ea5e9';
+  if(tipo==='M2bis') return '#06b6d4';
+  if(tipo==='M3') return '#14b8a6';
+  if(tipo==='M4') return '#84cc16';
+  if(tipo==='M5') return '#a855f7';
+  if(tipo==='PUC') return '#f97316';
+  if(tipo==='A1') return '#ec4899';
+  if(tipo==='A2') return '#db2777';
+  if(tipo==='A3') return '#be185d';
   return '#8b5cf6';
 }
 function turnoLabel(tipo, oraInizio, oraFine) {
@@ -4426,6 +4436,9 @@ function turnoLabel(tipo, oraInizio, oraFine) {
   if(tipo==='Permesso') return 'PR';
   if(tipo==='Ferie') return 'F';
   if(tipo==='Riposo') return 'R';
+  if(['M1','M2','M2bis','M3','M4','M5'].includes(tipo)) return tipo;
+  if(tipo==='PUC') return 'PUC 8-13';
+  if(['A1','A2','A3'].includes(tipo)) return tipo+' 2h';
   return oraInizio?oraInizio.slice(0,5):'C';
 }
 
@@ -4450,7 +4463,7 @@ async function salvaCompilaPeriodoTurni() {
   const dataInizio = document.getElementById('cp-data-inizio').value;
   const dataFine = document.getElementById('cp-data-fine').value;
   const soloFeriali = document.getElementById('cp-solo-feriali').checked;
-  const senzaOrario = tipo==='Permesso' || tipo==='Ferie' || tipo==='Riposo';
+  const senzaOrario = ['Permesso','Ferie','Riposo','M1','M2','M2bis','M3','M4','M5','A1','A2','A3'].includes(tipo);
   const oraInizio = senzaOrario ? null : document.getElementById('cp-ora-inizio').value;
   const oraFine = senzaOrario ? null : document.getElementById('cp-ora-fine').value;
 
@@ -4516,7 +4529,7 @@ let _turnoEditId = null;
 
 async function salvaTurnoCAS() {
   const tipo = document.getElementById('turno-tipo').value;
-  const senzaOrario = tipo==='Permesso' || tipo==='Ferie' || tipo==='Riposo';
+  const senzaOrario = ['Permesso','Ferie','Riposo','M1','M2','M2bis','M3','M4','M5','A1','A2','A3'].includes(tipo);
   const payload = {
     operatore_email: _turnoEditEmail,
     operatore_nome: _turnoEditNome,
@@ -5791,13 +5804,23 @@ async function salvaTrasferimento() {
   <div class="modal">
     <h3>🔄 <span id="turno-modal-title">Nuovo Turno</span></h3>
     <div class="form-group"><label>Tipo turno</label>
-      <select id="turno-tipo" onchange="const t=this.value;const orari=document.getElementById('turno-orari-wrap');orari.style.display=(t==='Permesso'||t==='Ferie'||t==='Riposo')?'none':'grid';">
+      <select id="turno-tipo" onchange="const t=this.value;const orari=document.getElementById('turno-orari-wrap');orari.style.display=(['Permesso','Ferie','Riposo','M1','M2','M2bis','M3','M4','M5','A1','A2','A3'].includes(t))?'none':'grid';if(t==='PUC'){document.getElementById('turno-ora-inizio').value='08:00';document.getElementById('turno-ora-fine').value='13:00';}">
         <option value="Mattina">🔵 Mattina</option>
         <option value="Pomeriggio">🟢 Pomeriggio</option>
         <option value="Personalizzato">🟣 Personalizzato</option>
         <option value="Permesso">🟡 Permesso</option>
         <option value="Ferie">🔴 Ferie</option>
         <option value="Riposo">⚪ Riposo</option>
+        <option value="M1">M1 (da definire)</option>
+        <option value="M2">M2 (da definire)</option>
+        <option value="M2bis">M2bis (da definire)</option>
+        <option value="M3">M3 (da definire)</option>
+        <option value="M4">M4 (da definire)</option>
+        <option value="M5">M5 (da definire)</option>
+        <option value="PUC">PUC 8-13</option>
+        <option value="A1">A1 2h (Mediazione, da definire)</option>
+        <option value="A2">A2 2h (Mediazione, da definire)</option>
+        <option value="A3">A3 2h (Mediazione, da definire)</option>
       </select>
     </div>
     <div class="grid g2" id="turno-orari-wrap">
@@ -5819,13 +5842,23 @@ async function salvaTrasferimento() {
     <h3>📋 Compila periodo</h3>
     <div class="form-group"><label>Operatore</label><select id="cp-operatore"></select></div>
     <div class="form-group"><label>Tipo turno</label>
-      <select id="cp-tipo" onchange="const t=this.value;const orari=document.getElementById('cp-orari-wrap');orari.style.display=(t==='Permesso'||t==='Ferie'||t==='Riposo')?'none':'grid';">
+      <select id="cp-tipo" onchange="const t=this.value;const orari=document.getElementById('cp-orari-wrap');orari.style.display=(['Permesso','Ferie','Riposo','M1','M2','M2bis','M3','M4','M5','A1','A2','A3'].includes(t))?'none':'grid';if(t==='PUC'){document.getElementById('cp-ora-inizio').value='08:00';document.getElementById('cp-ora-fine').value='13:00';}">
         <option value="Mattina">🔵 Mattina</option>
         <option value="Pomeriggio">🟢 Pomeriggio</option>
         <option value="Personalizzato">🟣 Personalizzato</option>
         <option value="Permesso">🟡 Permesso</option>
         <option value="Ferie">🔴 Ferie</option>
         <option value="Riposo">⚪ Riposo</option>
+        <option value="M1">M1 (da definire)</option>
+        <option value="M2">M2 (da definire)</option>
+        <option value="M2bis">M2bis (da definire)</option>
+        <option value="M3">M3 (da definire)</option>
+        <option value="M4">M4 (da definire)</option>
+        <option value="M5">M5 (da definire)</option>
+        <option value="PUC">PUC 8-13</option>
+        <option value="A1">A1 2h (Mediazione, da definire)</option>
+        <option value="A2">A2 2h (Mediazione, da definire)</option>
+        <option value="A3">A3 2h (Mediazione, da definire)</option>
       </select>
     </div>
     <div class="grid g2" id="cp-orari-wrap">
