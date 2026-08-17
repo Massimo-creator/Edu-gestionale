@@ -3260,6 +3260,7 @@ function mostraAppCAS() {
       document.querySelectorAll('#sidebar-cas .nav-item').forEach(function(item) {
         var t = item.textContent.trim();
         if(isSimona && t.includes('Ospiti')) item.style.display='none';
+        if(!SESSION.is_coordinatore_cas && t.includes('Calendario Coordinatore')) item.style.display='none';
       });
     }
     if(typeof showPageCAS === 'function') showPageCAS('cas-dashboard');
@@ -3511,6 +3512,7 @@ async function salvaEsitoAppuntamentoCAS(prendiNuovo) {
 }
 
 function showPageCAS(page) {
+  if (page === 'cas-calendario-coordinatore' && !SESSION.is_coordinatore_cas) return;
   _casPaginaAttuale = page;
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
   const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-accompagnamenti':'Accompagnamenti','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti' };
