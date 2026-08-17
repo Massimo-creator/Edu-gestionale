@@ -3694,13 +3694,10 @@ async function renderAccompagnamentiCAS(el) {
     const iniISO = `${inizioMese.getFullYear()}-${String(inizioMese.getMonth()+1).padStart(2,'0')}-01`;
     const fineISO = `${fineMese.getFullYear()}-${String(fineMese.getMonth()+1).padStart(2,'0')}-${String(fineMese.getDate()).padStart(2,'0')}`;
 
-    const struttureIds = (SESSION.strutture_cas||[]).map(s=>s.id);
-    const mapS = {}; (SESSION.strutture_cas||[]).forEach(s=>mapS[s.id]=s.nome);
+    const tutteLeStrutture = await supa('strutture_cas?order=nome') || [];
+    const mapS = {}; tutteLeStrutture.forEach(s=>mapS[s.id]=s.nome);
 
-    let appuntamenti = [];
-    if(struttureIds.length>0) {
-      appuntamenti = await supa(`appuntamenti_cas?struttura_id=in.(${struttureIds.join(',')})&data_ora=gte.${iniISO}T00:00:00&data_ora=lte.${fineISO}T23:59:59&order=data_ora`) || [];
-    }
+    const appuntamenti = await supa(`appuntamenti_cas?data_ora=gte.${iniISO}T00:00:00&data_ora=lte.${fineISO}T23:59:59&order=data_ora`) || [];
 
     let richieste = [];
     if(SESSION.is_coordinatore_cas) {
@@ -5548,7 +5545,7 @@ async function renderCasTrasferimenti(el) {
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
                   <span style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.82rem;font-weight:600;">🏠 ${mapS[t.struttura_origine_id]||'—'}</span>
                   <span style="font-size:1.2rem;color:var(--accent);">→</span>
-                  <span style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.82rem;font-weight:600;">🏠 ${mapS[t.struttura_destinazione_id]||'Non Metis'}</span>
+                  <span style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.82rem;font-weight:600;">🏠 ${mapS[t.struttura_destinazione_id]||t.destinazione_esterna||'Non Metis'}</span>
                 </div>
                 ${t.data_richiesta?`<div style="font-size:.78rem;color:var(--muted);">📅 Richiesto: ${new Date(t.data_richiesta).toLocaleDateString('it-IT')}</div>`:''}
                 ${t.data_autorizzazione?`<div style="font-size:.78rem;color:#8b5cf6;">✓ Autorizzato: ${new Date(t.data_autorizzazione).toLocaleDateString('it-IT')}</div>`:''}
@@ -5577,7 +5574,7 @@ function nuovoTrasferimento() {
   const strutture = SESSION.strutture_cas||[];
   const opts = strutture.map(s=>`<option value="${s.id}">${s.nome}</option>`).join('');
   document.getElementById('tr-origine').innerHTML=opts;
-  document.getElementById('tr-destinazione').innerHTML='<option value="">Non Metis</option>'+opts;
+  document.getElementById('tr-destinazione').innerHTML='<option value="">Non Metis</option><option value="SAI">SAI</option>'+opts;
   openModal('modal-trasferimento-cas');
 }
 
@@ -5593,7 +5590,7 @@ async function modificaTrasferimento(id) {
   document.getElementById('tr-note').value=t.note||'';
   const strutture = SESSION.strutture_cas||[];
   const opts = strutture.map(s=>`<option value="${s.id}" ${s.id===t.struttura_origine_id?'selected':''}>${s.nome}</option>`).join('');
-  const optsD = '<option value="">Non Metis</option>' + strutture.map(s=>`<option value="${s.id}" ${s.id===t.struttura_destinazione_id?'selected':''}>${s.nome}</option>`).join('');
+  const optsD = `<option value="">Non Metis</option><option value="SAI" ${t.destinazione_esterna==='SAI'?'selected':''}>SAI</option>` + strutture.map(s=>`<option value="${s.id}" ${s.id===t.struttura_destinazione_id?'selected':''}>${s.nome}</option>`).join('');
   document.getElementById('tr-origine').innerHTML=opts;
   document.getElementById('tr-destinazione').innerHTML=optsD;
   openModal('modal-trasferimento-cas');
@@ -5611,10 +5608,13 @@ async function salvaTrasferimento() {
   const ospiteNome = document.getElementById('tr-ospite-nome').value.trim();
   if(!ospiteNome){alert('Inserisci il nome dell\'ospite.');return;}
   const stato = document.getElementById('tr-stato').value;
+  const destSel = document.getElementById('tr-destinazione').value;
+  const isDestinazioneReale = destSel && destSel !== 'SAI';
   const payload = {
     ospite_nome: ospiteNome,
     struttura_origine_id: document.getElementById('tr-origine').value,
-    struttura_destinazione_id: document.getElementById('tr-destinazione').value || null,
+    struttura_destinazione_id: isDestinazioneReale ? destSel : null,
+    destinazione_esterna: destSel === 'SAI' ? 'SAI' : (destSel === '' ? 'Non Metis' : null),
     stato,
     data_richiesta: document.getElementById('tr-data-richiesta').value||null,
     data_autorizzazione: stato==='Autorizzato'||stato==='Effettuato' ? document.getElementById('tr-data-autorizzazione').value||null : null,
@@ -5936,6 +5936,7 @@ async function salvaTrasferimento() {
         <option>Trasferimento autorizzato</option>
         <option>Trasferimento respinto</option>
         <option>Trasferimento effettuato</option>
+        <option>Segnalazione ingresso SAI inviata</option>
       </select>
     </div>
     <div class="form-group"><label>Note</label><textarea id="tr-note" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
