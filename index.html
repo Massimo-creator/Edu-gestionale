@@ -3262,6 +3262,23 @@ function mostraAppCAS() {
         if(isSimona && t.includes('Ospiti')) item.style.display='none';
         if(!SESSION.is_coordinatore_cas && t.includes('Calendario Coordinatore')) item.style.display='none';
       });
+      if (isMax) {
+        var sidebarCas = document.getElementById('sidebar-cas');
+        if (sidebarCas) sidebarCas.style.display = 'none';
+        var mainCas = document.getElementById('main-cas');
+        if (mainCas) mainCas.style.marginLeft = '0';
+        var ricercaWrap = document.getElementById('cas-ricerca-ospiti');
+        if (ricercaWrap && ricercaWrap.parentElement) ricercaWrap.parentElement.style.display = 'none';
+        var topbarCas = document.getElementById('topbar-cas');
+        if (topbarCas) {
+          var logoutBtn = document.createElement('button');
+          logoutBtn.textContent = '🚪 Esci';
+          logoutBtn.className = 'btn btn-ghost';
+          logoutBtn.style.cssText = 'font-size:.78rem;padding:6px 10px;';
+          logoutBtn.onclick = doLogout;
+          topbarCas.appendChild(logoutBtn);
+        }
+      }
     }
     if(typeof showPageCAS === 'function') showPageCAS('cas-dashboard');
   }, 200);
@@ -3513,6 +3530,7 @@ async function salvaEsitoAppuntamentoCAS(prendiNuovo) {
 }
 
 function showPageCAS(page) {
+  if (SESSION.is_max) page = 'cas-manutenzioni';
   if (page === 'cas-calendario-coordinatore' && !SESSION.is_coordinatore_cas) return;
   _casPaginaAttuale = page;
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
@@ -4871,22 +4889,22 @@ async function renderCasManutenzioni(el) {
     const urgenzaCol = {Urgente:'var(--danger)',Media:'var(--warn)',Bassa:'var(--accent2)'};
     const renderCard = (s) => `
       <div class="card" style="padding:16px;border-left:3px solid ${urgenzaCol[s.urgenza]||'var(--muted)'};">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
-          <div style="flex:1;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:200px;">
             <div style="font-weight:600;">${s.titolo}</div>
             <div style="font-size:.82rem;color:var(--muted);margin-top:2px;">🏠 ${mapS[s.struttura_id]||'—'} · <span style="color:${urgenzaCol[s.urgenza]};">${s.urgenza}</span> · ${s.segnalato_da_nome||'—'}</div>
             ${s.descrizione?`<div style="font-size:.83rem;margin-top:6px;">${s.descrizione}</div>`:''}
             ${s.note_manutentore?`<div style="font-size:.82rem;color:var(--accent);margin-top:4px;">🔧 ${s.note_manutentore}</div>`:''}
-            ${s.foto_url?`<div style="margin-top:8px;"><img src="${s.foto_url}" style="max-width:200px;max-height:140px;border-radius:6px;cursor:pointer;" onclick="window.open('${s.foto_url}','_blank')"></div>`:''}
+            ${s.foto_url?`<div style="margin-top:8px;"><img src="${s.foto_url}" style="max-width:100%;max-height:220px;border-radius:6px;cursor:pointer;" onclick="window.open('${s.foto_url}','_blank')"></div>`:''}
           </div>
-          <div style="text-align:right;flex-shrink:0;">
-            <div style="font-size:.75rem;color:var(--muted);">${new Date(s.created_at).toLocaleDateString('it-IT')}</div>
+          <div style="text-align:right;flex-shrink:0;width:100%;max-width:160px;">
+            <div style="font-size:.75rem;color:var(--muted);margin-bottom:6px;">${new Date(s.created_at).toLocaleDateString('it-IT')}</div>
             ${SESSION.is_max?`
-              <div style="display:flex;flex-direction:column;gap:4px;margin-top:8px;">
-                ${s.stato!=='In lavorazione'&&s.stato!=='Risolta'&&s.stato!=='Sospesa'?`<button class="btn btn-ghost" style="font-size:.72rem;padding:3px 8px;" onclick="aggiornaStatoManutenzione('${s.id}','In lavorazione')">▶ Prendi in carico</button>`:''}
-                ${s.stato!=='Risolta'?`<button class="btn btn-primary" style="font-size:.72rem;padding:3px 8px;" onclick="aggiornaStatoManutenzione('${s.id}','Risolta')">✓ Risolto</button>`:''}
-                ${s.stato!=='Sospesa'&&s.stato!=='Risolta'?`<button class="btn btn-ghost" style="font-size:.72rem;padding:3px 8px;color:var(--warn);" onclick="aggiornaStatoManutenzione('${s.id}','Sospesa')">⏸ Sospendi</button>`:''} 
-                ${s.stato==='Sospesa'?`<button class="btn btn-ghost" style="font-size:.72rem;padding:3px 8px;" onclick="aggiornaStatoManutenzione('${s.id}','Aperta')">↩ Riapri</button>`:''}
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                ${s.stato!=='In lavorazione'&&s.stato!=='Risolta'&&s.stato!=='Sospesa'?`<button class="btn btn-ghost" style="font-size:.85rem;padding:10px 12px;width:100%;" onclick="aggiornaStatoManutenzione('${s.id}','In lavorazione')">▶ Prendi in carico</button>`:''}
+                ${s.stato!=='Risolta'?`<button class="btn btn-primary" style="font-size:.85rem;padding:10px 12px;width:100%;" onclick="aggiornaStatoManutenzione('${s.id}','Risolta')">✓ Risolto</button>`:''}
+                ${s.stato!=='Sospesa'&&s.stato!=='Risolta'?`<button class="btn btn-ghost" style="font-size:.85rem;padding:10px 12px;width:100%;color:var(--warn);" onclick="aggiornaStatoManutenzione('${s.id}','Sospesa')">⏸ Sospendi</button>`:''} 
+                ${s.stato==='Sospesa'?`<button class="btn btn-ghost" style="font-size:.85rem;padding:10px 12px;width:100%;" onclick="aggiornaStatoManutenzione('${s.id}','Aperta')">↩ Riapri</button>`:''}
               </div>`:''}
           </div>
         </div>
