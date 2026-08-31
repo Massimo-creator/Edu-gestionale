@@ -4959,7 +4959,7 @@ async function salvaManutenzioneCAS() {
     await supa('manutenzioni_cas',{method:'POST',body:JSON.stringify(payload)});
     const struttura = (SESSION.strutture_cas||[]).find(s=>s.id===payload.struttura_id);
     inviaEmailApprodo(
-      'm.ceccaroli@coopmetis.com',
+      ['m.ceccaroli@coopmetis.com','r.bernardi@coopmetis.com'],
       `🔧 Nuova segnalazione — ${struttura?struttura.nome:''}`,
       `<p><strong>Struttura:</strong> ${struttura?struttura.nome:'—'}</p>
        <p><strong>Titolo:</strong> ${titolo}</p>
