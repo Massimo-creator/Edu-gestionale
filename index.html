@@ -3248,11 +3248,9 @@ function mostraAppCAS() {
       var nome = SESSION.utente.nome || SESSION.utente.email || '';
       var isSimona = SESSION.utente.email === 's.demartino@coopmetis.com';
       var isMax = SESSION.utente.email === 'm.ceccaroli@coopmetis.com';
-      var isSegreteria = SESSION.utente.email === 'polizzanosamirachiara@gmail.com';
-      var ruolo = SESSION.is_coordinatore_cas ? 'Coordinatore' : isSimona ? 'Responsabile RU' : isMax ? 'Manutentore' : isSegreteria ? 'Segreteria' : 'Educatore';
+      var ruolo = SESSION.is_coordinatore_cas ? 'Coordinatore' : isSimona ? 'Responsabile RU' : isMax ? 'Manutentore' : 'Educatore';
       SESSION.is_simona = isSimona;
       SESSION.is_max = isMax;
-      SESSION.is_segreteria = isSegreteria;
       var topbar = document.getElementById('cas-topbar-user');
       var sidebar = document.getElementById('sidebar-cas-user');
       if(topbar) topbar.textContent = nome + ' (' + ruolo + ') · Metis CAS Rimini';
@@ -3564,7 +3562,7 @@ let _calCoordAnno = new Date().getFullYear();
 async function renderCalendarioCoordinatoreCAS(el) {
   el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
   try {
-    const puoModificare = SESSION.is_coordinatore_cas || SESSION.is_segreteria;
+    const puoModificare = SESSION.is_coordinatore_cas;
     const appuntamenti = await supa('calendario_coordinatore_cas?order=data_ora') || [];
     const nomiMesi = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 
