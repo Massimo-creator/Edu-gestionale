@@ -4262,7 +4262,7 @@ async function renderCasScadenze(el) {
 async function renderCasAppuntamenti(el, tipo) {
   el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
   try {
-    const strutture = SESSION.strutture_cas || [];
+    const strutture = await supa('strutture_cas?order=nome') || [];
     const struttureIds = strutture.map(s=>s.id);
     let appuntamenti = [];
     if (struttureIds.length>0) {
@@ -4334,7 +4334,7 @@ async function renderCasAppuntamenti(el, tipo) {
 async function renderCasCalendario(el) {
   el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
   try {
-    const strutture = SESSION.strutture_cas || [];
+    const strutture = await supa('strutture_cas?order=nome') || [];
     const struttureIds = strutture.map(s=>s.id);
     let appuntamenti = [];
     if (struttureIds.length>0) {
