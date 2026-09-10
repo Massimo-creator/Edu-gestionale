@@ -3535,7 +3535,7 @@ function showPageCAS(page) {
   const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-accompagnamenti':'Accompagnamenti','cas-mio-calendario':'Mio Calendario','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
-  if (page === 'cas-calendario-coordinatore') renderCalendarioCoordinatoreCAS(content);
+  if (page === 'cas-calendario-coordinatore') { _calCoordMese = new Date().getMonth(); _calCoordAnno = new Date().getFullYear(); renderCalendarioCoordinatoreCAS(content); }
   else if (page === 'cas-dashboard') renderCasDashboard(content);
   else if (page === 'cas-ospiti') renderCasOspiti(content);
   else if (page === 'cas-strutture') renderCasStrutture(content);
@@ -3544,10 +3544,10 @@ function showPageCAS(page) {
   else if (page === 'cas-commissioni') renderCasAppuntamenti(content, 'Commissione Territoriale');
   else if (page === 'cas-sanitari') renderCasAppuntamenti(content, 'Visita medica');
   else if (page === 'cas-avvocato') renderCasAppuntamenti(content, 'Avvocato');
-  else if (page === 'cas-accompagnamenti') renderAccompagnamentiCAS(content);
-  else if (page === 'cas-mio-calendario') renderMioCalendarioCAS(content);
+  else if (page === 'cas-accompagnamenti') { _accMese = new Date().getMonth(); _accAnno = new Date().getFullYear(); renderAccompagnamentiCAS(content); }
+  else if (page === 'cas-mio-calendario') { _mioCalMese = new Date().getMonth(); _mioCalAnno = new Date().getFullYear(); renderMioCalendarioCAS(content); }
   else if (page === 'cas-equipe') renderCasEquipe(content);
-  else if (page === 'cas-turni') renderCasTurni(content);
+  else if (page === 'cas-turni') { _turniMese = new Date().getMonth(); _turniAnno = new Date().getFullYear(); renderCasTurni(content); }
   else if (page === 'cas-ferie') renderCasFerie(content);
   else if (page === 'cas-manutenzioni') renderCasManutenzioni(content);
   else if (page === 'cas-cassettaps') renderCassettePS(content);
@@ -3702,7 +3702,7 @@ async function salvaCalendarioCoordinatoreCAS() {
   } catch(e) { alert('Errore: '+e.message); }
 }
 
-let _accMese = 7; // agosto (0-based)
+let _accMese = new Date().getMonth();
 let _accAnno = new Date().getFullYear();
 
 async function renderAccompagnamentiCAS(el) {
