@@ -3895,7 +3895,13 @@ async function renderMioCalendarioCAS(el) {
           const dEv = new Date(ev.dato.data_ora);
           const ora = dEv.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
           if(ev.tipo==='accompagnamento') {
-            return `<div style="background:var(--accent);color:#fff;border-radius:4px;padding:2px 5px;font-size:.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${ev.dato.ospite_nome||ev.dato.titolo} (${ev.dato.tipo})">🚗 ${ora} ${ev.dato.ospite_nome||ev.dato.titolo}</div>`;
+            const stileTipo = {
+              'Questura': {colore:'#2563eb', icona:'🛂', etichetta:'Questura'},
+              'Commissione Territoriale': {colore:'#7c3aed', icona:'⚖️', etichetta:'Commissione'},
+              'Avvocato': {colore:'#475569', icona:'👨\u200d⚖️', etichetta:'Avvocato'},
+              'Visita medica': {colore:'#0d9488', icona:'🏥', etichetta:'Sanitario'},
+            }[ev.dato.tipo] || {colore:'#64748b', icona:'📌', etichetta: ev.dato.tipo || 'Altro'};
+            return `<div style="background:${stileTipo.colore};color:#fff;border-radius:4px;padding:2px 5px;font-size:.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${stileTipo.etichetta} — ${ev.dato.ospite_nome||ev.dato.titolo}">${stileTipo.icona} ${stileTipo.etichetta} ${ora} ${ev.dato.ospite_nome||ev.dato.titolo}</div>`;
           }
           return `<div onclick="event.stopPropagation();${staGuardandoIlProprio?`modificaAppuntamentoPersonaleCAS('${ev.dato.id}')`:''}" style="background:var(--accent2);color:#fff;border-radius:4px;padding:2px 5px;font-size:.7rem;cursor:${staGuardandoIlProprio?'pointer':'default'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${ev.dato.titolo}">${ora} ${ev.dato.titolo}</div>`;
         }).join('')}
@@ -3926,7 +3932,7 @@ async function renderMioCalendarioCAS(el) {
         <div style="width:120px;"></div>
       </div>
 
-      <div style="font-size:.75rem;color:var(--muted);margin-bottom:8px;">🚗 Accompagnamenti assegnati (da Approdo, non modificabili qui) · 🟢 Appuntamenti personali</div>
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:8px;">🛂 Questura · ⚖️ Commissione · 👨‍⚖️ Avvocato · 🏥 Sanitario (assegnati da Approdo, non modificabili qui) · 🟢 Appuntamenti personali</div>
 
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;">
         ${['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].map(g=>`<div style="text-align:center;font-size:.75rem;color:var(--muted);font-weight:600;padding:4px 0;">${g}</div>`).join('')}
