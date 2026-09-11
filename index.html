@@ -3792,6 +3792,18 @@ async function renderAccompagnamentiCAS(el) {
 
 async function assegnaAccompagnatoreCAS(appuntamentoId, operatore) {
   try {
+    if (operatore && operatore !== 'In autonomia') {
+      const corrente = await supa(`appuntamenti_cas?id=eq.${appuntamentoId}&select=data_ora`);
+      if (corrente && corrente[0]) {
+        const giorno = corrente[0].data_ora.slice(0,10);
+        const altri = await supa(`appuntamenti_cas?operatore_accompagnatore=eq.${encodeURIComponent(operatore)}&data_ora=gte.${giorno}T00:00:00&data_ora=lte.${giorno}T23:59:59&id=neq.${appuntamentoId}&select=titolo,tipo,data_ora,ospite_nome`);
+        if (altri && altri.length > 0) {
+          const elenco = altri.map(a => `• ${a.tipo} — ${a.ospite_nome||a.titolo} (${new Date(a.data_ora).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})})`).join('\n');
+          const procedi = confirm(`⚠️ ${operatore} ha già altri impegni lo stesso giorno:\n\n${elenco}\n\nAssegnare comunque?`);
+          if (!procedi) return;
+        }
+      }
+    }
     await supa(`appuntamenti_cas?id=eq.${appuntamentoId}`, {method:'PATCH', body: JSON.stringify({ operatore_accompagnatore: operatore || null })});
   } catch(e) { alert('Errore: '+e.message); }
 }
@@ -4500,6 +4512,15 @@ async function salvaAppuntamentoCAS() {
     ospite_id: _appReturnOspiteId || null
   };
   try {
+    if(!_appEditId && payload.ospite_nome) {
+      const giorno = data;
+      const possibiliDoppioni = await supa(`appuntamenti_cas?ospite_nome=eq.${encodeURIComponent(payload.ospite_nome)}&tipo=eq.${encodeURIComponent(tipo)}&data_ora=gte.${giorno}T00:00:00&data_ora=lte.${giorno}T23:59:59&select=data_ora,operatore_accompagnatore`);
+      if(possibiliDoppioni && possibiliDoppioni.length > 0) {
+        const dettagli = possibiliDoppioni.map(a => `• ore ${new Date(a.data_ora).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}, accompagnatore: ${a.operatore_accompagnatore||'non assegnato'}`).join('\n');
+        const procedi = confirm(`⚠️ Esiste già un appuntamento di tipo "${tipo}" per ${payload.ospite_nome} lo stesso giorno:\n\n${dettagli}\n\nSalvare comunque come nuovo appuntamento separato?`);
+        if(!procedi) return;
+      }
+    }
     if(_appEditId) {
       await supa(`appuntamenti_cas?id=eq.${_appEditId}`,{method:'PATCH',body:JSON.stringify(payload)});
     } else {
