@@ -5152,6 +5152,12 @@ async function inviaRichiestaFerie() {
       tipo,
       note
     })});
+    inviaEmailApprodo(
+      's.demartino@coopmetis.com',
+      `Nuova richiesta ${tipo} da approvare`,
+      `<p>Ciao Simona,</p><p><b>${SESSION.utente.nome || SESSION.utente.email}</b> ha inviato una nuova richiesta di <b>${tipo}</b>:</p><p>Dal <b>${dataInizio}</b> al <b>${dataFine}</b>${note ? `<br>Note: ${note}` : ''}</p><p>Puoi approvarla o rifiutarla dalla sezione Permessi e Ferie su Approdo.</p>`,
+      SESSION.utente.email
+    );
     renderCasFerie(document.getElementById('content-cas'));
   } catch(e) { alert('Errore: '+e.message); }
 }
