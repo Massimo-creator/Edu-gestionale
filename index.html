@@ -3259,6 +3259,7 @@ function mostraAppCAS() {
         var t = item.textContent.trim();
         if(isSimona && t.includes('Ospiti')) item.style.display='none';
         if(!SESSION.is_coordinatore_cas && t.includes('Calendario Coordinatore')) item.style.display='none';
+        if(!SESSION.is_coordinatore_cas && t.includes('Report Accompagnamenti')) item.style.display='none';
       });
       if (isMax) {
         var sidebarCas = document.getElementById('sidebar-cas');
@@ -3344,6 +3345,7 @@ function mostraAppCAS() {
   <div style="padding:10px 16px 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-top:4px;">Risorse Umane</div>
   <div class="nav-item" onclick="showPageCAS('cas-turni')" style="padding-left:24px;"><span class="ico">🔄</span> Turni</div>
   <div class="nav-item" onclick="showPageCAS('cas-ferie')" style="padding-left:24px;"><span class="ico">🟥</span> Permessi e Ferie</div>
+  <div class="nav-item" onclick="showPageCAS('cas-report-accompagnamenti')" style="padding-left:24px;"><span class="ico">📊</span> Report Accompagnamenti</div>
 
   <div style="padding:10px 16px 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-top:4px;">Manutenzioni</div>
   <div class="nav-item" onclick="showPageCAS('cas-manutenzioni')" style="padding-left:24px;"><span class="ico">🔧</span> Segnalazioni</div>
@@ -3530,9 +3532,10 @@ async function salvaEsitoAppuntamentoCAS(prendiNuovo) {
 function showPageCAS(page) {
   if (SESSION.is_max) page = 'cas-manutenzioni';
   if (page === 'cas-calendario-coordinatore' && !SESSION.is_coordinatore_cas) return;
+  if (page === 'cas-report-accompagnamenti' && !SESSION.is_coordinatore_cas) return;
   _casPaginaAttuale = page;
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
-  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-accompagnamenti':'Accompagnamenti','cas-mio-calendario':'Mio Calendario','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti' };
+  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-accompagnamenti':'Accompagnamenti','cas-mio-calendario':'Mio Calendario','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti','cas-report-accompagnamenti':'Report Accompagnamenti' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
   if (page === 'cas-calendario-coordinatore') { _calCoordMese = new Date().getMonth(); _calCoordAnno = new Date().getFullYear(); renderCalendarioCoordinatoreCAS(content); }
@@ -3554,6 +3557,93 @@ function showPageCAS(page) {
   else if (page === 'cas-pocketmoney') renderCasPocketMoney(content);
   else if (page === 'cas-trasferimenti') renderCasTrasferimenti(content);
   else if (page === 'cas-progetti') renderCasProgetti(content);
+  else if (page === 'cas-report-accompagnamenti') renderCasReportAccompagnamenti(content);
+}
+
+const STILE_TIPO_ACC = {
+  'Questura': {colore:'#2563eb', etichetta:'Questura'},
+  'Commissione Territoriale': {colore:'#7c3aed', etichetta:'Commissione Territoriale'},
+  'Avvocato': {colore:'#475569', etichetta:'Avvocato'},
+  'Visita medica': {colore:'#0d9488', etichetta:'Visita medica'},
+};
+const COLORE_ALTRO_ACC = '#f59e0b';
+const COLORE_NON_OPERATORE_ACC = '#94a3b8';
+
+async function renderCasReportAccompagnamenti(el) {
+  el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
+  try {
+    const oggi = new Date();
+    const inizioMese = new Date(oggi.getFullYear(), oggi.getMonth(), 1);
+    const inizioMeseSucc = new Date(oggi.getFullYear(), oggi.getMonth()+1, 1);
+    const nomiMesi = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+    const struttureIds = (SESSION.strutture_cas||[]).map(s=>s.id);
+
+    const appuntamenti = struttureIds.length > 0
+      ? await supa(`appuntamenti_cas?struttura_id=in.(${struttureIds.join(',')})&data_ora=gte.${inizioMese.toISOString()}&data_ora=lt.${inizioMeseSucc.toISOString()}&select=tipo,data_ora,operatore_accompagnatore`) || []
+      : [];
+
+    const perOperatore = {};
+    appuntamenti.forEach(a => {
+      const nome = a.operatore_accompagnatore || 'Non assegnato';
+      if (!perOperatore[nome]) perOperatore[nome] = { persone: {}, viaggiSet: {} };
+      const g = perOperatore[nome];
+      g.persone[a.tipo] = (g.persone[a.tipo]||0) + 1;
+      g.viaggiSet[a.tipo] = g.viaggiSet[a.tipo] || new Set();
+      g.viaggiSet[a.tipo].add(a.data_ora);
+    });
+
+    const nomiSpeciali = ['In autonomia', 'Non assegnato'];
+    const nomiOperatoriReali = Object.keys(perOperatore)
+      .filter(n => !nomiSpeciali.includes(n))
+      .sort((a,b) => totalePersone(perOperatore[b]) - totalePersone(perOperatore[a]));
+    const nomiOrdinati = nomiOperatoriReali.concat(nomiSpeciali.filter(n => perOperatore[n]));
+
+    function totalePersone(g) { return Object.values(g.persone).reduce((s,v)=>s+v,0); }
+    function totaleViaggi(g) { return Object.values(g.viaggiSet).reduce((s,set)=>s+set.size,0); }
+
+    const maxPersone = Math.max(1, ...nomiOrdinati.map(n => totalePersone(perOperatore[n])));
+    const maxViaggi = Math.max(1, ...nomiOrdinati.map(n => totaleViaggi(perOperatore[n])));
+
+    function coloreTipo(tipo) { return (STILE_TIPO_ACC[tipo]||{}).colore || COLORE_ALTRO_ACC; }
+
+    function rigaBarra(nome, valori, max, speciale) {
+      const totale = Object.values(valori).reduce((s,v)=>s+v,0);
+      const segmenti = Object.entries(valori).map(([tipo,v]) => {
+        const larghezza = max > 0 ? (v / max * 100) : 0;
+        const colore = speciale ? COLORE_NON_OPERATORE_ACC : coloreTipo(tipo);
+        return `<div style="width:${larghezza}%;background:${colore};" title="${tipo}: ${v}"></div>`;
+      }).join('');
+      return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <div style="width:110px;flex:none;font-size:.85rem;color:${speciale?'var(--muted)':'var(--text)'};text-align:right;">${nome}</div>
+        <div style="flex:1;display:flex;height:20px;border-radius:4px;overflow:hidden;background:var(--bg);">${segmenti}</div>
+        <div style="width:28px;flex:none;font-weight:600;font-size:.85rem;color:var(--text);">${totale}</div>
+      </div>`;
+    }
+
+    const legenda = Object.values(STILE_TIPO_ACC).map(s =>
+      `<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;font-size:.8rem;color:var(--muted);"><span style="width:10px;height:10px;border-radius:3px;background:${s.colore};display:inline-block;"></span>${s.etichetta}</span>`
+    ).join('') + `<span style="display:inline-flex;align-items:center;gap:5px;font-size:.8rem;color:var(--muted);"><span style="width:10px;height:10px;border-radius:3px;background:${COLORE_ALTRO_ACC};display:inline-block;"></span>Altro</span>`;
+
+    if (nomiOrdinati.length === 0) {
+      el.innerHTML = `<div class="card" style="padding:30px;text-align:center;color:var(--muted);">Nessun accompagnamento registrato per ${nomiMesi[oggi.getMonth()]} ${oggi.getFullYear()}.</div>`;
+      return;
+    }
+
+    el.innerHTML = `
+      <div style="margin-bottom:14px;color:var(--muted);font-size:.85rem;">${nomiMesi[oggi.getMonth()]} ${oggi.getFullYear()} — dati aggiornati in tempo reale</div>
+      <div class="card" style="padding:20px;margin-bottom:16px;">
+        <div style="margin-bottom:14px;">${legenda}</div>
+        <h3 style="margin:0 0 14px;font-size:.95rem;">Persone accompagnate</h3>
+        ${nomiOrdinati.map(n => rigaBarra(n, perOperatore[n].persone, maxPersone, nomiSpeciali.includes(n))).join('')}
+      </div>
+      <div class="card" style="padding:20px;">
+        <h3 style="margin:0 0 6px;font-size:.95rem;">Uscite effettuate</h3>
+        <div style="margin-bottom:14px;color:var(--muted);font-size:.78rem;">Se un operatore accompagna più persone alla stessa ora, conta come una sola uscita.</div>
+        ${nomiOperatoriReali.map(n => rigaBarra(n, Object.fromEntries(Object.entries(perOperatore[n].viaggiSet).map(([t,set])=>[t,set.size])), maxViaggi, false)).join('')}
+      </div>`;
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`;
+  }
 }
 
 let _calCoordMese = new Date().getMonth();
