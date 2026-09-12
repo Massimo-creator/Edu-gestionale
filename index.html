@@ -3259,7 +3259,6 @@ function mostraAppCAS() {
         var t = item.textContent.trim();
         if(isSimona && t.includes('Ospiti')) item.style.display='none';
         if(!SESSION.is_coordinatore_cas && t.includes('Calendario Coordinatore')) item.style.display='none';
-        if(!SESSION.is_coordinatore_cas && t.includes('Report Accompagnamenti')) item.style.display='none';
       });
       if (isMax) {
         var sidebarCas = document.getElementById('sidebar-cas');
@@ -3532,7 +3531,6 @@ async function salvaEsitoAppuntamentoCAS(prendiNuovo) {
 function showPageCAS(page) {
   if (SESSION.is_max) page = 'cas-manutenzioni';
   if (page === 'cas-calendario-coordinatore' && !SESSION.is_coordinatore_cas) return;
-  if (page === 'cas-report-accompagnamenti' && !SESSION.is_coordinatore_cas) return;
   _casPaginaAttuale = page;
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
   const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-accompagnamenti':'Accompagnamenti','cas-mio-calendario':'Mio Calendario','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti','cas-report-accompagnamenti':'Report Accompagnamenti' };
@@ -3592,19 +3590,44 @@ async function renderCasReportAccompagnamenti(el) {
       g.viaggiSet[a.tipo].add(a.data_ora);
     });
 
+    function totalePersone(g) { return Object.values(g.persone).reduce((s,v)=>s+v,0); }
+    function totaleViaggi(g) { return Object.values(g.viaggiSet).reduce((s,set)=>s+set.size,0); }
+    function coloreTipo(tipo) { return (STILE_TIPO_ACC[tipo]||{}).colore || COLORE_ALTRO_ACC; }
+
     const nomiSpeciali = ['In autonomia', 'Non assegnato'];
     const nomiOperatoriReali = Object.keys(perOperatore)
       .filter(n => !nomiSpeciali.includes(n))
       .sort((a,b) => totalePersone(perOperatore[b]) - totalePersone(perOperatore[a]));
     const nomiOrdinati = nomiOperatoriReali.concat(nomiSpeciali.filter(n => perOperatore[n]));
 
-    function totalePersone(g) { return Object.values(g.persone).reduce((s,v)=>s+v,0); }
-    function totaleViaggi(g) { return Object.values(g.viaggiSet).reduce((s,set)=>s+set.size,0); }
+    // Un Educatore vede solo il proprio numero, non il confronto con i colleghi:
+    // il confronto nome per nome resta uno strumento del Coordinatore.
+    if (!SESSION.is_coordinatore_cas) {
+      const mioOperatore = (OPERATORI_CAS.find(o => o.email === SESSION.utente.email) || {}).nome;
+      const mieiDati = perOperatore[mioOperatore] || { persone: {}, viaggiSet: {} };
+      const totalePersoneSquadra = nomiOperatoriReali.reduce((s,n) => s + totalePersone(perOperatore[n]), 0);
+      const totaleViaggiSquadra = nomiOperatoriReali.reduce((s,n) => s + totaleViaggi(perOperatore[n]), 0);
+      const righeMie = Object.entries(mieiDati.persone).map(([tipo,v]) =>
+        `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:.88rem;">
+          <span style="display:flex;align-items:center;gap:7px;"><span style="width:10px;height:10px;border-radius:3px;background:${coloreTipo(tipo)};display:inline-block;"></span>${tipo}</span>
+          <span style="font-weight:600;">${v}</span>
+        </div>`).join('') || `<div style="color:var(--muted);padding:10px 0;">Nessun accompagnamento questo mese.</div>`;
+
+      el.innerHTML = `
+        <div style="margin-bottom:14px;color:var(--muted);font-size:.85rem;">${nomiMesi[oggi.getMonth()]} ${oggi.getFullYear()}</div>
+        <div class="card" style="padding:20px;margin-bottom:16px;">
+          <h3 style="margin:0 0 4px;font-size:.95rem;">I tuoi accompagnamenti</h3>
+          <div style="color:var(--muted);font-size:.8rem;margin-bottom:10px;">${totalePersone(mieiDati)} persone accompagnate, in ${totaleViaggi(mieiDati)} uscite.</div>
+          ${righeMie}
+        </div>
+        <div class="card" style="padding:16px 20px;color:var(--muted);font-size:.85rem;">
+          Totale squadra questo mese: <b style="color:var(--text);">${totalePersoneSquadra} persone accompagnate</b> in <b style="color:var(--text);">${totaleViaggiSquadra} uscite</b>.
+        </div>`;
+      return;
+    }
 
     const maxPersone = Math.max(1, ...nomiOrdinati.map(n => totalePersone(perOperatore[n])));
     const maxViaggi = Math.max(1, ...nomiOrdinati.map(n => totaleViaggi(perOperatore[n])));
-
-    function coloreTipo(tipo) { return (STILE_TIPO_ACC[tipo]||{}).colore || COLORE_ALTRO_ACC; }
 
     function rigaBarra(nome, valori, max, speciale) {
       const totale = Object.values(valori).reduce((s,v)=>s+v,0);
