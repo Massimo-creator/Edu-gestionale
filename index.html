@@ -3629,18 +3629,62 @@ async function renderCasReportAccompagnamenti(el) {
     const maxPersone = Math.max(1, ...nomiOrdinati.map(n => totalePersone(perOperatore[n])));
     const maxViaggi = Math.max(1, ...nomiOrdinati.map(n => totaleViaggi(perOperatore[n])));
 
-    function rigaBarra(nome, valori, max, speciale) {
-      const totale = Object.values(valori).reduce((s,v)=>s+v,0);
-      const segmenti = Object.entries(valori).map(([tipo,v]) => {
-        const larghezza = max > 0 ? (v / max * 100) : 0;
-        const colore = speciale ? COLORE_NON_OPERATORE_ACC : coloreTipo(tipo);
-        return `<div style="width:${larghezza}%;background:${colore};" title="${tipo}: ${v}"></div>`;
-      }).join('');
-      return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-        <div style="width:110px;flex:none;font-size:.85rem;color:${speciale?'var(--muted)':'var(--text)'};text-align:right;">${nome}</div>
-        <div style="flex:1;display:flex;height:20px;border-radius:4px;overflow:hidden;background:var(--bg);">${segmenti}</div>
-        <div style="width:28px;flex:none;font-weight:600;font-size:.85rem;color:var(--text);">${totale}</div>
-      </div>`;
+    function svgGraficoBarreCAS(nomi, mappaValori, max) {
+      const W = 900, H = 300;
+      const marginTop = 26, marginBottom = 32, marginLeft = 28, marginRight = 10;
+      const plotW = W - marginLeft - marginRight;
+      const plotH = H - marginTop - marginBottom;
+      const n = nomi.length;
+      const gap = 20;
+      let barW = (plotW - gap * n) / n;
+      barW = Math.max(24, Math.min(56, barW));
+      const yMax = Math.ceil(max / 5) * 5 + 2;
+      function xFor(i) {
+        let x = marginLeft;
+        for (let k = 0; k < i; k++) {
+          x += barW + gap;
+          if (nomiSpeciali.includes(nomi[k+1]) && !nomiSpeciali.includes(nomi[k])) x += gap;
+        }
+        return x;
+      }
+      function yFor(v) { return marginTop + plotH - (v / yMax * plotH); }
+
+      let svg = '';
+      for (let s = 0; s <= 4; s++) {
+        const v = yMax / 4 * s;
+        const y = yFor(v);
+        svg += `<line x1="${marginLeft}" x2="${W-marginRight}" y1="${y}" y2="${y}" stroke="var(--border)" stroke-width="${s===0?1.4:1}"/>`;
+        svg += `<text x="${marginLeft-6}" y="${y+4}" font-size="10" fill="var(--muted)" text-anchor="end">${Math.round(v)}</text>`;
+      }
+      const idxSpeciale = nomi.findIndex(n => nomiSpeciali.includes(n));
+      if (idxSpeciale > 0) {
+        const dx = xFor(idxSpeciale) - gap/2;
+        svg += `<line x1="${dx}" x2="${dx}" y1="${marginTop}" y2="${marginTop+plotH}" stroke="var(--border)" stroke-dasharray="3 3"/>`;
+      }
+      nomi.forEach((nome, i) => {
+        const x = xFor(i);
+        const speciale = nomiSpeciali.includes(nome);
+        const valori = mappaValori[nome] || {};
+        const segs = Object.entries(valori).filter(([,v]) => v > 0);
+        const totale = segs.reduce((s,[,v]) => s+v, 0);
+        let yCursor = yFor(0);
+        segs.forEach(([tipo,v], si) => {
+          const segH = (v / yMax * plotH) - (si < segs.length-1 ? 2 : 0);
+          const yTop = yCursor - segH;
+          const colore = speciale ? COLORE_NON_OPERATORE_ACC : coloreTipo(tipo);
+          if (si === segs.length-1) {
+            const r = 4;
+            svg += `<path d="M ${x} ${yTop+r} Q ${x} ${yTop} ${x+r} ${yTop} L ${x+barW-r} ${yTop} Q ${x+barW} ${yTop} ${x+barW} ${yTop+r} L ${x+barW} ${yTop+segH} L ${x} ${yTop+segH} Z" fill="${colore}"><title>${nome} — ${tipo}: ${v}</title></path>`;
+          } else {
+            svg += `<rect x="${x}" y="${yTop}" width="${barW}" height="${segH}" fill="${colore}"><title>${nome} — ${tipo}: ${v}</title></rect>`;
+          }
+          yCursor = yTop - 2;
+        });
+        svg += `<text x="${x+barW/2}" y="${yFor(totale)-8}" font-size="12" font-weight="700" fill="var(--text)" text-anchor="middle">${totale}</text>`;
+        const etichetta = nome.length > 13 ? nome.slice(0,12)+'…' : nome;
+        svg += `<text x="${x+barW/2}" y="${H-marginBottom+18}" font-size="11" fill="${speciale?'var(--muted)':'var(--text)'}" text-anchor="middle">${etichetta}</text>`;
+      });
+      return `<div style="overflow-x:auto;"><svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;min-width:520px;">${svg}</svg></div>`;
     }
 
     const legenda = Object.values(STILE_TIPO_ACC).map(s =>
@@ -3652,17 +3696,24 @@ async function renderCasReportAccompagnamenti(el) {
       return;
     }
 
+    const mappaPersone = {};
+    const mappaViaggi = {};
+    nomiOrdinati.forEach(n => {
+      mappaPersone[n] = perOperatore[n].persone;
+      mappaViaggi[n] = Object.fromEntries(Object.entries(perOperatore[n].viaggiSet).map(([t,set])=>[t,set.size]));
+    });
+
     el.innerHTML = `
       <div style="margin-bottom:14px;color:var(--muted);font-size:.85rem;">${nomiMesi[oggi.getMonth()]} ${oggi.getFullYear()} — dati aggiornati in tempo reale</div>
       <div class="card" style="padding:20px;margin-bottom:16px;">
         <div style="margin-bottom:14px;">${legenda}</div>
         <h3 style="margin:0 0 14px;font-size:.95rem;">Persone accompagnate</h3>
-        ${nomiOrdinati.map(n => rigaBarra(n, perOperatore[n].persone, maxPersone, nomiSpeciali.includes(n))).join('')}
+        ${svgGraficoBarreCAS(nomiOrdinati, mappaPersone, maxPersone)}
       </div>
       <div class="card" style="padding:20px;">
         <h3 style="margin:0 0 6px;font-size:.95rem;">Uscite effettuate</h3>
         <div style="margin-bottom:14px;color:var(--muted);font-size:.78rem;">Se un operatore accompagna più persone alla stessa ora, conta come una sola uscita.</div>
-        ${nomiOperatoriReali.map(n => rigaBarra(n, Object.fromEntries(Object.entries(perOperatore[n].viaggiSet).map(([t,set])=>[t,set.size])), maxViaggi, false)).join('')}
+        ${svgGraficoBarreCAS(nomiOperatoriReali, mappaViaggi, maxViaggi)}
       </div>`;
   } catch(e) {
     el.innerHTML = `<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`;
