@@ -3574,11 +3574,10 @@ async function renderCasReportAccompagnamenti(el) {
     const inizioMese = new Date(oggi.getFullYear(), oggi.getMonth(), 1);
     const inizioMeseSucc = new Date(oggi.getFullYear(), oggi.getMonth()+1, 1);
     const nomiMesi = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
-    const struttureIds = (SESSION.strutture_cas||[]).map(s=>s.id);
 
-    const appuntamenti = struttureIds.length > 0
-      ? await supa(`appuntamenti_cas?struttura_id=in.(${struttureIds.join(',')})&data_ora=gte.${inizioMese.toISOString()}&data_ora=lt.${inizioMeseSucc.toISOString()}&select=tipo,data_ora,operatore_accompagnatore`) || []
-      : [];
+    // Niente filtro per struttura: alcuni appuntamenti (es. da sincronizzazione automatica
+    // senza abbinamento certo) hanno struttura_id nullo e andrebbero comunque conteggiati.
+    const appuntamenti = await supa(`appuntamenti_cas?data_ora=gte.${inizioMese.toISOString()}&data_ora=lt.${inizioMeseSucc.toISOString()}&select=tipo,data_ora,operatore_accompagnatore`) || [];
 
     const perOperatore = {};
     appuntamenti.forEach(a => {
