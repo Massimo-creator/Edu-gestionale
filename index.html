@@ -3896,27 +3896,48 @@ async function renderAccompagnamentiCAS(el) {
     });
     const giorniOrdinati = Object.keys(perGiorno).sort();
 
-    const opzioniOperatori = OPERATORI_CAS.map(o=>`<option value="${o.nome}">${o.nome}</option>`).join('');
+    const stiliTipo = {
+      'Questura': {colore:'#2563eb', icona:'🛂'},
+      'Commissione Territoriale': {colore:'#7c3aed', icona:'⚖️'},
+      'Avvocato': {colore:'#475569', icona:'👨\u200d⚖️'},
+      'Visita medica': {colore:'#0d9488', icona:'🏥'},
+    };
+    const stileDi = (tipo) => stiliTipo[tipo] || {colore:'#64748b', icona:'📌'};
 
-    const rigaAppuntamento = (a) => {
-      const d = new Date(a.data_ora);
-      const ora = d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
-      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg);border-radius:8px;margin-bottom:6px;flex-wrap:wrap;gap:8px;">
-        <div>
-          <div style="font-weight:600;font-size:.88rem;">${ora} · ${tipoAppuntamentoIcon(a.tipo)} ${a.ospite_nome||a.titolo}</div>
-          <div style="font-size:.78rem;color:var(--muted);">🏠 ${mapS[a.struttura_id]||'—'} · ${a.tipo}</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
+    const rigaPersona = (a) => {
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.15);gap:8px;flex-wrap:wrap;">
+        <div style="font-size:.85rem;">${a.ospite_nome||a.titolo} <span style="opacity:.75;font-size:.78rem;">— ${mapS[a.struttura_id]||'—'}</span></div>
+        <div style="display:flex;align-items:center;gap:6px;">
           ${SESSION.is_coordinatore_cas
-            ? `<select onchange="assegnaAccompagnatoreCAS('${a.id}', this.value)" style="font-size:.82rem;padding:4px 8px;border-radius:6px;border:1px solid var(--border);">
+            ? `<select onchange="assegnaAccompagnatoreCAS('${a.id}', this.value)" style="font-size:.78rem;padding:3px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.15);color:inherit;">
                 <option value="">— Non assegnato —</option>
                 <option value="In autonomia" ${a.operatore_accompagnatore==='In autonomia'?'selected':''}>In autonomia</option>
                 ${OPERATORI_CAS.map(o=>`<option value="${o.nome}" ${o.nome===a.operatore_accompagnatore?'selected':''}>${o.nome}</option>`).join('')}
               </select>`
-            : `<span style="font-size:.85rem;font-weight:600;color:${a.operatore_accompagnatore?'var(--text)':'var(--muted)'};">${a.operatore_accompagnatore||'Non assegnato'}</span>
-               <button class="btn btn-ghost" style="font-size:.72rem;padding:3px 8px;" onclick="apriProponiCambioCAS('${a.id}','${(a.operatore_accompagnatore||'').replace(/'/g,"\\'")}')">Proponi</button>`}
+            : `<span style="font-size:.8rem;font-weight:600;">${a.operatore_accompagnatore||'Non assegnato'}</span>
+               <button class="btn btn-ghost" style="font-size:.68rem;padding:2px 7px;" onclick="apriProponiCambioCAS('${a.id}','${(a.operatore_accompagnatore||'').replace(/'/g,"\\'")}')">Proponi</button>`}
         </div>
       </div>`;
+    };
+
+    const blocchiGiorno = (lista) => {
+      const perBlocco = {};
+      lista.forEach(a=>{
+        const d = new Date(a.data_ora);
+        const ora = d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+        const chiave = `${ora}|||${a.tipo}`;
+        (perBlocco[chiave] = perBlocco[chiave]||[]).push(a);
+      });
+      const chiaviOrdinate = Object.keys(perBlocco).sort();
+      return chiaviOrdinate.map(chiave=>{
+        const [ora, tipo] = chiave.split('|||');
+        const persone = perBlocco[chiave];
+        const stile = stileDi(tipo);
+        return `<div class="card" style="padding:12px 14px;border-left:4px solid ${stile.colore};margin-bottom:8px;background:${stile.colore}18;">
+          <div style="font-weight:700;font-size:.9rem;margin-bottom:6px;color:${stile.colore};">${stile.icona} ${tipo} · ${ora} <span style="font-weight:400;opacity:.8;">(${persone.length} ${persone.length===1?'persona':'persone'})</span></div>
+          ${persone.map(rigaPersona).join('')}
+        </div>`;
+      }).join('');
     };
 
     el.innerHTML = `
@@ -3946,7 +3967,7 @@ async function renderAccompagnamentiCAS(el) {
           const d = new Date(giorno+'T12:00:00');
           return `<div style="margin-bottom:18px;">
             <div style="font-weight:600;font-size:.9rem;margin-bottom:8px;">${d.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'})}</div>
-            ${perGiorno[giorno].map(rigaAppuntamento).join('')}
+            ${blocchiGiorno(perGiorno[giorno])}
           </div>`;
         }).join('')}
     `;
