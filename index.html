@@ -3408,6 +3408,7 @@ function mostraAppCAS() {
         </select>
       </div>
       <div class="form-group"><label>NUI</label><input id="cas-nui" placeholder="Numero Unico Identificativo"></div>
+      <div class="form-group"><label>ID Vestanet</label><input id="cas-id-vestanet" placeholder="es. RN0005293"></div>
       <div class="form-group"><label>Data audizione</label><input id="cas-data-audizione" type="date"></div>
       <div class="form-group"><label>Esito audizione</label>
         <select id="cas-esito-audizione">
@@ -4383,7 +4384,7 @@ async function renderCasOspiti(el) {
 
     const renderCardOspite = (o) => `<div class="card" style="padding:14px 16px;cursor:pointer;" onclick="apriOspiteCAS('${o.id}')">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-          <div><div style="font-weight:600;">${o.cognome} ${o.nome}</div><div style="color:var(--muted);font-size:.82rem;">${o.nazionalita||''} ${o.nui?'· NUI: '+o.nui:''}</div></div>
+          <div><div style="font-weight:600;">${o.cognome} ${o.nome}</div><div style="color:var(--muted);font-size:.82rem;">${o.nazionalita||''} ${o.nui?'· NUI: '+o.nui:''} ${o.id_vestanet?'· Vestanet: '+o.id_vestanet:''}</div></div>
           <div style="text-align:right;">${o.scadenza_permesso?`<div style="font-size:.78rem;color:${scadenzaVicina(o)?'var(--danger)':'var(--muted)'};">Permesso: ${new Date(o.scadenza_permesso).toLocaleDateString('it-IT')}</div>`:''}</div>
         </div>
       </div>`;
@@ -4430,7 +4431,7 @@ async function vediOspitiStruttura(strutturaId, strutturaNome) {
   try {
     const ospiti = await supa(`ospiti_cas?struttura_id=eq.${strutturaId}&order=cognome`) || [];
     el.innerHTML = `<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;"><button class="btn btn-ghost" onclick="showPageCAS('cas-strutture')">← Strutture</button><h2 style="font-size:1.1rem;">🏠 ${strutturaNome} (${ospiti.length})</h2>${SESSION.is_coordinatore_cas?`<button class="btn btn-primary" onclick="nuovoOspiteCAS('${strutturaId}')">+ Nuovo ospite</button>`:''}</div>
-      <div style="display:grid;gap:10px;">${ospiti.length===0?'<div class="card" style="padding:30px;text-align:center;color:var(--muted);">Nessun ospite</div>':ospiti.map(o=>`<div class="card" style="padding:16px;cursor:pointer;" onclick="apriOspiteCAS('${o.id}')"><div style="font-weight:600;">${o.cognome} ${o.nome}</div><div style="color:var(--muted);font-size:.82rem;">${o.nazionalita||''} ${o.nui?'· NUI: '+o.nui:''}</div></div>`).join('')}</div>`;
+      <div style="display:grid;gap:10px;">${ospiti.length===0?'<div class="card" style="padding:30px;text-align:center;color:var(--muted);">Nessun ospite</div>':ospiti.map(o=>`<div class="card" style="padding:16px;cursor:pointer;" onclick="apriOspiteCAS('${o.id}')"><div style="font-weight:600;">${o.cognome} ${o.nome}</div><div style="color:var(--muted);font-size:.82rem;">${o.nazionalita||''} ${o.nui?'· NUI: '+o.nui:''} ${o.id_vestanet?'· Vestanet: '+o.id_vestanet:''}</div></div>`).join('')}</div>`;
   } catch(e) { el.innerHTML=`<div style="color:var(--danger);">Errore: ${e.message}</div>`; }
 }
 
@@ -4964,7 +4965,7 @@ async function eliminaTurnoCAS(id) {
 function nuovoOspiteCAS(strutturaIdPreselezionata) {
   _casOspiteEditId = null;
   document.getElementById('modal-ospite-cas-title').textContent = 'Nuovo Ospite';
-  ['cas-nome','cas-cognome','cas-nui','cas-luogo-nascita','cas-nazionalita','cas-lingua','cas-note-iter','cas-tipo-permesso','cas-numero-permesso','cas-documenti','cas-note','cas-nucleo-familiare'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['cas-nome','cas-cognome','cas-nui','cas-id-vestanet','cas-luogo-nascita','cas-nazionalita','cas-lingua','cas-note-iter','cas-tipo-permesso','cas-numero-permesso','cas-documenti','cas-note','cas-nucleo-familiare'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   ['cas-dob','cas-data-audizione','cas-scadenza-permesso','cas-data-ingresso'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   ['cas-tipo-domanda','cas-esito-audizione'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   document.getElementById('cas-nucleo-membri').innerHTML = '';
@@ -4984,7 +4985,7 @@ async function apriOspiteCAS(id) {
     document.getElementById('modal-ospite-cas-title').textContent = `${o.cognome} ${o.nome}`;
     const fields = {
       'cas-nome':o.nome,'cas-cognome':o.cognome,'cas-dob':o.data_nascita,'cas-luogo-nascita':o.luogo_nascita,
-      'cas-nazionalita':o.nazionalita,'cas-lingua':o.lingua,'cas-tipo-domanda':o.tipo_domanda,'cas-nui':o.nui,
+      'cas-nazionalita':o.nazionalita,'cas-lingua':o.lingua,'cas-tipo-domanda':o.tipo_domanda,'cas-nui':o.nui,'cas-id-vestanet':o.id_vestanet,
       'cas-data-audizione':o.data_audizione,'cas-esito-audizione':o.esito_audizione,'cas-note-iter':o.note_iter,
       'cas-tipo-permesso':o.tipo_permesso,'cas-numero-permesso':o.numero_permesso,'cas-scadenza-permesso':o.scadenza_permesso,
       'cas-documenti':o.documenti_identita,'cas-data-ingresso':o.data_ingresso,'cas-note':o.note,'cas-nucleo-familiare':o.nucleo_familiare
@@ -5078,6 +5079,7 @@ async function salvaOspiteCAS() {
     lingua: document.getElementById('cas-lingua').value||null,
     tipo_domanda: document.getElementById('cas-tipo-domanda').value||null,
     nui: document.getElementById('cas-nui').value||null,
+    id_vestanet: document.getElementById('cas-id-vestanet').value||null,
     data_audizione: document.getElementById('cas-data-audizione').value||null,
     esito_audizione: document.getElementById('cas-esito-audizione').value||null,
     note_iter: document.getElementById('cas-note-iter').value||null,
