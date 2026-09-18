@@ -3423,6 +3423,9 @@ function mostraAppCAS() {
     </div>
     <div class="form-group"><label>Note iter</label><textarea id="cas-note-iter" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
     <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
+    <h4 style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Appuntamenti</h4>
+    <div id="cas-appuntamenti-box" style="font-size:.85rem;color:var(--muted);margin-bottom:4px;">—</div>
+    <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
     <h4 style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Permesso di soggiorno</h4>
     <div class="grid g2">
       <div class="form-group"><label>Tipo permesso</label><input id="cas-tipo-permesso" placeholder="es. Attesa protezione"></div>
@@ -3520,6 +3523,7 @@ async function salvaEsitoAppuntamentoCAS(prendiNuovo) {
       document.getElementById('app-tipo').value = a.tipo;
       document.getElementById('app-struttura').value = a.struttura_id;
       document.getElementById('app-ospite').value = a.ospite_nome || '';
+      popolaSelectOspitiApp(a.ospite_id, a.ospite_nome);
       _appReturnOspiteId = a.ospite_id || null;
     } else if (_casPaginaAttuale === 'cas-dashboard') {
       renderCasDashboard(document.getElementById('content-cas'));
@@ -4610,6 +4614,85 @@ function tipoAppuntamentoIcon(tipo) {
   return map[tipo]||'📌';
 }
 
+// --- Appuntamenti nella scheda ospite ---
+const _APP_SELECT_SCHEDA = 'id,tipo,titolo,data_ora,stato,esito,operatore_accompagnatore,ospite_nome';
+
+async function caricaAppuntamentiOspiteCAS(ospiteId, ospiteNome) {
+  const box = document.getElementById('cas-appuntamenti-box');
+  if(!box) return;
+  box.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Caricamento…</div>';
+  try {
+    const lista = (await supa(`appuntamenti_cas?ospite_id=eq.${ospiteId}&select=${_APP_SELECT_SCHEDA}&order=data_ora.asc`)) || [];
+    if(ospiteNome) {
+      const perNome = (await supa(`appuntamenti_cas?ospite_id=is.null&ospite_nome=eq.${encodeURIComponent(ospiteNome)}&select=${_APP_SELECT_SCHEDA}&order=data_ora.asc`)) || [];
+      const visti = new Set(lista.map(a=>a.id));
+      perNome.forEach(a=>{ if(!visti.has(a.id)) lista.push(a); });
+    }
+    if(lista.length===0) { box.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Nessun appuntamento registrato.</div>'; return; }
+    const adesso = Date.now();
+    const fmt = d => new Date(d).toLocaleString('it-IT',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const riga = a => {
+      const dettagli = [a.titolo, a.operatore_accompagnatore?('con '+a.operatore_accompagnatore):'', a.stato||'', a.esito||''].filter(Boolean).join(' · ');
+      return `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;" onclick="apriAppuntamentoDaSchedaOspiteCAS('${a.id}','${ospiteId}')">
+        <div style="font-size:1rem;">${tipoAppuntamentoIcon(a.tipo)}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:.85rem;">${a.tipo||'Appuntamento'} — ${fmt(a.data_ora)}</div>
+          ${dettagli?`<div style="color:var(--muted);font-size:.78rem;">${dettagli}</div>`:''}
+        </div>
+      </div>`;
+    };
+    const futuri = lista.filter(a=>new Date(a.data_ora).getTime() >= adesso).sort((x,y)=>new Date(x.data_ora)-new Date(y.data_ora));
+    const passati = lista.filter(a=>new Date(a.data_ora).getTime() < adesso).sort((x,y)=>new Date(y.data_ora)-new Date(x.data_ora));
+    box.innerHTML = `${futuri.length ? futuri.map(riga).join('') : '<div style="color:var(--muted);font-size:.85rem;margin-bottom:6px;">Nessun appuntamento futuro.</div>'}`
+      + `${passati.length ? `<details style="margin-top:6px;"><summary style="cursor:pointer;color:var(--muted);font-size:.82rem;">Appuntamenti passati (${passati.length})</summary><div style="margin-top:8px;">${passati.map(riga).join('')}</div></details>` : ''}`;
+  } catch(e) {
+    box.innerHTML = `<div style="color:var(--danger);font-size:.85rem;">Errore nel caricamento degli appuntamenti: ${e.message}</div>`;
+  }
+}
+
+async function apriAppuntamentoDaSchedaOspiteCAS(appId, ospiteId) {
+  closeModal('modal-ospite-cas');
+  await modificaAppuntamentoCAS(appId);
+  _appReturnPage = 'cas-ospiti-riapri';
+  _appReturnOspiteId = ospiteId;
+}
+
+// --- Selezione ospite dall'anagrafica nel form appuntamento ---
+let _ospitiCacheApp = null;
+
+async function assicuraOspitiCacheApp() {
+  if(_ospitiCacheApp) return _ospitiCacheApp;
+  _ospitiCacheApp = (await supa('ospiti_cas?attivo=is.true&select=id,cognome,nome&order=cognome.asc,nome.asc')) || [];
+  return _ospitiCacheApp;
+}
+
+async function popolaSelectOspitiApp(ospiteId, ospiteNome) {
+  const sel = document.getElementById('app-ospite-select');
+  if(!sel) return;
+  let lista = [];
+  try { lista = await assicuraOspitiCacheApp(); } catch(e) { lista = []; }
+  sel.innerHTML = '<option value="">— nessun ospite —</option>'
+    + lista.map(o=>`<option value="${o.id}">${o.cognome} ${o.nome}</option>`).join('');
+  if(ospiteId && lista.some(o=>o.id===ospiteId)) {
+    sel.value = ospiteId;
+  } else if(ospiteNome && ospiteNome.trim()) {
+    const cercato = ospiteNome.trim().toLowerCase();
+    const trovato = lista.find(o=>(o.cognome+' '+o.nome).toLowerCase()===cercato || (o.nome+' '+o.cognome).toLowerCase()===cercato);
+    if(trovato) sel.value = trovato.id;
+    else sel.innerHTML += `<option value="" selected>${ospiteNome} (non in anagrafica)</option>`;
+  } else {
+    sel.value = '';
+  }
+  sincronizzaNomeOspiteApp();
+}
+
+function sincronizzaNomeOspiteApp() {
+  const sel = document.getElementById('app-ospite-select');
+  const nascosto = document.getElementById('app-ospite');
+  if(!sel || !nascosto) return;
+  if(sel.value) nascosto.value = sel.options[sel.selectedIndex].textContent.trim();
+}
+
 let _appEditId = null;
 let _appReturnPage = 'cas-calendario';
 let _appReturnTipo = null;
@@ -4620,6 +4703,7 @@ function nuovoAppuntamentoDaOspiteCAS(tipo, ospiteId, ospiteNome, strutturaId) {
   nuovoAppuntamentoCAS(tipo);
   document.getElementById('app-titolo').value = `${tipo} — ${ospiteNome}`;
   document.getElementById('app-ospite').value = ospiteNome;
+  popolaSelectOspitiApp(ospiteId, ospiteNome);
   const sel = document.getElementById('app-struttura');
   if(strutturaId) sel.value = strutturaId;
   _appReturnPage = 'cas-ospiti-riapri';
@@ -4636,6 +4720,7 @@ function nuovoAppuntamentoCAS(tipoPreselezionato) {
   document.getElementById('app-data').value='';
   document.getElementById('app-ora').value='';
   document.getElementById('app-ospite').value='';
+  popolaSelectOspitiApp(null, null);
   document.getElementById('app-note').value='';
   document.getElementById('app-nome-avvocato').value='';
   document.getElementById('app-tipo').value = tipoPreselezionato || 'Questura';
@@ -4671,6 +4756,7 @@ async function modificaAppuntamentoCAS(id, tipoPagina) {
     document.getElementById('app-data').value = d.toISOString().slice(0,10);
     document.getElementById('app-ora').value = d.toTimeString().slice(0,5);
     document.getElementById('app-ospite').value = a.ospite_nome || '';
+    await popolaSelectOspitiApp(a.ospite_id, a.ospite_nome);
     document.getElementById('app-note').value = a.note || '';
     document.getElementById('app-nome-avvocato').value = a.nome_avvocato || '';
     document.getElementById('app-avvocato-wrap').style.display = (a.tipo==='Avvocato')?'block':'none';
@@ -4700,7 +4786,7 @@ async function salvaAppuntamentoCAS() {
     ospite_nome: document.getElementById('app-ospite').value||null,
     note: document.getElementById('app-note').value||null,
     nome_avvocato: tipo==='Avvocato' ? (document.getElementById('app-nome-avvocato').value||null) : null,
-    ospite_id: _appReturnOspiteId || null
+    ospite_id: (document.getElementById('app-ospite-select') || {}).value || _appReturnOspiteId || null
   };
   try {
     if(!_appEditId && payload.ospite_nome) {
@@ -4969,6 +5055,8 @@ function nuovoOspiteCAS(strutturaIdPreselezionata) {
   ['cas-dob','cas-data-audizione','cas-scadenza-permesso','cas-data-ingresso'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   ['cas-tipo-domanda','cas-esito-audizione'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   document.getElementById('cas-nucleo-membri').innerHTML = '';
+  const boxApp = document.getElementById('cas-appuntamenti-box');
+  if(boxApp) boxApp.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Salva la scheda per poter collegare gli appuntamenti.</div>';
   document.getElementById('cas-sposta-wrap').innerHTML = '';
   document.getElementById('cas-nuovo-app-wrap').innerHTML = '';
   ['cas-ha-cf','cas-ha-tessera-sanitaria','cas-ha-carta-identita','cas-ha-residenza'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='No';});
@@ -5018,6 +5106,7 @@ async function apriOspiteCAS(id) {
         <option value="Avvocato">Avvocato</option>
         <option value="Visita medica">Sanitario</option>
       </select>`;
+    caricaAppuntamentiOspiteCAS(o.id, `${o.cognome} ${o.nome}`);
     openModal('modal-ospite-cas');
   } catch(e) { alert('Errore: '+e.message); }
 }
@@ -6156,7 +6245,10 @@ async function salvaTrasferimento() {
       <div class="form-group"><label>Ora *</label><input id="app-ora" type="time"></div>
     </div>
     <div class="form-group" id="app-avvocato-wrap" style="display:none;"><label>Nome avvocato</label><input id="app-nome-avvocato" placeholder="es. Avv. Rossi"></div>
-    <div class="form-group"><label>Ospite</label><input id="app-ospite" placeholder="Nome e cognome ospite (opzionale)"></div>
+    <div class="form-group"><label>Ospite</label>
+      <select id="app-ospite-select" onchange="sincronizzaNomeOspiteApp()"><option value="">— nessun ospite —</option></select>
+      <input id="app-ospite" type="hidden">
+    </div>
     <div class="form-group"><label>Note</label><textarea id="app-note" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-appuntamento-cas')">Annulla</button>
