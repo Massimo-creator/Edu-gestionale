@@ -4203,13 +4203,19 @@ async function salvaAppuntamentoPersonaleCAS() {
 async function renderCasDashboard(el) {
   el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
   try {
-    const strutture = SESSION.strutture_cas || [];
+    const strutture = await supa('strutture_cas?order=nome') || [];
     const struttureIds = strutture.map(s => s.id);
     let ospiti = [];
     if (struttureIds.length > 0) ospiti = await supa(`ospiti_cas?struttura_id=in.(${struttureIds.join(',')})&attivo=eq.true`) || [];
     const oggi = new Date(); oggi.setHours(0,0,0,0);
-    const totaleCapienza = strutture.reduce((acc,s)=>acc+(s.capienza||0),0);
-    const postiVuoti = totaleCapienza > 0 ? totaleCapienza - ospiti.length : null;
+    const occupatiPerStrutturaCalc = {};
+    ospiti.forEach(o => { occupatiPerStrutturaCalc[o.struttura_id] = (occupatiPerStrutturaCalc[o.struttura_id]||0) + 1; });
+    const postiVuoti = strutture.length > 0
+      ? strutture.reduce((acc,s) => acc + Math.max((s.capienza||0) - (occupatiPerStrutturaCalc[s.id]||0), 0), 0)
+      : null;
+    const struttureSopraCapienza = strutture
+      .map(s => ({ nome: s.nome, eccedenza: (occupatiPerStrutturaCalc[s.id]||0) - (s.capienza||0) }))
+      .filter(s => s.eccedenza > 0);
     const mapS = {}; strutture.forEach(s=>mapS[s.id]=s.nome);
 
     // Carica appuntamenti prossimi 30 giorni (usa la data locale, non UTC, per evitare lo sfasamento di fuso orario)
@@ -4294,6 +4300,11 @@ async function renderCasDashboard(el) {
           ${struttureConPostiVuoti.length===0?'<div style="color:var(--muted);font-size:.85rem;">Nessun posto vuoto al momento 🎉</div>':
             struttureConPostiVuoti.map(s=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:.88rem;"><span>🏠 ${s.nome}</span><span style="font-weight:600;color:var(--warn);">${s.vuoti} post${s.vuoti===1?'o':'i'} vuot${s.vuoti===1?'o':'i'}</span></div>`).join('')}
         </div>
+      </div>`:''}
+
+      ${struttureSopraCapienza.length>0?`<div class="card" style="padding:16px;margin-bottom:24px;border-left:3px solid var(--danger);background:var(--danger)10;">
+        <div style="font-weight:700;color:var(--danger);margin-bottom:8px;">⚠️ Strutture sopra capienza</div>
+        ${struttureSopraCapienza.map(s=>`<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:.88rem;"><span>🏠 ${s.nome}</span><span style="font-weight:600;color:var(--danger);">+${s.eccedenza} oltre capienza</span></div>`).join('')}
       </div>`:''}
 
       <div class="card" style="padding:20px;margin-bottom:16px;">
