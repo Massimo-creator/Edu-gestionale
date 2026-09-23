@@ -3913,6 +3913,14 @@ async function renderAccompagnamentiCAS(el) {
     let richieste = [];
     if(SESSION.is_coordinatore_cas) {
       richieste = await supa(`richieste_cambio_accompagnatore_cas?stato=eq.In attesa&order=created_at`) || [];
+      if(richieste.length>0) {
+        const idsAppunt = [...new Set(richieste.map(r=>r.appuntamento_id).filter(Boolean))];
+        if(idsAppunt.length>0) {
+          const dettagli = await supa(`appuntamenti_cas?id=in.(${idsAppunt.join(',')})&select=id,ospite_nome,titolo,tipo,data_ora,struttura_id`) || [];
+          const mapDettagli = {}; dettagli.forEach(d=>mapDettagli[d.id]=d);
+          richieste.forEach(r=>r._appuntamento = mapDettagli[r.appuntamento_id] || null);
+        }
+      }
     }
 
     // raggruppa per giorno
@@ -3980,14 +3988,21 @@ async function renderAccompagnamentiCAS(el) {
 
       ${richieste.length>0?`<div class="card" style="padding:16px;margin-bottom:20px;border-left:3px solid var(--warn);">
         <div style="font-weight:600;margin-bottom:10px;">📋 Richieste di cambio da approvare (${richieste.length})</div>
-        ${richieste.map(r=>`<div style="padding:10px 0;border-bottom:1px solid var(--border);">
+        ${richieste.map(r=>{
+          const app = r._appuntamento;
+          const rigaAppuntamento = app
+            ? `<div style="font-size:.85rem;margin-bottom:4px;"><b>${app.ospite_nome||app.titolo}</b> — ${stileDi(app.tipo).icona} ${app.tipo||''} · ${new Date(app.data_ora).toLocaleDateString('it-IT',{day:'numeric',month:'long'})} ore ${new Date(app.data_ora).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})} <span style="opacity:.75;">— ${mapS[app.struttura_id]||'—'}</span></div>`
+            : `<div style="font-size:.85rem;margin-bottom:4px;color:var(--danger);">⚠️ Appuntamento non trovato (potrebbe essere stato eliminato)</div>`;
+          return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
+          ${rigaAppuntamento}
           <div style="font-size:.85rem;"><b>${r.operatore_attuale||'Non assegnato'}</b> → <b>${r.operatore_proposto}</b></div>
           <div style="font-size:.8rem;color:var(--muted);margin:4px 0;">Motivo: ${r.motivazione} — richiesto da ${r.richiesto_da_nome||r.richiesto_da_email}</div>
           <div style="display:flex;gap:6px;">
             <button class="btn btn-primary" style="font-size:.75rem;padding:4px 10px;" onclick="gestisciRichiestaAccompagnatoreCAS('${r.id}',true)">✅ Approva</button>
             <button class="btn btn-ghost" style="font-size:.75rem;padding:4px 10px;color:var(--danger);" onclick="gestisciRichiestaAccompagnatoreCAS('${r.id}',false)">✕ Rifiuta</button>
           </div>
-        </div>`).join('')}
+        </div>`;
+        }).join('')}
       </div>`:''}
 
       ${giorniOrdinati.length===0?'<div class="card" style="padding:30px;text-align:center;color:var(--muted);">Nessun appuntamento in questo mese</div>':
