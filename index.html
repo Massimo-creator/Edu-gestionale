@@ -3863,8 +3863,31 @@ async function salvaCalendarioCoordinatoreCAS() {
     inserito_da_nome: SESSION.utente.nome || SESSION.utente.email
   };
   try {
-    if(_calCoordEditId) await supa(`calendario_coordinatore_cas?id=eq.${_calCoordEditId}`, {method:'PATCH', body: JSON.stringify(payload)});
-    else await supa('calendario_coordinatore_cas', {method:'POST', body: JSON.stringify(payload)});
+    let coordId = _calCoordEditId;
+    if(_calCoordEditId) {
+      await supa(`calendario_coordinatore_cas?id=eq.${_calCoordEditId}`, {method:'PATCH', body: JSON.stringify(payload)});
+    } else {
+      const res = await supa('calendario_coordinatore_cas', {method:'POST', body: JSON.stringify(payload)});
+      coordId = res && res[0] && res[0].id;
+    }
+    // Sincronizza automaticamente il gemello in Mio Calendario (stessa fonte, stesso impegno)
+    if (coordId) {
+      const personalePayload = {
+        titolo: payload.titolo,
+        data_ora: payload.data_ora,
+        luogo: payload.luogo,
+        note: payload.note,
+        operatore_email: payload.inserito_da_email,
+        operatore_nome: payload.inserito_da_nome,
+        coordinatore_id: coordId
+      };
+      const esistente = await supa(`calendario_personale_cas?coordinatore_id=eq.${coordId}&limit=1`);
+      if (esistente && esistente.length > 0) {
+        await supa(`calendario_personale_cas?id=eq.${esistente[0].id}`, {method:'PATCH', body: JSON.stringify(personalePayload)});
+      } else {
+        await supa('calendario_personale_cas', {method:'POST', body: JSON.stringify(personalePayload)});
+      }
+    }
     closeModal('modal-calcoord-cas');
     showPageCAS('cas-calendario-coordinatore');
   } catch(e) { alert('Errore: '+e.message); }
@@ -4104,7 +4127,9 @@ async function renderMioCalendarioCAS(el) {
             }[ev.dato.tipo] || {colore:'#64748b', icona:'📌', etichetta: ev.dato.tipo || 'Altro'};
             return `<div style="background:${stileTipo.colore};color:#fff;border-radius:4px;padding:2px 5px;font-size:.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${stileTipo.etichetta} — ${ev.dato.ospite_nome||ev.dato.titolo}">${stileTipo.icona} ${stileTipo.etichetta} ${ora} ${ev.dato.ospite_nome||ev.dato.titolo}</div>`;
           }
-          return `<div onclick="event.stopPropagation();${staGuardandoIlProprio?`modificaAppuntamentoPersonaleCAS('${ev.dato.id}')`:''}" style="background:var(--accent2);color:#fff;border-radius:4px;padding:2px 5px;font-size:.7rem;cursor:${staGuardandoIlProprio?'pointer':'default'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${ev.dato.titolo}">${ora} ${ev.dato.titolo}</div>`;
+          const daCoordinatore = !!ev.dato.coordinatore_id;
+          const azioneClick = daCoordinatore ? `modificaCalendarioCoordinatoreCAS('${ev.dato.coordinatore_id}')` : (staGuardandoIlProprio?`modificaAppuntamentoPersonaleCAS('${ev.dato.id}')`:'');
+          return `<div onclick="event.stopPropagation();${azioneClick}" style="background:${daCoordinatore?'#6d28d9':'var(--accent2)'};color:#fff;border-radius:4px;padding:2px 5px;font-size:.7rem;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${daCoordinatore?'Impegno da Calendario Coordinatore — ':''}${ev.dato.titolo}">${daCoordinatore?'🧭 ':''}${ora} ${ev.dato.titolo}</div>`;
         }).join('')}
       </div>`;
     };
@@ -4133,7 +4158,7 @@ async function renderMioCalendarioCAS(el) {
         <div style="width:120px;"></div>
       </div>
 
-      <div style="font-size:.75rem;color:var(--muted);margin-bottom:8px;">🛂 Questura · ⚖️ Commissione · 👨‍⚖️ Avvocato · 🏥 Sanitario (assegnati da Approdo, non modificabili qui) · 🟢 Appuntamenti personali</div>
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:8px;">🛂 Questura · ⚖️ Commissione · 👨‍⚖️ Avvocato · 🏥 Sanitario (assegnati da Approdo, non modificabili qui) · 🟢 Appuntamenti personali · 🧭 Da Calendario Coordinatore (modificabile solo da lì)</div>
 
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;">
         ${['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].map(g=>`<div style="text-align:center;font-size:.75rem;color:var(--muted);font-weight:600;padding:4px 0;">${g}</div>`).join('')}
