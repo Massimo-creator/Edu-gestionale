@@ -4422,7 +4422,7 @@ async function renderCasOspiti(el) {
     const strutture = SESSION.strutture_cas || [];
     const struttureIds = strutture.map(s=>s.id);
     let ospiti = [];
-    if (struttureIds.length>0) ospiti = await supa(`ospiti_cas?struttura_id=in.(${struttureIds.join(',')})&order=cognome`) || [];
+    if (struttureIds.length>0) ospiti = await supa(`ospiti_cas?struttura_id=in.(${struttureIds.join(',')})&attivo=eq.true&order=cognome`) || [];
     const oggi = new Date();
     const scadenzaVicina = (o) => o.scadenza_permesso && (new Date(o.scadenza_permesso)-oggi)/(1000*60*60*24) < 30;
 
@@ -4473,7 +4473,7 @@ async function vediOspitiStruttura(strutturaId, strutturaNome) {
   const el = document.getElementById('content-cas');
   el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
   try {
-    const ospiti = await supa(`ospiti_cas?struttura_id=eq.${strutturaId}&order=cognome`) || [];
+    const ospiti = await supa(`ospiti_cas?struttura_id=eq.${strutturaId}&attivo=eq.true&order=cognome`) || [];
     el.innerHTML = `<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;"><button class="btn btn-ghost" onclick="showPageCAS('cas-strutture')">← Strutture</button><h2 style="font-size:1.1rem;">🏠 ${strutturaNome} (${ospiti.length})</h2>${SESSION.is_coordinatore_cas?`<button class="btn btn-primary" onclick="nuovoOspiteCAS('${strutturaId}')">+ Nuovo ospite</button>`:''}</div>
       <div style="display:grid;gap:10px;">${ospiti.length===0?'<div class="card" style="padding:30px;text-align:center;color:var(--muted);">Nessun ospite</div>':ospiti.map(o=>`<div class="card" style="padding:16px;cursor:pointer;" onclick="apriOspiteCAS('${o.id}')"><div style="font-weight:600;">${o.cognome} ${o.nome}</div><div style="color:var(--muted);font-size:.82rem;">${o.nazionalita||''} ${o.nui?'· NUI: '+o.nui:''} ${o.id_vestanet?'· Vestanet: '+o.id_vestanet:''}</div></div>`).join('')}</div>`;
   } catch(e) { el.innerHTML=`<div style="color:var(--danger);">Errore: ${e.message}</div>`; }
