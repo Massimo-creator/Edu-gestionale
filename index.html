@@ -3436,7 +3436,7 @@ function mostraAppCAS() {
     <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
     <h4 style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Documenti amministrativi</h4>
     <div class="grid g2">
-      <div class="form-group"><label>Codice Fiscale</label><select id="cas-ha-cf"><option value="No">No</option><option value="In corso">In corso di ottenimento</option><option value="Sì">Sì</option></select></div>
+      <div class="form-group"><label>Codice Fiscale</label><input type="text" id="cas-ha-cf" placeholder="es. BBSSHR88A10Z236N" style="text-transform:uppercase;"></div>
       <div class="form-group"><label>Tessera Sanitaria valida</label><select id="cas-ha-tessera-sanitaria"><option value="No">No</option><option value="In corso">In corso di ottenimento</option><option value="Sì">Sì</option></select></div>
       <div class="form-group"><label>Carta d'Identità</label><select id="cas-ha-carta-identita"><option value="No">No</option><option value="In corso">In corso di ottenimento</option><option value="Sì">Sì</option></select></div>
       <div class="form-group"><label>Residenza</label><select id="cas-ha-residenza"><option value="No">No</option><option value="In corso">In corso di ottenimento</option><option value="Sì">Sì</option></select></div>
@@ -5099,7 +5099,8 @@ function nuovoOspiteCAS(strutturaIdPreselezionata) {
   if(boxApp) boxApp.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Salva la scheda per poter collegare gli appuntamenti.</div>';
   document.getElementById('cas-sposta-wrap').innerHTML = '';
   document.getElementById('cas-nuovo-app-wrap').innerHTML = '';
-  ['cas-ha-cf','cas-ha-tessera-sanitaria','cas-ha-carta-identita','cas-ha-residenza'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='No';});
+  ['cas-ha-tessera-sanitaria','cas-ha-carta-identita','cas-ha-residenza'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='No';});
+  const casHaCfEl = document.getElementById('cas-ha-cf'); if(casHaCfEl) casHaCfEl.value='';
   popolaSelectStrutture(strutturaIdPreselezionata);
   openModal('modal-ospite-cas');
 }
@@ -5119,7 +5120,7 @@ async function apriOspiteCAS(id) {
       'cas-documenti':o.documenti_identita,'cas-data-ingresso':o.data_ingresso,'cas-note':o.note,'cas-nucleo-familiare':o.nucleo_familiare
     };
     Object.entries(fields).forEach(([k,v])=>{const e=document.getElementById(k);if(e)e.value=v||'';});
-    document.getElementById('cas-ha-cf').value = o.ha_codice_fiscale || 'No';
+    document.getElementById('cas-ha-cf').value = (o.ha_codice_fiscale && o.ha_codice_fiscale !== 'No' && o.ha_codice_fiscale !== 'Sì' && o.ha_codice_fiscale !== 'In corso') ? o.ha_codice_fiscale : '';
     document.getElementById('cas-ha-tessera-sanitaria').value = o.ha_tessera_sanitaria || 'No';
     document.getElementById('cas-ha-carta-identita').value = o.ha_carta_identita || 'No';
     document.getElementById('cas-ha-residenza').value = o.ha_residenza || 'No';
@@ -5219,7 +5220,7 @@ async function salvaOspiteCAS() {
     data_ingresso: document.getElementById('cas-data-ingresso').value||null,
     note: document.getElementById('cas-note').value||null,
     nucleo_familiare: document.getElementById('cas-nucleo-familiare').value.trim()||null,
-    ha_codice_fiscale: document.getElementById('cas-ha-cf').value,
+    ha_codice_fiscale: document.getElementById('cas-ha-cf').value.trim().toUpperCase()||null,
     ha_tessera_sanitaria: document.getElementById('cas-ha-tessera-sanitaria').value,
     ha_carta_identita: document.getElementById('cas-ha-carta-identita').value,
     ha_residenza: document.getElementById('cas-ha-residenza').value,
