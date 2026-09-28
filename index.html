@@ -3407,6 +3407,7 @@ function mostraAppCAS() {
         </select>
       </div>
       <div class="form-group"><label>NUI</label><input id="cas-nui" placeholder="Numero Unico Identificativo"></div>
+      <div class="form-group"><label>ID Vestanet</label><input id="cas-id-vestanet" placeholder="es. RN0005293"></div>
       <div class="form-group"><label>Data audizione</label><input id="cas-data-audizione" type="date"></div>
       <div class="form-group"><label>Esito audizione</label>
         <select id="cas-esito-audizione">
@@ -3421,6 +3422,9 @@ function mostraAppCAS() {
     </div>
     <div class="form-group"><label>Note iter</label><textarea id="cas-note-iter" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
     <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
+    <h4 style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Appuntamenti</h4>
+    <div id="cas-appuntamenti-box" style="font-size:.85rem;color:var(--muted);margin-bottom:4px;">—</div>
+    <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
     <h4 style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Permesso di soggiorno</h4>
     <div class="grid g2">
       <div class="form-group"><label>Tipo permesso</label><input id="cas-tipo-permesso" placeholder="es. Attesa protezione"></div>
@@ -3431,7 +3435,7 @@ function mostraAppCAS() {
     <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
     <h4 style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Documenti amministrativi</h4>
     <div class="grid g2">
-      <div class="form-group"><label>Codice Fiscale</label><select id="cas-ha-cf"><option value="No">No</option><option value="In corso">In corso di ottenimento</option><option value="Sì">Sì</option></select></div>
+      <div class="form-group"><label>Codice Fiscale</label><input type="text" id="cas-ha-cf" placeholder="es. BBSSHR88A10Z236N" style="text-transform:uppercase;"></div>
       <div class="form-group"><label>Tessera Sanitaria valida</label><select id="cas-ha-tessera-sanitaria"><option value="No">No</option><option value="In corso">In corso di ottenimento</option><option value="Sì">Sì</option></select></div>
       <div class="form-group"><label>Carta d'Identità</label><select id="cas-ha-carta-identita"><option value="No">No</option><option value="In corso">In corso di ottenimento</option><option value="Sì">Sì</option></select></div>
       <div class="form-group"><label>Residenza</label><select id="cas-ha-residenza"><option value="No">No</option><option value="In corso">In corso di ottenimento</option><option value="Sì">Sì</option></select></div>
@@ -3518,6 +3522,7 @@ async function salvaEsitoAppuntamentoCAS(prendiNuovo) {
       document.getElementById('app-tipo').value = a.tipo;
       document.getElementById('app-struttura').value = a.struttura_id;
       document.getElementById('app-ospite').value = a.ospite_nome || '';
+      popolaSelectOspitiApp(a.ospite_id, a.ospite_nome);
       _appReturnOspiteId = a.ospite_id || null;
     } else if (_casPaginaAttuale === 'cas-dashboard') {
       renderCasDashboard(document.getElementById('content-cas'));
@@ -3856,8 +3861,31 @@ async function salvaCalendarioCoordinatoreCAS() {
     inserito_da_nome: SESSION.utente.nome || SESSION.utente.email
   };
   try {
-    if(_calCoordEditId) await supa(`calendario_coordinatore_cas?id=eq.${_calCoordEditId}`, {method:'PATCH', body: JSON.stringify(payload)});
-    else await supa('calendario_coordinatore_cas', {method:'POST', body: JSON.stringify(payload)});
+    let coordId = _calCoordEditId;
+    if(_calCoordEditId) {
+      await supa(`calendario_coordinatore_cas?id=eq.${_calCoordEditId}`, {method:'PATCH', body: JSON.stringify(payload)});
+    } else {
+      const res = await supa('calendario_coordinatore_cas', {method:'POST', body: JSON.stringify(payload)});
+      coordId = res && res[0] && res[0].id;
+    }
+    // Sincronizza automaticamente il gemello in Mio Calendario (stessa fonte, stesso impegno)
+    if (coordId) {
+      const personalePayload = {
+        titolo: payload.titolo,
+        data_ora: payload.data_ora,
+        luogo: payload.luogo,
+        note: payload.note,
+        operatore_email: payload.inserito_da_email,
+        operatore_nome: payload.inserito_da_nome,
+        coordinatore_id: coordId
+      };
+      const esistente = await supa(`calendario_personale_cas?coordinatore_id=eq.${coordId}&limit=1`);
+      if (esistente && esistente.length > 0) {
+        await supa(`calendario_personale_cas?id=eq.${esistente[0].id}`, {method:'PATCH', body: JSON.stringify(personalePayload)});
+      } else {
+        await supa('calendario_personale_cas', {method:'POST', body: JSON.stringify(personalePayload)});
+      }
+    }
     closeModal('modal-calcoord-cas');
     showPageCAS('cas-calendario-coordinatore');
   } catch(e) { alert('Errore: '+e.message); }
@@ -3883,6 +3911,14 @@ async function renderAccompagnamentiCAS(el) {
     let richieste = [];
     if(SESSION.is_coordinatore_cas) {
       richieste = await supa(`richieste_cambio_accompagnatore_cas?stato=eq.In attesa&order=created_at`) || [];
+      if(richieste.length>0) {
+        const idsAppunt = [...new Set(richieste.map(r=>r.appuntamento_id).filter(Boolean))];
+        if(idsAppunt.length>0) {
+          const dettagli = await supa(`appuntamenti_cas?id=in.(${idsAppunt.join(',')})&select=id,ospite_nome,titolo,tipo,data_ora,struttura_id`) || [];
+          const mapDettagli = {}; dettagli.forEach(d=>mapDettagli[d.id]=d);
+          richieste.forEach(r=>r._appuntamento = mapDettagli[r.appuntamento_id] || null);
+        }
+      }
     }
 
     // raggruppa per giorno
@@ -3894,27 +3930,48 @@ async function renderAccompagnamentiCAS(el) {
     });
     const giorniOrdinati = Object.keys(perGiorno).sort();
 
-    const opzioniOperatori = OPERATORI_CAS.map(o=>`<option value="${o.nome}">${o.nome}</option>`).join('');
+    const stiliTipo = {
+      'Questura': {colore:'#2563eb', icona:'🛂'},
+      'Commissione Territoriale': {colore:'#7c3aed', icona:'⚖️'},
+      'Avvocato': {colore:'#475569', icona:'👨\u200d⚖️'},
+      'Visita medica': {colore:'#0d9488', icona:'🏥'},
+    };
+    const stileDi = (tipo) => stiliTipo[tipo] || {colore:'#64748b', icona:'📌'};
 
-    const rigaAppuntamento = (a) => {
-      const d = new Date(a.data_ora);
-      const ora = d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
-      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg);border-radius:8px;margin-bottom:6px;flex-wrap:wrap;gap:8px;">
-        <div>
-          <div style="font-weight:600;font-size:.88rem;">${ora} · ${tipoAppuntamentoIcon(a.tipo)} ${a.ospite_nome||a.titolo}</div>
-          <div style="font-size:.78rem;color:var(--muted);">🏠 ${mapS[a.struttura_id]||'—'} · ${a.tipo}</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
+    const rigaPersona = (a) => {
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.15);gap:8px;flex-wrap:wrap;">
+        <div style="font-size:.85rem;">${a.ospite_nome||a.titolo} <span style="opacity:.75;font-size:.78rem;">— ${mapS[a.struttura_id]||'—'}</span></div>
+        <div style="display:flex;align-items:center;gap:6px;">
           ${SESSION.is_coordinatore_cas
-            ? `<select onchange="assegnaAccompagnatoreCAS('${a.id}', this.value)" style="font-size:.82rem;padding:4px 8px;border-radius:6px;border:1px solid var(--border);">
+            ? `<select onchange="assegnaAccompagnatoreCAS('${a.id}', this.value)" style="font-size:.78rem;padding:3px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.15);color:inherit;">
                 <option value="">— Non assegnato —</option>
                 <option value="In autonomia" ${a.operatore_accompagnatore==='In autonomia'?'selected':''}>In autonomia</option>
                 ${OPERATORI_CAS.map(o=>`<option value="${o.nome}" ${o.nome===a.operatore_accompagnatore?'selected':''}>${o.nome}</option>`).join('')}
               </select>`
-            : `<span style="font-size:.85rem;font-weight:600;color:${a.operatore_accompagnatore?'var(--text)':'var(--muted)'};">${a.operatore_accompagnatore||'Non assegnato'}</span>
-               <button class="btn btn-ghost" style="font-size:.72rem;padding:3px 8px;" onclick="apriProponiCambioCAS('${a.id}','${(a.operatore_accompagnatore||'').replace(/'/g,"\\'")}')">Proponi</button>`}
+            : `<span style="font-size:.8rem;font-weight:600;">${a.operatore_accompagnatore||'Non assegnato'}</span>
+               <button class="btn btn-ghost" style="font-size:.68rem;padding:2px 7px;" onclick="apriProponiCambioCAS('${a.id}','${(a.operatore_accompagnatore||'').replace(/'/g,"\\'")}')">Proponi</button>`}
         </div>
       </div>`;
+    };
+
+    const blocchiGiorno = (lista) => {
+      const perBlocco = {};
+      lista.forEach(a=>{
+        const d = new Date(a.data_ora);
+        const ora = d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+        const chiave = `${ora}|||${a.tipo}`;
+        (perBlocco[chiave] = perBlocco[chiave]||[]).push(a);
+      });
+      const chiaviOrdinate = Object.keys(perBlocco).sort();
+      return chiaviOrdinate.map(chiave=>{
+        const [ora, tipo] = chiave.split('|||');
+        const persone = perBlocco[chiave];
+        const stile = stileDi(tipo);
+        return `<div class="card" style="padding:12px 14px;border-left:4px solid ${stile.colore};margin-bottom:8px;background:${stile.colore}18;">
+          <div style="font-weight:700;font-size:.9rem;margin-bottom:6px;color:${stile.colore};">${stile.icona} ${tipo} · ${ora} <span style="font-weight:400;opacity:.8;">(${persone.length} ${persone.length===1?'persona':'persone'})</span></div>
+          ${persone.map(rigaPersona).join('')}
+        </div>`;
+      }).join('');
     };
 
     el.innerHTML = `
@@ -3929,14 +3986,21 @@ async function renderAccompagnamentiCAS(el) {
 
       ${richieste.length>0?`<div class="card" style="padding:16px;margin-bottom:20px;border-left:3px solid var(--warn);">
         <div style="font-weight:600;margin-bottom:10px;">📋 Richieste di cambio da approvare (${richieste.length})</div>
-        ${richieste.map(r=>`<div style="padding:10px 0;border-bottom:1px solid var(--border);">
+        ${richieste.map(r=>{
+          const app = r._appuntamento;
+          const rigaAppuntamento = app
+            ? `<div style="font-size:.85rem;margin-bottom:4px;"><b>${app.ospite_nome||app.titolo}</b> — ${stileDi(app.tipo).icona} ${app.tipo||''} · ${new Date(app.data_ora).toLocaleDateString('it-IT',{day:'numeric',month:'long'})} ore ${new Date(app.data_ora).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})} <span style="opacity:.75;">— ${mapS[app.struttura_id]||'—'}</span></div>`
+            : `<div style="font-size:.85rem;margin-bottom:4px;color:var(--danger);">⚠️ Appuntamento non trovato (potrebbe essere stato eliminato)</div>`;
+          return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
+          ${rigaAppuntamento}
           <div style="font-size:.85rem;"><b>${r.operatore_attuale||'Non assegnato'}</b> → <b>${r.operatore_proposto}</b></div>
           <div style="font-size:.8rem;color:var(--muted);margin:4px 0;">Motivo: ${r.motivazione} — richiesto da ${r.richiesto_da_nome||r.richiesto_da_email}</div>
           <div style="display:flex;gap:6px;">
             <button class="btn btn-primary" style="font-size:.75rem;padding:4px 10px;" onclick="gestisciRichiestaAccompagnatoreCAS('${r.id}',true)">✅ Approva</button>
             <button class="btn btn-ghost" style="font-size:.75rem;padding:4px 10px;color:var(--danger);" onclick="gestisciRichiestaAccompagnatoreCAS('${r.id}',false)">✕ Rifiuta</button>
           </div>
-        </div>`).join('')}
+        </div>`;
+        }).join('')}
       </div>`:''}
 
       ${giorniOrdinati.length===0?'<div class="card" style="padding:30px;text-align:center;color:var(--muted);">Nessun appuntamento in questo mese</div>':
@@ -3944,7 +4008,7 @@ async function renderAccompagnamentiCAS(el) {
           const d = new Date(giorno+'T12:00:00');
           return `<div style="margin-bottom:18px;">
             <div style="font-weight:600;font-size:.9rem;margin-bottom:8px;">${d.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'})}</div>
-            ${perGiorno[giorno].map(rigaAppuntamento).join('')}
+            ${blocchiGiorno(perGiorno[giorno])}
           </div>`;
         }).join('')}
     `;
@@ -4076,7 +4140,9 @@ async function renderMioCalendarioCAS(el) {
             }[ev.dato.tipo] || {colore:'#64748b', icona:'📌', etichetta: ev.dato.tipo || 'Altro'};
             return `<div style="background:${stileTipo.colore};color:#fff;border-radius:4px;padding:2px 5px;font-size:.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${stileTipo.etichetta} — ${ev.dato.ospite_nome||ev.dato.titolo}">${stileTipo.icona} ${stileTipo.etichetta} ${ora} ${ev.dato.ospite_nome||ev.dato.titolo}</div>`;
           }
-          return `<div onclick="event.stopPropagation();${staGuardandoIlProprio?`modificaAppuntamentoPersonaleCAS('${ev.dato.id}')`:''}" style="background:var(--accent2);color:#fff;border-radius:4px;padding:2px 5px;font-size:.7rem;cursor:${staGuardandoIlProprio?'pointer':'default'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${ev.dato.titolo}">${ora} ${ev.dato.titolo}</div>`;
+          const daCoordinatore = !!ev.dato.coordinatore_id;
+          const azioneClick = daCoordinatore ? `modificaCalendarioCoordinatoreCAS('${ev.dato.coordinatore_id}')` : (staGuardandoIlProprio?`modificaAppuntamentoPersonaleCAS('${ev.dato.id}')`:'');
+          return `<div onclick="event.stopPropagation();${azioneClick}" style="background:${daCoordinatore?'#6d28d9':'var(--accent2)'};color:#fff;border-radius:4px;padding:2px 5px;font-size:.7rem;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${daCoordinatore?'Impegno da Calendario Coordinatore — ':''}${ev.dato.titolo}">${daCoordinatore?'🧭 ':''}${ora} ${ev.dato.titolo}</div>`;
         }).join('')}
       </div>`;
     };
@@ -4105,7 +4171,7 @@ async function renderMioCalendarioCAS(el) {
         <div style="width:120px;"></div>
       </div>
 
-      <div style="font-size:.75rem;color:var(--muted);margin-bottom:8px;">🛂 Questura · ⚖️ Commissione · 👨‍⚖️ Avvocato · 🏥 Sanitario (assegnati da Approdo, non modificabili qui) · 🟢 Appuntamenti personali</div>
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:8px;">🛂 Questura · ⚖️ Commissione · 👨‍⚖️ Avvocato · 🏥 Sanitario (assegnati da Approdo, non modificabili qui) · 🟢 Appuntamenti personali · 🧭 Da Calendario Coordinatore (modificabile solo da lì)</div>
 
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;">
         ${['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].map(g=>`<div style="text-align:center;font-size:.75rem;color:var(--muted);font-weight:600;padding:4px 0;">${g}</div>`).join('')}
@@ -4180,13 +4246,19 @@ async function salvaAppuntamentoPersonaleCAS() {
 async function renderCasDashboard(el) {
   el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
   try {
-    const strutture = SESSION.strutture_cas || [];
+    const strutture = await supa('strutture_cas?order=nome') || [];
     const struttureIds = strutture.map(s => s.id);
     let ospiti = [];
     if (struttureIds.length > 0) ospiti = await supa(`ospiti_cas?struttura_id=in.(${struttureIds.join(',')})&attivo=eq.true`) || [];
     const oggi = new Date(); oggi.setHours(0,0,0,0);
-    const totaleCapienza = strutture.reduce((acc,s)=>acc+(s.capienza||0),0);
-    const postiVuoti = totaleCapienza > 0 ? totaleCapienza - ospiti.length : null;
+    const occupatiPerStrutturaCalc = {};
+    ospiti.forEach(o => { occupatiPerStrutturaCalc[o.struttura_id] = (occupatiPerStrutturaCalc[o.struttura_id]||0) + 1; });
+    const postiVuoti = strutture.length > 0
+      ? strutture.reduce((acc,s) => acc + Math.max((s.capienza||0) - (occupatiPerStrutturaCalc[s.id]||0), 0), 0)
+      : null;
+    const struttureSopraCapienza = strutture
+      .map(s => ({ nome: s.nome, eccedenza: (occupatiPerStrutturaCalc[s.id]||0) - (s.capienza||0) }))
+      .filter(s => s.eccedenza > 0);
     const mapS = {}; strutture.forEach(s=>mapS[s.id]=s.nome);
 
     // Carica appuntamenti prossimi 30 giorni (usa la data locale, non UTC, per evitare lo sfasamento di fuso orario)
@@ -4384,9 +4456,9 @@ async function vediOspitiStruttura(strutturaId, strutturaNome) {
   const el = document.getElementById('content-cas');
   el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
   try {
-    const ospiti = await supa(`ospiti_cas?struttura_id=eq.${strutturaId}&order=cognome`) || [];
+    const ospiti = await supa(`ospiti_cas?struttura_id=eq.${strutturaId}&attivo=eq.true&order=cognome`) || [];
     el.innerHTML = `<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;"><button class="btn btn-ghost" onclick="showPageCAS('cas-strutture')">← Strutture</button><h2 style="font-size:1.1rem;">🏠 ${strutturaNome} (${ospiti.length})</h2>${SESSION.is_coordinatore_cas?`<button class="btn btn-primary" onclick="nuovoOspiteCAS('${strutturaId}')">+ Nuovo ospite</button>`:''}</div>
-      <div style="display:grid;gap:10px;">${ospiti.length===0?'<div class="card" style="padding:30px;text-align:center;color:var(--muted);">Nessun ospite</div>':ospiti.map(o=>`<div class="card" style="padding:16px;cursor:pointer;" onclick="apriOspiteCAS('${o.id}')"><div style="font-weight:600;">${o.cognome} ${o.nome}</div><div style="color:var(--muted);font-size:.82rem;">${o.nazionalita||''} ${o.nui?'· NUI: '+o.nui:''}</div></div>`).join('')}</div>`;
+      <div style="display:grid;gap:10px;">${ospiti.length===0?'<div class="card" style="padding:30px;text-align:center;color:var(--muted);">Nessun ospite</div>':ospiti.map(o=>`<div class="card" style="padding:16px;cursor:pointer;" onclick="apriOspiteCAS('${o.id}')"><div style="font-weight:600;">${o.cognome} ${o.nome}</div><div style="color:var(--muted);font-size:.82rem;">${o.nazionalita||''} ${o.nui?'· NUI: '+o.nui:''} ${o.id_vestanet?'· Vestanet: '+o.id_vestanet:''}</div></div>`).join('')}</div>`;
   } catch(e) { el.innerHTML=`<div style="color:var(--danger);">Errore: ${e.message}</div>`; }
 }
 
@@ -4565,6 +4637,85 @@ function tipoAppuntamentoIcon(tipo) {
   return map[tipo]||'📌';
 }
 
+// --- Appuntamenti nella scheda ospite ---
+const _APP_SELECT_SCHEDA = 'id,tipo,titolo,data_ora,stato,esito,operatore_accompagnatore,ospite_nome';
+
+async function caricaAppuntamentiOspiteCAS(ospiteId, ospiteNome) {
+  const box = document.getElementById('cas-appuntamenti-box');
+  if(!box) return;
+  box.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Caricamento…</div>';
+  try {
+    const lista = (await supa(`appuntamenti_cas?ospite_id=eq.${ospiteId}&select=${_APP_SELECT_SCHEDA}&order=data_ora.asc`)) || [];
+    if(ospiteNome) {
+      const perNome = (await supa(`appuntamenti_cas?ospite_id=is.null&ospite_nome=eq.${encodeURIComponent(ospiteNome)}&select=${_APP_SELECT_SCHEDA}&order=data_ora.asc`)) || [];
+      const visti = new Set(lista.map(a=>a.id));
+      perNome.forEach(a=>{ if(!visti.has(a.id)) lista.push(a); });
+    }
+    if(lista.length===0) { box.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Nessun appuntamento registrato.</div>'; return; }
+    const adesso = Date.now();
+    const fmt = d => new Date(d).toLocaleString('it-IT',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const riga = a => {
+      const dettagli = [a.titolo, a.operatore_accompagnatore?('con '+a.operatore_accompagnatore):'', a.stato||'', a.esito||''].filter(Boolean).join(' · ');
+      return `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;" onclick="apriAppuntamentoDaSchedaOspiteCAS('${a.id}','${ospiteId}')">
+        <div style="font-size:1rem;">${tipoAppuntamentoIcon(a.tipo)}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:.85rem;">${a.tipo||'Appuntamento'} — ${fmt(a.data_ora)}</div>
+          ${dettagli?`<div style="color:var(--muted);font-size:.78rem;">${dettagli}</div>`:''}
+        </div>
+      </div>`;
+    };
+    const futuri = lista.filter(a=>new Date(a.data_ora).getTime() >= adesso).sort((x,y)=>new Date(x.data_ora)-new Date(y.data_ora));
+    const passati = lista.filter(a=>new Date(a.data_ora).getTime() < adesso).sort((x,y)=>new Date(y.data_ora)-new Date(x.data_ora));
+    box.innerHTML = `${futuri.length ? futuri.map(riga).join('') : '<div style="color:var(--muted);font-size:.85rem;margin-bottom:6px;">Nessun appuntamento futuro.</div>'}`
+      + `${passati.length ? `<details style="margin-top:6px;"><summary style="cursor:pointer;color:var(--muted);font-size:.82rem;">Appuntamenti passati (${passati.length})</summary><div style="margin-top:8px;">${passati.map(riga).join('')}</div></details>` : ''}`;
+  } catch(e) {
+    box.innerHTML = `<div style="color:var(--danger);font-size:.85rem;">Errore nel caricamento degli appuntamenti: ${e.message}</div>`;
+  }
+}
+
+async function apriAppuntamentoDaSchedaOspiteCAS(appId, ospiteId) {
+  closeModal('modal-ospite-cas');
+  await modificaAppuntamentoCAS(appId);
+  _appReturnPage = 'cas-ospiti-riapri';
+  _appReturnOspiteId = ospiteId;
+}
+
+// --- Selezione ospite dall'anagrafica nel form appuntamento ---
+let _ospitiCacheApp = null;
+
+async function assicuraOspitiCacheApp() {
+  if(_ospitiCacheApp) return _ospitiCacheApp;
+  _ospitiCacheApp = (await supa('ospiti_cas?attivo=is.true&select=id,cognome,nome&order=cognome.asc,nome.asc')) || [];
+  return _ospitiCacheApp;
+}
+
+async function popolaSelectOspitiApp(ospiteId, ospiteNome) {
+  const sel = document.getElementById('app-ospite-select');
+  if(!sel) return;
+  let lista = [];
+  try { lista = await assicuraOspitiCacheApp(); } catch(e) { lista = []; }
+  sel.innerHTML = '<option value="">— nessun ospite —</option>'
+    + lista.map(o=>`<option value="${o.id}">${o.cognome} ${o.nome}</option>`).join('');
+  if(ospiteId && lista.some(o=>o.id===ospiteId)) {
+    sel.value = ospiteId;
+  } else if(ospiteNome && ospiteNome.trim()) {
+    const cercato = ospiteNome.trim().toLowerCase();
+    const trovato = lista.find(o=>(o.cognome+' '+o.nome).toLowerCase()===cercato || (o.nome+' '+o.cognome).toLowerCase()===cercato);
+    if(trovato) sel.value = trovato.id;
+    else sel.innerHTML += `<option value="" selected>${ospiteNome} (non in anagrafica)</option>`;
+  } else {
+    sel.value = '';
+  }
+  sincronizzaNomeOspiteApp();
+}
+
+function sincronizzaNomeOspiteApp() {
+  const sel = document.getElementById('app-ospite-select');
+  const nascosto = document.getElementById('app-ospite');
+  if(!sel || !nascosto) return;
+  if(sel.value) nascosto.value = sel.options[sel.selectedIndex].textContent.trim();
+}
+
 let _appEditId = null;
 let _appReturnPage = 'cas-calendario';
 let _appReturnTipo = null;
@@ -4575,6 +4726,7 @@ function nuovoAppuntamentoDaOspiteCAS(tipo, ospiteId, ospiteNome, strutturaId) {
   nuovoAppuntamentoCAS(tipo);
   document.getElementById('app-titolo').value = `${tipo} — ${ospiteNome}`;
   document.getElementById('app-ospite').value = ospiteNome;
+  popolaSelectOspitiApp(ospiteId, ospiteNome);
   const sel = document.getElementById('app-struttura');
   if(strutturaId) sel.value = strutturaId;
   _appReturnPage = 'cas-ospiti-riapri';
@@ -4591,6 +4743,7 @@ function nuovoAppuntamentoCAS(tipoPreselezionato) {
   document.getElementById('app-data').value='';
   document.getElementById('app-ora').value='';
   document.getElementById('app-ospite').value='';
+  popolaSelectOspitiApp(null, null);
   document.getElementById('app-note').value='';
   document.getElementById('app-nome-avvocato').value='';
   document.getElementById('app-tipo').value = tipoPreselezionato || 'Questura';
@@ -4626,6 +4779,7 @@ async function modificaAppuntamentoCAS(id, tipoPagina) {
     document.getElementById('app-data').value = d.toISOString().slice(0,10);
     document.getElementById('app-ora').value = d.toTimeString().slice(0,5);
     document.getElementById('app-ospite').value = a.ospite_nome || '';
+    await popolaSelectOspitiApp(a.ospite_id, a.ospite_nome);
     document.getElementById('app-note').value = a.note || '';
     document.getElementById('app-nome-avvocato').value = a.nome_avvocato || '';
     document.getElementById('app-avvocato-wrap').style.display = (a.tipo==='Avvocato')?'block':'none';
@@ -4655,7 +4809,7 @@ async function salvaAppuntamentoCAS() {
     ospite_nome: document.getElementById('app-ospite').value||null,
     note: document.getElementById('app-note').value||null,
     nome_avvocato: tipo==='Avvocato' ? (document.getElementById('app-nome-avvocato').value||null) : null,
-    ospite_id: _appReturnOspiteId || null
+    ospite_id: (document.getElementById('app-ospite-select') || {}).value || _appReturnOspiteId || null
   };
   try {
     if(!_appEditId && payload.ospite_nome) {
@@ -4920,13 +5074,16 @@ async function eliminaTurnoCAS(id) {
 function nuovoOspiteCAS(strutturaIdPreselezionata) {
   _casOspiteEditId = null;
   document.getElementById('modal-ospite-cas-title').textContent = 'Nuovo Ospite';
-  ['cas-nome','cas-cognome','cas-nui','cas-luogo-nascita','cas-nazionalita','cas-lingua','cas-note-iter','cas-tipo-permesso','cas-numero-permesso','cas-documenti','cas-note','cas-nucleo-familiare'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['cas-nome','cas-cognome','cas-nui','cas-id-vestanet','cas-luogo-nascita','cas-nazionalita','cas-lingua','cas-note-iter','cas-tipo-permesso','cas-numero-permesso','cas-documenti','cas-note','cas-nucleo-familiare'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   ['cas-dob','cas-data-audizione','cas-scadenza-permesso','cas-data-ingresso'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   ['cas-tipo-domanda','cas-esito-audizione'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   document.getElementById('cas-nucleo-membri').innerHTML = '';
+  const boxApp = document.getElementById('cas-appuntamenti-box');
+  if(boxApp) boxApp.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Salva la scheda per poter collegare gli appuntamenti.</div>';
   document.getElementById('cas-sposta-wrap').innerHTML = '';
   document.getElementById('cas-nuovo-app-wrap').innerHTML = '';
-  ['cas-ha-cf','cas-ha-tessera-sanitaria','cas-ha-carta-identita','cas-ha-residenza'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='No';});
+  ['cas-ha-tessera-sanitaria','cas-ha-carta-identita','cas-ha-residenza'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='No';});
+  const casHaCfEl = document.getElementById('cas-ha-cf'); if(casHaCfEl) casHaCfEl.value='';
   popolaSelectStrutture(strutturaIdPreselezionata);
   openModal('modal-ospite-cas');
 }
@@ -4940,13 +5097,13 @@ async function apriOspiteCAS(id) {
     document.getElementById('modal-ospite-cas-title').textContent = `${o.cognome} ${o.nome}`;
     const fields = {
       'cas-nome':o.nome,'cas-cognome':o.cognome,'cas-dob':o.data_nascita,'cas-luogo-nascita':o.luogo_nascita,
-      'cas-nazionalita':o.nazionalita,'cas-lingua':o.lingua,'cas-tipo-domanda':o.tipo_domanda,'cas-nui':o.nui,
+      'cas-nazionalita':o.nazionalita,'cas-lingua':o.lingua,'cas-tipo-domanda':o.tipo_domanda,'cas-nui':o.nui,'cas-id-vestanet':o.id_vestanet,
       'cas-data-audizione':o.data_audizione,'cas-esito-audizione':o.esito_audizione,'cas-note-iter':o.note_iter,
       'cas-tipo-permesso':o.tipo_permesso,'cas-numero-permesso':o.numero_permesso,'cas-scadenza-permesso':o.scadenza_permesso,
       'cas-documenti':o.documenti_identita,'cas-data-ingresso':o.data_ingresso,'cas-note':o.note,'cas-nucleo-familiare':o.nucleo_familiare
     };
     Object.entries(fields).forEach(([k,v])=>{const e=document.getElementById(k);if(e)e.value=v||'';});
-    document.getElementById('cas-ha-cf').value = o.ha_codice_fiscale || 'No';
+    document.getElementById('cas-ha-cf').value = (o.ha_codice_fiscale && o.ha_codice_fiscale !== 'No' && o.ha_codice_fiscale !== 'Sì' && o.ha_codice_fiscale !== 'In corso') ? o.ha_codice_fiscale : '';
     document.getElementById('cas-ha-tessera-sanitaria').value = o.ha_tessera_sanitaria || 'No';
     document.getElementById('cas-ha-carta-identita').value = o.ha_carta_identita || 'No';
     document.getElementById('cas-ha-residenza').value = o.ha_residenza || 'No';
@@ -4973,6 +5130,7 @@ async function apriOspiteCAS(id) {
         <option value="Avvocato">Avvocato</option>
         <option value="Visita medica">Sanitario</option>
       </select>`;
+    caricaAppuntamentiOspiteCAS(o.id, `${o.cognome} ${o.nome}`);
     openModal('modal-ospite-cas');
   } catch(e) { alert('Errore: '+e.message); }
 }
@@ -5034,6 +5192,7 @@ async function salvaOspiteCAS() {
     lingua: document.getElementById('cas-lingua').value||null,
     tipo_domanda: document.getElementById('cas-tipo-domanda').value||null,
     nui: document.getElementById('cas-nui').value||null,
+    id_vestanet: document.getElementById('cas-id-vestanet').value||null,
     data_audizione: document.getElementById('cas-data-audizione').value||null,
     esito_audizione: document.getElementById('cas-esito-audizione').value||null,
     note_iter: document.getElementById('cas-note-iter').value||null,
@@ -5044,7 +5203,7 @@ async function salvaOspiteCAS() {
     data_ingresso: document.getElementById('cas-data-ingresso').value||null,
     note: document.getElementById('cas-note').value||null,
     nucleo_familiare: document.getElementById('cas-nucleo-familiare').value.trim()||null,
-    ha_codice_fiscale: document.getElementById('cas-ha-cf').value,
+    ha_codice_fiscale: document.getElementById('cas-ha-cf').value.trim().toUpperCase()||null,
     ha_tessera_sanitaria: document.getElementById('cas-ha-tessera-sanitaria').value,
     ha_carta_identita: document.getElementById('cas-ha-carta-identita').value,
     ha_residenza: document.getElementById('cas-ha-residenza').value,
@@ -6110,7 +6269,10 @@ async function salvaTrasferimento() {
       <div class="form-group"><label>Ora *</label><input id="app-ora" type="time"></div>
     </div>
     <div class="form-group" id="app-avvocato-wrap" style="display:none;"><label>Nome avvocato</label><input id="app-nome-avvocato" placeholder="es. Avv. Rossi"></div>
-    <div class="form-group"><label>Ospite</label><input id="app-ospite" placeholder="Nome e cognome ospite (opzionale)"></div>
+    <div class="form-group"><label>Ospite</label>
+      <select id="app-ospite-select" onchange="sincronizzaNomeOspiteApp()"><option value="">— nessun ospite —</option></select>
+      <input id="app-ospite" type="hidden">
+    </div>
     <div class="form-group"><label>Note</label><textarea id="app-note" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-appuntamento-cas')">Annulla</button>
