@@ -4342,10 +4342,7 @@ async function renderCasDashboard(el) {
       </div>`:''}
 
       <div class="card" style="padding:20px;margin-bottom:16px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
-          <h3 style="font-size:1rem;margin:0;">📅 Appuntamenti e Scadenze</h3>
-          <button class="btn btn-primary" style="font-size:.95rem;padding:10px 20px;font-weight:600;" onclick="nuovoAppuntamentoCAS(null, true)">＋ Aggiungi appuntamento</button>
-        </div>
+        <h3 style="font-size:1rem;margin-bottom:16px;">📅 Appuntamenti e Scadenze</h3>
         ${fascia7.length===0&&fascia15.length===0&&fascia30.length===0?'<div style="color:var(--muted);text-align:center;padding:16px;">Nessun appuntamento o scadenza nei prossimi 30 giorni 👍</div>':''}
         ${renderFascia('Da aggiornare','#64748b','🗂️',daAggiornare,false)}
         <div id="dash-fascia-7gg">${renderFascia('Entro 7 giorni','var(--danger)','🔴',fascia7,true)}</div>
