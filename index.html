@@ -3329,8 +3329,7 @@ function mostraAppCAS() {
   <h2>Navigazione</h2>
   <div class="nav-item active" onclick="showPageCAS('cas-dashboard')"><span class="ico">📊</span> Dashboard</div>
   <div class="nav-item" onclick="showPageCAS('cas-calendario-coordinatore')"><span class="ico">📅</span> Calendario Coordinatore</div>
-  <div class="nav-item" onclick="showPageCAS('cas-ospiti')"><span class="ico">👤</span> Ospiti</div>
-  <div class="nav-item" onclick="showPageCAS('cas-strutture')"><span class="ico">🏠</span> Strutture</div>
+  <div class="nav-item" onclick="showPageCAS('cas-strutture')"><span class="ico">🏠</span> Strutture e Ospiti</div>
 
   <div style="padding:10px 16px 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-top:4px;">Appuntamenti e Scadenze</div>
   <div class="nav-item" onclick="showPageCAS('cas-scadenze')" style="padding-left:24px;"><span class="ico">⏰</span> Scadenze PDS</div>
@@ -3533,12 +3532,11 @@ function showPageCAS(page) {
   if (page === 'cas-calendario-coordinatore' && !SESSION.is_coordinatore_cas) return;
   _casPaginaAttuale = page;
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
-  const titles = { 'cas-dashboard':'Dashboard','cas-ospiti':'Ospiti','cas-strutture':'Strutture','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-accompagnamenti':'Accompagnamenti','cas-mio-calendario':'Mio Calendario','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti','cas-report-accompagnamenti':'Report Accompagnamenti' };
+  const titles = { 'cas-dashboard':'Dashboard','cas-strutture':'Strutture e Ospiti','cas-scadenze':'Scadenze PDS','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-accompagnamenti':'Accompagnamenti','cas-mio-calendario':'Mio Calendario','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-cassettaps':'Cassetta Primo Soccorso','cas-pocketmoney':'Pocket Money','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti','cas-report-accompagnamenti':'Report Accompagnamenti' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
   if (page === 'cas-calendario-coordinatore') { _calCoordMese = new Date().getMonth(); _calCoordAnno = new Date().getFullYear(); renderCalendarioCoordinatoreCAS(content); }
   else if (page === 'cas-dashboard') renderCasDashboard(content);
-  else if (page === 'cas-ospiti') renderCasOspiti(content);
   else if (page === 'cas-strutture') renderCasStrutture(content);
   else if (page === 'cas-scadenze') renderCasScadenze(content);
   else if (page === 'cas-calendario') renderCasCalendario(content);
@@ -4263,7 +4261,7 @@ async function renderCasDashboard(el) {
     el.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:8px;">
         <div class="card" style="padding:20px;text-align:center;cursor:pointer;" onclick="showPageCAS('cas-strutture')"><div style="font-size:2.2rem;font-weight:700;color:var(--accent);">${strutture.length}</div><div style="color:var(--muted);font-size:.85rem;margin-top:4px;">Strutture</div></div>
-        <div class="card" style="padding:20px;text-align:center;cursor:pointer;" onclick="showPageCAS('cas-ospiti')"><div style="font-size:2.2rem;font-weight:700;color:var(--accent2);">${ospiti.length}</div><div style="color:var(--muted);font-size:.85rem;margin-top:4px;">Beneficiari presenti</div></div>
+        <div class="card" style="padding:20px;text-align:center;cursor:pointer;" onclick="showPageCAS('cas-strutture')"><div style="font-size:2.2rem;font-weight:700;color:var(--accent2);">${ospiti.length}</div><div style="color:var(--muted);font-size:.85rem;margin-top:4px;">Beneficiari presenti</div></div>
         ${postiVuoti!==null?`<div class="card" style="padding:20px;text-align:center;cursor:pointer;" onclick="const l=document.getElementById('dash-posti-vuoti-lista');l.style.display=l.style.display==='none'?'block':'none';"><div style="font-size:2.2rem;font-weight:700;color:${postiVuoti>0?'var(--warn)':'var(--danger)'};">${postiVuoti}</div><div style="color:var(--muted);font-size:.85rem;margin-top:4px;">Posti vuoti</div></div>`:''}
         <div class="card" style="padding:20px;text-align:center;cursor:pointer;" onclick="document.getElementById('dash-fascia-7gg').scrollIntoView({behavior:'smooth',block:'start'})"><div style="font-size:2.2rem;font-weight:700;color:var(--danger);">${fascia7.length}</div><div style="color:var(--muted);font-size:.85rem;margin-top:4px;">Urgenti (7gg)</div></div>
       </div>
@@ -4343,58 +4341,43 @@ async function cercaOspitiTopbar(query) {
   }, 250);
 }
 
-async function renderCasOspiti(el) {
+async function renderCasStrutture(el) {
   if(SESSION.is_simona) { el.innerHTML='<div class="card" style="padding:30px;text-align:center;color:var(--muted);">⛔ Accesso non autorizzato.</div>'; return; }
   el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
   try {
     const strutture = SESSION.strutture_cas || [];
     const struttureIds = strutture.map(s=>s.id);
     let ospiti = [];
-    if (struttureIds.length>0) ospiti = await supa(`ospiti_cas?struttura_id=in.(${struttureIds.join(',')})&order=cognome`) || [];
-    const oggi = new Date();
-    const scadenzaVicina = (o) => o.scadenza_permesso && (new Date(o.scadenza_permesso)-oggi)/(1000*60*60*24) < 30;
+    if (struttureIds.length>0) ospiti = await supa(`ospiti_cas?struttura_id=in.(${struttureIds.join(',')})&attivo=eq.true&select=id,struttura_id`) || [];
+    const conteggi = {};
+    ospiti.forEach(o => { conteggi[o.struttura_id] = (conteggi[o.struttura_id]||0) + 1; });
 
-    const renderCardOspite = (o) => `<div class="card" style="padding:14px 16px;cursor:pointer;" onclick="apriOspiteCAS('${o.id}')">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-          <div><div style="font-weight:600;">${o.cognome} ${o.nome}</div><div style="color:var(--muted);font-size:.82rem;">${o.nazionalita||''} ${o.nui?'· NUI: '+o.nui:''}</div></div>
-          <div style="text-align:right;">${o.scadenza_permesso?`<div style="font-size:.78rem;color:${scadenzaVicina(o)?'var(--danger)':'var(--muted)'};">Permesso: ${new Date(o.scadenza_permesso).toLocaleDateString('it-IT')}</div>`:''}</div>
-        </div>
-      </div>`;
-
-    const gruppi = strutture.map(s => {
-      const suoiOspiti = ospiti.filter(o=>o.struttura_id===s.id);
-      const urgenti = suoiOspiti.filter(scadenzaVicina).length;
-      return { struttura: s, ospiti: suoiOspiti, urgenti };
-    });
-
-    el.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-        <h2 style="font-size:1.1rem;">👤 Ospiti (${ospiti.length})</h2>
-        ${SESSION.is_coordinatore_cas?`<button class="btn btn-primary" onclick="nuovoOspiteCAS()">+ Nuovo ospite</button>`:''}
-      </div>
-      ${ospiti.length===0?'<div class="card" style="padding:30px;text-align:center;color:var(--muted);">Nessun ospite registrato</div>':''}
-      <div style="display:grid;gap:10px;">
-        ${gruppi.map(g => `
-          <details ${g.urgenti>0?'open':''} style="background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;">
-            <summary style="cursor:pointer;padding:12px 16px;list-style:none;display:flex;justify-content:space-between;align-items:center;font-weight:600;">
-              <span>🏠 ${g.struttura.nome} <span style="font-weight:400;color:var(--muted);font-size:.85rem;">(${g.ospiti.length}${g.struttura.capienza?'/'+g.struttura.capienza:''})</span></span>
-              ${g.urgenti>0?`<span style="background:var(--danger);color:#fff;border-radius:20px;padding:2px 10px;font-size:.72rem;">${g.urgenti} in scadenza</span>`:''}
-            </summary>
-            <div style="padding:0 16px 16px;display:grid;gap:8px;">
-              ${g.ospiti.length===0?'<div style="color:var(--muted);font-size:.85rem;padding:8px 0;">Nessun ospite in questa struttura</div>':g.ospiti.map(renderCardOspite).join('')}
+    el.innerHTML = `<h2 style="font-size:1.1rem;margin-bottom:20px;">🏠 Strutture e Ospiti</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;">
+        ${strutture.map(s => `
+          <div class="card" style="padding:20px;">
+            <div style="font-weight:600;font-size:1rem;margin-bottom:6px;">${s.nome}</div>
+            ${s.indirizzo?`<div style="color:var(--muted);font-size:.82rem;">📍 ${s.indirizzo}</div>`:''}
+            <div style="color:var(--muted);font-size:.82rem;margin-top:4px;display:flex;align-items:center;gap:6px;">
+              👤 ${s.responsabile || 'Responsabile non assegnato'}
+              ${SESSION.is_coordinatore_cas?`<span onclick="modificaResponsabileStruttura('${s.id}','${(s.responsabile||'').replace(/'/g,"\\'")}')" style="cursor:pointer;color:var(--accent);" title="Modifica responsabile">✏️</span>`:''}
             </div>
-          </details>
-        `).join('')}
+            <div style="color:var(--muted);font-size:.82rem;margin-top:4px;">🧑‍🤝‍🧑 ${conteggi[s.id]||0}${s.capienza?' / '+s.capienza:''} ospiti</div>
+            <div style="margin-top:12px;"><button class="btn btn-ghost" style="font-size:.78rem;padding:4px 12px;" onclick="vediOspitiStruttura('${s.id}','${s.nome}')">Vedi ospiti</button></div>
+          </div>`).join('')}
       </div>`;
   } catch(e) { el.innerHTML=`<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
 }
 
-function renderCasStrutture(el) {
-  const strutture = SESSION.strutture_cas || [];
-  el.innerHTML = `<h2 style="font-size:1.1rem;margin-bottom:20px;">🏠 Le tue strutture</h2>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;">
-      ${strutture.map(s=>`<div class="card" style="padding:20px;"><div style="font-weight:600;font-size:1rem;margin-bottom:6px;">${s.nome}</div>${s.indirizzo?`<div style="color:var(--muted);font-size:.82rem;">📍 ${s.indirizzo}</div>`:''}<div style="margin-top:12px;"><button class="btn btn-ghost" style="font-size:.78rem;padding:4px 12px;" onclick="vediOspitiStruttura('${s.id}','${s.nome}')">Vedi ospiti</button></div></div>`).join('')}
-    </div>`;
+async function modificaResponsabileStruttura(strutturaId, responsabileAttuale) {
+  const nuovo = prompt('Responsabile della struttura:', responsabileAttuale || '');
+  if (nuovo === null) return;
+  try {
+    await supa(`strutture_cas?id=eq.${strutturaId}`, {method:'PATCH', body: JSON.stringify({ responsabile: nuovo.trim() || null })});
+    const s = (SESSION.strutture_cas||[]).find(x => x.id === strutturaId);
+    if (s) s.responsabile = nuovo.trim() || null;
+    showPageCAS('cas-strutture');
+  } catch(e) { alert('Errore: '+e.message); }
 }
 
 async function vediOspitiStruttura(strutturaId, strutturaNome) {
@@ -5071,7 +5054,7 @@ async function salvaOspiteCAS() {
     if(_casOspiteEditId) await supa(`ospiti_cas?id=eq.${_casOspiteEditId}`,{method:'PATCH',body:JSON.stringify(payload)});
     else await supa('ospiti_cas',{method:'POST',body:JSON.stringify(payload)});
     closeModal('modal-ospite-cas');
-    showPageCAS('cas-ospiti');
+    showPageCAS('cas-strutture');
   } catch(e) { alert('Errore salvataggio: '+e.message); }
 }
 
