@@ -984,19 +984,9 @@ async function doLogin() {
         }
       } catch(e) { /* non bloccante: si ritenta al prossimo accesso */ }
 
-      // Carica strutture dell'operatore
-      let struttureCAS = [];
+      // Carica strutture: ogni operatore vede tutte le strutture attive, non solo quelle assegnate
       const isCoord = (email === 'm.andreoni@coopmetis.com' || (utenteCAS && utenteCAS.ruolo === 'Coordinatore'));
-      if (isCoord) {
-        struttureCAS = await supa('strutture_cas?attiva=eq.true&order=nome') || [];
-      } else {
-        // Prima prendi gli ID strutture assegnate
-        const assegnazioni = await supa(`operatori_strutture?operatore_email=eq.${encodeURIComponent(email)}`) || [];
-        const struttureIds = assegnazioni.map(a => a.struttura_id).filter(Boolean);
-        if (struttureIds.length > 0) {
-          struttureCAS = await supa(`strutture_cas?id=in.(${struttureIds.join(',')})&order=nome`) || [];
-        }
-      }
+      const struttureCAS = await supa('strutture_cas?attiva=eq.true&order=nome') || [];
 
       setSession({
         utente: { ...utenteCAS, ruolo: isCoord ? 'Coordinatore' : 'Educatore' },
@@ -3260,6 +3250,7 @@ function mostraAppCAS() {
         if(isSimona && t.includes('Ospiti')) item.style.display='none';
         if(!SESSION.is_coordinatore_cas && t.includes('Calendario Coordinatore')) item.style.display='none';
       });
+      avviaPollingNotificheCAS();
       if (isMax) {
         var sidebarCas = document.getElementById('sidebar-cas');
         if (sidebarCas) sidebarCas.style.display = 'none';
@@ -3372,6 +3363,13 @@ function mostraAppCAS() {
         onfocus="if(this.value.trim().length>=2) cercaOspitiTopbar(this.value)"
         onblur="setTimeout(()=>{const r=document.getElementById('cas-ricerca-risultati');if(r)r.style.display='none';},150)">
       <div id="cas-ricerca-risultati" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-top:4px;max-height:340px;overflow-y:auto;z-index:50;box-shadow:0 6px 16px rgba(0,0,0,.12);"></div>
+    </div>
+    <div style="position:relative;margin-right:14px;">
+      <button id="cas-notifiche-bell" onclick="toggleNotificheCAS()" style="background:none;border:none;font-size:1.15rem;cursor:pointer;position:relative;padding:4px 6px;line-height:1;">
+        🔔
+        <span id="cas-notifiche-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:var(--danger);color:#fff;border-radius:50%;min-width:16px;height:16px;font-size:.62rem;font-weight:700;align-items:center;justify-content:center;padding:0 3px;line-height:16px;text-align:center;"></span>
+      </button>
+      <div id="cas-notifiche-panel" style="display:none;position:absolute;top:100%;right:0;margin-top:8px;width:340px;max-height:420px;overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:60;"></div>
     </div>
     <span id="cas-topbar-user" style="font-size:.78rem;color:var(--muted);"></span>
   </div>
@@ -4408,6 +4406,125 @@ async function cercaOspitiTopbar(query) {
     }
   }, 250);
 }
+
+// ── NOTIFICHE (campanella topbar) ──────────────────────────────
+const NOTIFICHE_CAS_LAST_SEEN_KEY = 'cas_notifiche_ultima_lettura';
+let _notificheCasIntervalAvviato = false;
+
+function _notificheCasUltimaLettura() {
+  return localStorage.getItem(NOTIFICHE_CAS_LAST_SEEN_KEY) || new Date(Date.now() - 7*24*60*60*1000).toISOString();
+}
+
+async function caricaNotificheCAS() {
+  const dopoDi = _notificheCasUltimaLettura();
+  const eventi = [];
+  const paginaPerTipo = {'Questura':'cas-calendario','Commissione Territoriale':'cas-commissioni','Avvocato':'cas-avvocato','Visita medica':'cas-sanitari'};
+  try {
+    const nuoviApp = await supa(`appuntamenti_cas?created_at=gte.${dopoDi}&order=created_at.desc&limit=20`) || [];
+    nuoviApp.forEach(a => eventi.push({
+      data: a.created_at,
+      testo: `📅 Nuovo appuntamento ${a.tipo}${a.ospite_nome?' — '+a.ospite_nome:''}`,
+      pagina: paginaPerTipo[a.tipo] || 'cas-dashboard'
+    }));
+  } catch(e) {}
+  try {
+    const cambi = await supa(`richieste_cambio_accompagnatore_cas?stato=eq.In attesa&order=created_at.desc&limit=20`) || [];
+    cambi.forEach(r => eventi.push({
+      data: r.created_at,
+      testo: `🔀 ${r.richiesto_da_nome||'Un operatore'} propone di passare l'accompagnamento a ${r.operatore_proposto}`,
+      pagina: 'cas-accompagnamenti'
+    }));
+  } catch(e) {}
+  try {
+    const ferie = await supa(`richieste_ferie_cas?stato=eq.In attesa&order=created_at.desc&limit=20`) || [];
+    ferie.forEach(r => eventi.push({
+      data: r.created_at,
+      testo: `🟥 ${r.operatore_nome||r.operatore_email} ha richiesto ${(r.tipo||'Ferie').toLowerCase()} dal ${new Date(r.data_inizio).toLocaleDateString('it-IT')}`,
+      pagina: 'cas-ferie'
+    }));
+  } catch(e) {}
+  eventi.sort((a,b)=>new Date(b.data)-new Date(a.data));
+  // Scadenze permessi entro 7 giorni: sempre visibili, non contano per il badge "non letti"
+  try {
+    const oggi = new Date(); const tra7 = new Date(oggi.getTime()+7*24*60*60*1000);
+    const oggiISO = oggi.toISOString().slice(0,10), tra7ISO = tra7.toISOString().slice(0,10);
+    const scadenze = await supa(`ospiti_cas?attivo=eq.true&scadenza_permesso=gte.${oggiISO}&scadenza_permesso=lte.${tra7ISO}&order=scadenza_permesso`) || [];
+    scadenze.forEach(o => eventi.push({
+      data: o.scadenza_permesso, sempreVisibile: true,
+      testo: `⏰ Permesso di ${o.cognome} ${o.nome} in scadenza il ${new Date(o.scadenza_permesso).toLocaleDateString('it-IT')}`,
+      pagina: 'cas-strutture'
+    }));
+  } catch(e) {}
+  return eventi;
+}
+
+async function aggiornaBadgeNotificheCAS() {
+  try {
+    const eventi = await caricaNotificheCAS();
+    const nonLette = eventi.filter(e => !e.sempreVisibile).length;
+    const badge = document.getElementById('cas-notifiche-badge');
+    if (!badge) return;
+    if (nonLette > 0) { badge.textContent = nonLette > 9 ? '9+' : String(nonLette); badge.style.display = 'flex'; }
+    else badge.style.display = 'none';
+  } catch(e) {}
+}
+
+function avviaPollingNotificheCAS() {
+  if (_notificheCasIntervalAvviato) return;
+  _notificheCasIntervalAvviato = true;
+  aggiornaBadgeNotificheCAS();
+  setInterval(aggiornaBadgeNotificheCAS, 120000);
+}
+
+async function toggleNotificheCAS() {
+  const panel = document.getElementById('cas-notifiche-panel');
+  if (!panel) return;
+  if (panel.style.display === 'block') { panel.style.display = 'none'; return; }
+  panel.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:.85rem;">Caricamento…</div>';
+  panel.style.display = 'block';
+  const eventi = await caricaNotificheCAS();
+  renderPannelloNotificheCAS(eventi);
+  localStorage.setItem(NOTIFICHE_CAS_LAST_SEEN_KEY, new Date().toISOString());
+  const badge = document.getElementById('cas-notifiche-badge');
+  if (badge) badge.style.display = 'none';
+}
+
+function renderPannelloNotificheCAS(eventi) {
+  const panel = document.getElementById('cas-notifiche-panel');
+  if (!panel) return;
+  const novita = eventi.filter(e=>!e.sempreVisibile);
+  const scadenze = eventi.filter(e=>e.sempreVisibile);
+  const fmt = d => {
+    const diffMin = Math.round((Date.now()-new Date(d))/60000);
+    if (diffMin < 1) return 'proprio ora';
+    if (diffMin < 60) return diffMin+' min fa';
+    const diffH = Math.round(diffMin/60);
+    if (diffH < 24) return diffH+(diffH===1?' ora fa':' ore fa');
+    return new Date(d).toLocaleDateString('it-IT');
+  };
+  const riga = e => `<div onclick="chiudiEVaiNotificaCAS('${e.pagina}')" style="padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'">
+    <div style="font-size:.85rem;">${e.testo}</div>
+    <div style="font-size:.72rem;color:var(--muted);margin-top:2px;">${fmt(e.data)}</div>
+  </div>`;
+  panel.innerHTML =
+    `<div style="padding:10px 14px;font-weight:600;font-size:.85rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--card);">🔔 Notifiche</div>` +
+    (novita.length===0 ? '<div style="padding:16px;color:var(--muted);font-size:.85rem;text-align:center;">Nessuna novità</div>' : novita.map(riga).join('')) +
+    (scadenze.length>0 ? `<div style="padding:8px 14px;font-weight:600;font-size:.75rem;color:var(--warn);border-top:1px solid var(--border);margin-top:4px;">⏰ Scadenze entro 7 giorni</div>` + scadenze.map(riga).join('') : '');
+}
+
+function chiudiEVaiNotificaCAS(pagina) {
+  const panel = document.getElementById('cas-notifiche-panel');
+  if (panel) panel.style.display = 'none';
+  showPageCAS(pagina);
+}
+
+document.addEventListener('click', function(ev) {
+  const panel = document.getElementById('cas-notifiche-panel');
+  const bell = document.getElementById('cas-notifiche-bell');
+  if (!panel || panel.style.display !== 'block') return;
+  if (panel.contains(ev.target) || (bell && bell.contains(ev.target))) return;
+  panel.style.display = 'none';
+});
 
 async function renderCasStrutture(el) {
   if(SESSION.is_simona) { el.innerHTML='<div class="card" style="padding:30px;text-align:center;color:var(--muted);">⛔ Accesso non autorizzato.</div>'; return; }
