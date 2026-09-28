@@ -4253,7 +4253,9 @@ async function renderCalendarioMensileAccompagnamentiCAS(el) {
     const fineISO = `${anno}-${String(mese+1).padStart(2,'0')}-${String(ultimoGiorno).padStart(2,'0')}`;
     const appuntamenti = await supa(`appuntamenti_cas?data_ora=gte.${iniISO}T00:00:00&data_ora=lte.${fineISO}T23:59:59&select=id,tipo,data_ora,ospite_nome,struttura_id,operatore_accompagnatore&order=data_ora`) || [];
     const mapS = {}; (SESSION.strutture_cas||[]).forEach(s=>mapS[s.id]=s.nome);
-    const nomiOperatori = OPERATORI_CAS.map(o=>o.nome);
+    const NON_ACCOMPAGNANO = ['Max','Paola','Mediazione Linguistica'];
+    const operatoriAccompagnamento = OPERATORI_CAS.filter(o=>!NON_ACCOMPAGNANO.includes(o.nome));
+    const nomiOperatori = operatoriAccompagnamento.map(o=>o.nome);
     const perOperatoreGiorno = {};
     appuntamenti.forEach(a => {
       if (!a.operatore_accompagnatore || !nomiOperatori.includes(a.operatore_accompagnatore)) return;
@@ -4286,7 +4288,7 @@ async function renderCalendarioMensileAccompagnamentiCAS(el) {
             </tr>
           </thead>
           <tbody>
-            ${OPERATORI_CAS.map(op=>`
+            ${operatoriAccompagnamento.map(op=>`
               <tr>
                 <td style="padding:8px 12px;background:var(--card);font-weight:600;position:sticky;left:0;z-index:1;border-bottom:1px solid var(--border);">${op.nome}</td>
                 ${giorni.map(g=>{
