@@ -4957,6 +4957,17 @@ function applicaVincoloQuesturaSelect() {
   return puo;
 }
 
+function impostaModaleAppuntamentoSoloLettura(attivo) {
+  ['app-titolo','app-tipo','app-struttura','app-data','app-ora','app-nome-avvocato','app-ospite','app-note'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = attivo;
+  });
+  const salvaBtn = document.getElementById('app-salva-btn');
+  if (salvaBtn) salvaBtn.style.display = attivo ? 'none' : 'inline-block';
+  const avviso = document.getElementById('app-soloLettura-avviso');
+  if (avviso) avviso.style.display = attivo ? 'block' : 'none';
+}
+
 function nuovoAppuntamentoCAS(tipoPreselezionato, tornaADashboard) {
   _appEditId = null;
   _appReturnOspiteId = null;
@@ -4970,6 +4981,7 @@ function nuovoAppuntamentoCAS(tipoPreselezionato, tornaADashboard) {
   popolaSelectOspitiApp(null, null);
   document.getElementById('app-note').value='';
   document.getElementById('app-nome-avvocato').value='';
+  impostaModaleAppuntamentoSoloLettura(false);
   const puoQuestura = applicaVincoloQuesturaSelect();
   document.getElementById('app-tipo').value = tipoPreselezionato || (puoQuestura ? 'Questura' : 'Commissione Territoriale');
   document.getElementById('app-avvocato-wrap').style.display = (tipoPreselezionato==='Avvocato')?'block':'none';
@@ -4984,10 +4996,7 @@ async function modificaAppuntamentoCAS(id, tipoPagina) {
     const res = await supa(`appuntamenti_cas?id=eq.${id}&limit=1`);
     if(!res || res.length===0) return;
     const a = res[0];
-    if (a.tipo === 'Questura' && !puoGestireQuestura()) {
-      alert('🔒 Gli appuntamenti Questura possono essere modificati solo da Parfait. Puoi solo visualizzarli.');
-      return;
-    }
+    const soloLettura = (a.tipo === 'Questura' && !puoGestireQuestura());
     _appEditId = id;
     _appReturnOspiteId = a.ospite_id || null;
     if (tipoPagina === 'DASHBOARD') {
@@ -5000,9 +5009,10 @@ async function modificaAppuntamentoCAS(id, tipoPagina) {
       _appReturnPage = tipoPagina ? 'cas-appuntamenti-tipo' : 'cas-calendario';
       _appReturnTipo = tipoPagina || null;
     }
-    document.getElementById('app-modal-title').textContent = 'Modifica Appuntamento';
+    document.getElementById('app-modal-title').textContent = soloLettura ? 'Appuntamento Questura' : 'Modifica Appuntamento';
     document.getElementById('app-titolo').value = a.titolo || '';
     applicaVincoloQuesturaSelect();
+    impostaModaleAppuntamentoSoloLettura(soloLettura);
     document.getElementById('app-tipo').value = a.tipo || 'Questura';
     const sel = document.getElementById('app-struttura');
     const strutture = SESSION.strutture_cas||[];
@@ -6490,6 +6500,7 @@ async function salvaTrasferimento() {
 <div class="modal-overlay" id="modal-appuntamento-cas">
   <div class="modal">
     <h3>📅 <span id="app-modal-title">Nuovo Appuntamento</span></h3>
+    <div id="app-soloLettura-avviso" style="display:none;background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:8px 12px;font-size:.8rem;margin-bottom:12px;">👁️ Sola visualizzazione — solo Parfait può modificare gli appuntamenti Questura.</div>
     <div class="form-group"><label>Titolo *</label><input id="app-titolo" placeholder="es. Audizione Commissione - Ahmed"></div>
     <div class="grid g2">
       <div class="form-group"><label>Tipo *</label>
@@ -6522,7 +6533,7 @@ async function salvaTrasferimento() {
     <div class="form-group"><label>Note</label><textarea id="app-note" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-appuntamento-cas')">Annulla</button>
-      <button class="btn btn-primary" onclick="salvaAppuntamentoCAS()">💾 Salva</button>
+      <button class="btn btn-primary" id="app-salva-btn" onclick="salvaAppuntamentoCAS()">💾 Salva</button>
     </div>
   </div>
 </div>
