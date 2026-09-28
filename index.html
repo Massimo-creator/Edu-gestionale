@@ -4444,24 +4444,13 @@ async function caricaNotificheCAS() {
     }));
   } catch(e) {}
   eventi.sort((a,b)=>new Date(b.data)-new Date(a.data));
-  // Scadenze permessi entro 7 giorni: sempre visibili, non contano per il badge "non letti"
-  try {
-    const oggi = new Date(); const tra7 = new Date(oggi.getTime()+7*24*60*60*1000);
-    const oggiISO = oggi.toISOString().slice(0,10), tra7ISO = tra7.toISOString().slice(0,10);
-    const scadenze = await supa(`ospiti_cas?attivo=eq.true&scadenza_permesso=gte.${oggiISO}&scadenza_permesso=lte.${tra7ISO}&order=scadenza_permesso`) || [];
-    scadenze.forEach(o => eventi.push({
-      data: o.scadenza_permesso, sempreVisibile: true,
-      testo: `⏰ Permesso di ${o.cognome} ${o.nome} in scadenza il ${new Date(o.scadenza_permesso).toLocaleDateString('it-IT')}`,
-      pagina: 'cas-strutture'
-    }));
-  } catch(e) {}
   return eventi;
 }
 
 async function aggiornaBadgeNotificheCAS() {
   try {
     const eventi = await caricaNotificheCAS();
-    const nonLette = eventi.filter(e => !e.sempreVisibile).length;
+    const nonLette = eventi.length;
     const badge = document.getElementById('cas-notifiche-badge');
     if (!badge) return;
     if (nonLette > 0) { badge.textContent = nonLette > 9 ? '9+' : String(nonLette); badge.style.display = 'flex'; }
@@ -4492,8 +4481,6 @@ async function toggleNotificheCAS() {
 function renderPannelloNotificheCAS(eventi) {
   const panel = document.getElementById('cas-notifiche-panel');
   if (!panel) return;
-  const novita = eventi.filter(e=>!e.sempreVisibile);
-  const scadenze = eventi.filter(e=>e.sempreVisibile);
   const fmt = d => {
     const diffMin = Math.round((Date.now()-new Date(d))/60000);
     if (diffMin < 1) return 'proprio ora';
@@ -4508,8 +4495,7 @@ function renderPannelloNotificheCAS(eventi) {
   </div>`;
   panel.innerHTML =
     `<div style="padding:10px 14px;font-weight:600;font-size:.85rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--card);">🔔 Notifiche</div>` +
-    (novita.length===0 ? '<div style="padding:16px;color:var(--muted);font-size:.85rem;text-align:center;">Nessuna novità</div>' : novita.map(riga).join('')) +
-    (scadenze.length>0 ? `<div style="padding:8px 14px;font-weight:600;font-size:.75rem;color:var(--warn);border-top:1px solid var(--border);margin-top:4px;">⏰ Scadenze entro 7 giorni</div>` + scadenze.map(riga).join('') : '');
+    (eventi.length===0 ? '<div style="padding:16px;color:var(--muted);font-size:.85rem;text-align:center;">Nessuna novità</div>' : eventi.map(riga).join(''));
 }
 
 function chiudiEVaiNotificaCAS(pagina) {
