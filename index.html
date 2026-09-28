@@ -4341,7 +4341,10 @@ async function renderCasDashboard(el) {
       </div>`:''}
 
       <div class="card" style="padding:20px;margin-bottom:16px;">
-        <h3 style="font-size:1rem;margin-bottom:16px;">📅 Appuntamenti e Scadenze</h3>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+          <h3 style="font-size:1rem;margin:0;">📅 Appuntamenti e Scadenze</h3>
+          <button class="btn btn-primary" style="font-size:.95rem;padding:10px 20px;font-weight:600;" onclick="nuovoAppuntamentoCAS(null, true)">＋ Aggiungi appuntamento</button>
+        </div>
         ${fascia7.length===0&&fascia15.length===0&&fascia30.length===0?'<div style="color:var(--muted);text-align:center;padding:16px;">Nessun appuntamento o scadenza nei prossimi 30 giorni 👍</div>':''}
         ${renderFascia('Da aggiornare','#64748b','🗂️',daAggiornare,false)}
         <div id="dash-fascia-7gg">${renderFascia('Entro 7 giorni','var(--danger)','🔴',fascia7,true)}</div>
@@ -4575,12 +4578,14 @@ async function renderCasCalendario(el) {
     const oggi = new Date(); oggi.setHours(0,0,0,0);
     const prossimi = appuntamenti.filter(a => new Date(a.data_ora) >= oggi);
     const passati = appuntamenti.filter(a => new Date(a.data_ora) < oggi);
+    const puoModificareQuestura = puoGestireQuestura();
 
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
         <h2 style="font-size:1.1rem;">📅 Appuntamenti</h2>
-        <button class="btn btn-primary" onclick="nuovoAppuntamentoCAS()">+ Nuovo</button>
+        ${puoModificareQuestura?`<button class="btn btn-primary" onclick="nuovoAppuntamentoCAS('Questura')">+ Nuovo</button>`:''}
       </div>
+      ${!puoModificareQuestura?'<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;font-size:.82rem;margin-bottom:16px;">👁️ Visualizzazione in sola lettura. Gli appuntamenti Questura vengono inseriti e modificati solo da Parfait.</div>':''}
       <div style="display:grid;gap:10px;margin-bottom:28px;">
         ${prossimi.length===0?'<div class="card" style="padding:20px;text-align:center;color:var(--muted);">Nessun appuntamento in programma</div>':
           prossimi.map(a=>{
@@ -4597,8 +4602,8 @@ async function renderCasCalendario(el) {
                 <div style="text-align:right;flex-shrink:0;margin-left:12px;">
                   <div style="font-weight:700;color:${isOggi?'var(--accent2)':'var(--text)'};">${isOggi?'OGGI':d.toLocaleDateString('it-IT',{day:'2-digit',month:'short'})}</div>
                   <div style="font-size:.82rem;color:var(--muted);">${d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</div>
-                  <button onclick="modificaAppuntamentoCAS('${a.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85rem;margin-top:4px;margin-right:8px;">✏️</button>
-                  <button onclick="eliminaAppuntamentoCAS('${a.id}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.75rem;margin-top:4px;">✕ elimina</button>
+                  ${puoModificareQuestura?`<button onclick="modificaAppuntamentoCAS('${a.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85rem;margin-top:4px;margin-right:8px;">✏️</button>
+                  <button onclick="eliminaAppuntamentoCAS('${a.id}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.75rem;margin-top:4px;">✕ elimina</button>`:''}
                 </div>
               </div>
             </div>`;
@@ -4616,7 +4621,7 @@ async function renderCasCalendario(el) {
                   <div><span style="font-weight:500;">${a.titolo}</span> <span style="font-size:.78rem;color:var(--muted);">· ${tipoAppuntamentoIcon(a.tipo)} ${a.tipo}</span></div>
                   <div style="font-size:.82rem;color:var(--muted);">${d.toLocaleDateString('it-IT')} ${d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</div>
                 </div>
-                ${daSvolgere
+                ${daSvolgere && puoModificareQuestura
                   ? `<div style="margin-top:8px;text-align:right;"><button onclick="aggiornaEsitoAppuntamentoCAS('${a.id}')" class="btn btn-primary" style="font-size:.75rem;padding:4px 10px;">✅ Aggiorna esito</button></div>`
                   : (a.esito?`<div style="font-size:.8rem;color:var(--muted);margin-top:6px;">📝 ${a.esito}</div>`:'')}
               </div>`;
@@ -4675,40 +4680,70 @@ async function apriAppuntamentoDaSchedaOspiteCAS(appId, ospiteId) {
   _appReturnOspiteId = ospiteId;
 }
 
-// --- Selezione ospite dall'anagrafica nel form appuntamento ---
-let _ospitiCacheApp = null;
-
-async function assicuraOspitiCacheApp() {
-  if(_ospitiCacheApp) return _ospitiCacheApp;
-  _ospitiCacheApp = (await supa('ospiti_cas?attivo=is.true&select=id,cognome,nome&order=cognome.asc,nome.asc')) || [];
-  return _ospitiCacheApp;
-}
-
+// --- Selezione ospite dall'anagrafica nel form appuntamento (ricerca live, ma il nome resta scrivibile a mano) ---
 async function popolaSelectOspitiApp(ospiteId, ospiteNome) {
-  const sel = document.getElementById('app-ospite-select');
-  if(!sel) return;
-  let lista = [];
-  try { lista = await assicuraOspitiCacheApp(); } catch(e) { lista = []; }
-  sel.innerHTML = '<option value="">— nessun ospite —</option>'
-    + lista.map(o=>`<option value="${o.id}">${o.cognome} ${o.nome}</option>`).join('');
-  if(ospiteId && lista.some(o=>o.id===ospiteId)) {
-    sel.value = ospiteId;
-  } else if(ospiteNome && ospiteNome.trim()) {
-    const cercato = ospiteNome.trim().toLowerCase();
-    const trovato = lista.find(o=>(o.cognome+' '+o.nome).toLowerCase()===cercato || (o.nome+' '+o.cognome).toLowerCase()===cercato);
-    if(trovato) sel.value = trovato.id;
-    else sel.innerHTML += `<option value="" selected>${ospiteNome} (non in anagrafica)</option>`;
-  } else {
-    sel.value = '';
-  }
-  sincronizzaNomeOspiteApp();
+  const input = document.getElementById('app-ospite');
+  const hiddenId = document.getElementById('app-ospite-id');
+  const info = document.getElementById('app-ospite-info');
+  if(!input || !hiddenId) return;
+  input.value = ospiteNome || '';
+  hiddenId.value = ospiteId || '';
+  if(info) info.innerHTML = '';
+  if(ospiteId) await mostraInfoOspiteApp(ospiteId);
 }
 
-function sincronizzaNomeOspiteApp() {
-  const sel = document.getElementById('app-ospite-select');
-  const nascosto = document.getElementById('app-ospite');
-  if(!sel || !nascosto) return;
-  if(sel.value) nascosto.value = sel.options[sel.selectedIndex].textContent.trim();
+let _appOspiteSearchTimeout = null;
+async function cercaOspitiApp(query) {
+  const risultatiEl = document.getElementById('app-ospite-risultati');
+  const hiddenId = document.getElementById('app-ospite-id');
+  const info = document.getElementById('app-ospite-info');
+  if(hiddenId) hiddenId.value = ''; // digitando si abbandona l'eventuale ospite selezionato prima
+  if(info) info.innerHTML = '';
+  if(!risultatiEl) return;
+  clearTimeout(_appOspiteSearchTimeout);
+  const q = query.trim();
+  if(q.length < 2) { risultatiEl.style.display='none'; risultatiEl.innerHTML=''; return; }
+  _appOspiteSearchTimeout = setTimeout(async () => {
+    try {
+      const strutture = SESSION.strutture_cas || [];
+      const struttureIds = strutture.map(s=>s.id);
+      if(struttureIds.length===0) { risultatiEl.style.display='none'; return; }
+      const mapS = {}; strutture.forEach(s=>mapS[s.id]=s.nome);
+      const qEnc = encodeURIComponent(q);
+      const risultati = await supa(`ospiti_cas?struttura_id=in.(${struttureIds.join(',')})&attivo=eq.true&or=(nome.ilike.*${qEnc}*,cognome.ilike.*${qEnc}*)&order=cognome&limit=8`) || [];
+      if(risultati.length===0) {
+        risultatiEl.innerHTML = '<div style="padding:8px 12px;color:var(--muted);font-size:.82rem;">Nessun ospite trovato — puoi comunque scrivere il nome a mano</div>';
+      } else {
+        risultatiEl.innerHTML = risultati.map(o=>`
+          <div onmousedown="selezionaOspiteApp('${o.id}','${(o.cognome+' '+o.nome).replace(/'/g,"\\'")}')" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'">
+            <div style="font-weight:600;font-size:.85rem;">${o.cognome} ${o.nome}</div>
+            <div style="font-size:.75rem;color:var(--muted);">🏠 ${mapS[o.struttura_id]||'—'}</div>
+          </div>`).join('');
+      }
+      risultatiEl.style.display = 'block';
+    } catch(e) { risultatiEl.style.display='none'; }
+  }, 250);
+}
+
+async function selezionaOspiteApp(id, nomeCompleto) {
+  document.getElementById('app-ospite').value = nomeCompleto;
+  document.getElementById('app-ospite-id').value = id;
+  const risultatiEl = document.getElementById('app-ospite-risultati');
+  if(risultatiEl) { risultatiEl.style.display = 'none'; risultatiEl.innerHTML=''; }
+  await mostraInfoOspiteApp(id);
+}
+
+async function mostraInfoOspiteApp(id) {
+  const info = document.getElementById('app-ospite-info');
+  if(!info) return;
+  try {
+    const res = await supa(`ospiti_cas?id=eq.${id}&select=data_nascita,nazionalita,struttura_id&limit=1`);
+    if(!res || res.length===0) { info.innerHTML=''; return; }
+    const o = res[0];
+    const nascita = o.data_nascita ? new Date(o.data_nascita).toLocaleDateString('it-IT') : '—';
+    info.innerHTML = `🎂 ${nascita} · 🌍 ${o.nazionalita||'—'}`;
+    if(o.struttura_id) { const sel = document.getElementById('app-struttura'); if(sel && sel.querySelector(`option[value="${o.struttura_id}"]`)) sel.value = o.struttura_id; }
+  } catch(e) { info.innerHTML=''; }
 }
 
 let _appEditId = null;
@@ -4728,10 +4763,24 @@ function nuovoAppuntamentoDaOspiteCAS(tipo, ospiteId, ospiteNome, strutturaId) {
   _appReturnOspiteId = ospiteId;
 }
 
-function nuovoAppuntamentoCAS(tipoPreselezionato) {
+const _PARFAIT_EMAIL = 'p.ndri@coopmetis.com';
+function puoGestireQuestura() {
+  return !!(SESSION.utente && SESSION.utente.email === _PARFAIT_EMAIL);
+}
+
+function applicaVincoloQuesturaSelect() {
+  const puo = puoGestireQuestura();
+  const opt = document.getElementById('app-tipo-opt-questura');
+  const avviso = document.getElementById('app-tipo-avviso-questura');
+  if(opt) opt.disabled = !puo;
+  if(avviso) avviso.style.display = puo ? 'none' : 'block';
+  return puo;
+}
+
+function nuovoAppuntamentoCAS(tipoPreselezionato, tornaADashboard) {
   _appEditId = null;
   _appReturnOspiteId = null;
-  _appReturnPage = tipoPreselezionato ? 'cas-appuntamenti-tipo' : 'cas-calendario';
+  _appReturnPage = tornaADashboard ? 'cas-dashboard' : (tipoPreselezionato ? 'cas-appuntamenti-tipo' : 'cas-calendario');
   _appReturnTipo = tipoPreselezionato || null;
   document.getElementById('app-modal-title').textContent = 'Nuovo Appuntamento';
   document.getElementById('app-titolo').value='';
@@ -4741,7 +4790,8 @@ function nuovoAppuntamentoCAS(tipoPreselezionato) {
   popolaSelectOspitiApp(null, null);
   document.getElementById('app-note').value='';
   document.getElementById('app-nome-avvocato').value='';
-  document.getElementById('app-tipo').value = tipoPreselezionato || 'Questura';
+  const puoQuestura = applicaVincoloQuesturaSelect();
+  document.getElementById('app-tipo').value = tipoPreselezionato || (puoQuestura ? 'Questura' : 'Commissione Territoriale');
   document.getElementById('app-avvocato-wrap').style.display = (tipoPreselezionato==='Avvocato')?'block':'none';
   const sel = document.getElementById('app-struttura');
   const strutture = SESSION.strutture_cas||[];
@@ -4754,6 +4804,10 @@ async function modificaAppuntamentoCAS(id, tipoPagina) {
     const res = await supa(`appuntamenti_cas?id=eq.${id}&limit=1`);
     if(!res || res.length===0) return;
     const a = res[0];
+    if (a.tipo === 'Questura' && !puoGestireQuestura()) {
+      alert('🔒 Gli appuntamenti Questura possono essere modificati solo da Parfait. Puoi solo visualizzarli.');
+      return;
+    }
     _appEditId = id;
     _appReturnOspiteId = a.ospite_id || null;
     if (tipoPagina === 'DASHBOARD') {
@@ -4765,6 +4819,7 @@ async function modificaAppuntamentoCAS(id, tipoPagina) {
     }
     document.getElementById('app-modal-title').textContent = 'Modifica Appuntamento';
     document.getElementById('app-titolo').value = a.titolo || '';
+    applicaVincoloQuesturaSelect();
     document.getElementById('app-tipo').value = a.tipo || 'Questura';
     const sel = document.getElementById('app-struttura');
     const strutture = SESSION.strutture_cas||[];
@@ -4783,6 +4838,14 @@ async function modificaAppuntamentoCAS(id, tipoPagina) {
 }
 
 async function eliminaAppuntamentoCAS(id, tipoPagina) {
+  try {
+    const res = await supa(`appuntamenti_cas?id=eq.${id}&select=tipo&limit=1`);
+    const tipoAttuale = res && res[0] && res[0].tipo;
+    if (tipoAttuale === 'Questura' && !puoGestireQuestura()) {
+      alert('🔒 Gli appuntamenti Questura possono essere eliminati solo da Parfait.');
+      return;
+    }
+  } catch(e) { alert('Errore: '+e.message); return; }
   if(!confirm('Eliminare questo appuntamento?')) return;
   try {
     await supa(`appuntamenti_cas?id=eq.${id}`,{method:'DELETE',headers:{'Prefer':'return=minimal'}});
@@ -4798,13 +4861,14 @@ async function salvaAppuntamentoCAS() {
   const data = document.getElementById('app-data').value;
   const ora = document.getElementById('app-ora').value;
   if(!titolo||!data||!ora) { alert('Compila titolo, data e ora.'); return; }
+  if(tipo === 'Questura' && !puoGestireQuestura()) { alert('🔒 Solo Parfait può inserire o modificare appuntamenti Questura.'); return; }
   const payload = {
     titolo, tipo, struttura_id,
     data_ora: new Date(`${data}T${ora}:00`).toISOString(),
     ospite_nome: document.getElementById('app-ospite').value||null,
     note: document.getElementById('app-note').value||null,
     nome_avvocato: tipo==='Avvocato' ? (document.getElementById('app-nome-avvocato').value||null) : null,
-    ospite_id: (document.getElementById('app-ospite-select') || {}).value || _appReturnOspiteId || null
+    ospite_id: (document.getElementById('app-ospite-id') || {}).value || _appReturnOspiteId || null
   };
   try {
     if(!_appEditId && payload.ospite_nome) {
@@ -5120,7 +5184,7 @@ async function apriOspiteCAS(id) {
     document.getElementById('cas-nuovo-app-wrap').innerHTML =
       `<select onchange="if(this.value){nuovoAppuntamentoDaOspiteCAS(this.value,'${o.id}','${(o.cognome+' '+o.nome).replace(/'/g,"\\'")}','${o.struttura_id}');this.value='';}" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;">
         <option value="">+ Nuovo appuntamento</option>
-        <option value="Questura">Questura</option>
+        <option value="Questura" ${puoGestireQuestura()?'':'disabled'}>Questura${puoGestireQuestura()?'':' (solo Parfait)'}</option>
         <option value="Commissione Territoriale">Commissione Territoriale</option>
         <option value="Avvocato">Avvocato</option>
         <option value="Visita medica">Sanitario</option>
@@ -6246,14 +6310,15 @@ async function salvaTrasferimento() {
     <div class="grid g2">
       <div class="form-group"><label>Tipo *</label>
         <select id="app-tipo" onchange="document.getElementById('app-avvocato-wrap').style.display=this.value==='Avvocato'?'block':'none';">
-          <option>Questura</option>
-          <option>Commissione Territoriale</option>
-          <option>Avvocato</option>
-          <option>Visita medica</option>
-          <option>Specialista</option>
-          <option>Ricorso</option>
-          <option>Altro</option>
+          <option value="Questura" id="app-tipo-opt-questura">Questura</option>
+          <option value="Commissione Territoriale">Commissione Territoriale</option>
+          <option value="Avvocato">Avvocato</option>
+          <option value="Visita medica">Visita medica</option>
+          <option value="Specialista">Specialista</option>
+          <option value="Ricorso">Ricorso</option>
+          <option value="Altro">Altro</option>
         </select>
+        <div id="app-tipo-avviso-questura" style="display:none;font-size:.75rem;color:var(--muted);margin-top:4px;">🔒 Solo Parfait può inserire o modificare appuntamenti Questura.</div>
       </div>
       <div class="form-group"><label>Struttura</label>
         <select id="app-struttura"></select>
@@ -6264,9 +6329,11 @@ async function salvaTrasferimento() {
       <div class="form-group"><label>Ora *</label><input id="app-ora" type="time"></div>
     </div>
     <div class="form-group" id="app-avvocato-wrap" style="display:none;"><label>Nome avvocato</label><input id="app-nome-avvocato" placeholder="es. Avv. Rossi"></div>
-    <div class="form-group"><label>Ospite</label>
-      <select id="app-ospite-select" onchange="sincronizzaNomeOspiteApp()"><option value="">— nessun ospite —</option></select>
-      <input id="app-ospite" type="hidden">
+    <div class="form-group" style="position:relative;"><label>Nome e cognome ospite</label>
+      <input id="app-ospite" type="text" placeholder="Digita per cercare tra gli ospiti…" autocomplete="off" oninput="cercaOspitiApp(this.value)" onblur="setTimeout(()=>{const r=document.getElementById('app-ospite-risultati'); if(r) r.style.display='none';},150)">
+      <input id="app-ospite-id" type="hidden">
+      <div id="app-ospite-risultati" style="display:none;position:absolute;left:0;right:0;top:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:20;max-height:220px;overflow-y:auto;"></div>
+      <div id="app-ospite-info" style="font-size:.78rem;color:var(--muted);margin-top:4px;"></div>
     </div>
     <div class="form-group"><label>Note</label><textarea id="app-note" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
     <div class="modal-footer">
