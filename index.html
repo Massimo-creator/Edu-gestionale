@@ -3728,6 +3728,14 @@ async function renderCalendarioCoordinatoreCAS(el) {
     const appuntamenti = await supa('calendario_coordinatore_cas?order=data_ora') || [];
     const nomiMesi = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 
+    // Ferie del mese visualizzato (dai turni), mostrate in rosso
+    const _mm = String(_calCoordMese+1).padStart(2,'0');
+    const _dInizio = `${_calCoordAnno}-${_mm}-01`;
+    const _dFine = `${_calCoordAnno}-${_mm}-${String(new Date(_calCoordAnno,_calCoordMese+1,0).getDate()).padStart(2,'0')}`;
+    const ferieMese = await supa(`turni_cas?tipo=eq.Ferie&data=gte.${_dInizio}&data=lte.${_dFine}&order=operatore_nome`) || [];
+    const feriePerGiorno = {};
+    ferieMese.forEach(f=>{ (feriePerGiorno[f.data] = feriePerGiorno[f.data]||[]).push(f.operatore_nome||f.operatore_email); });
+
     // Avvisi: oggi e domani
     const oggiMezzanotte = new Date(); oggiMezzanotte.setHours(0,0,0,0);
     const dopoDomani = new Date(oggiMezzanotte); dopoDomani.setDate(dopoDomani.getDate()+2);
@@ -3760,6 +3768,7 @@ async function renderCalendarioCoordinatoreCAS(el) {
       const dataStr = `${data.getFullYear()}-${String(data.getMonth()+1).padStart(2,'0')}-${String(data.getDate()).padStart(2,'0')}`;
       return `<div ${puoModificare?`onclick="nuovoCalendarioCoordinatoreCAS('${dataStr}')"`:''} style="min-height:92px;background:var(--card);border:1px solid ${isOggi?'var(--accent2)':'var(--border)'};border-radius:6px;padding:6px;cursor:${puoModificare?'pointer':'default'};display:flex;flex-direction:column;gap:3px;">
         <div style="font-size:.78rem;font-weight:${isOggi?'700':'500'};color:${isOggi?'var(--accent2)':'var(--text)'};">${data.getDate()}</div>
+        ${(feriePerGiorno[dataStr]||[]).length>0?`<div onclick="event.stopPropagation()" style="background:#ef4444;color:#fff;border-radius:4px;padding:2px 5px;font-size:.7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="Ferie: ${feriePerGiorno[dataStr].join(', ')}">🔴 Ferie: ${feriePerGiorno[dataStr].join(', ')}</div>`:''}
         ${eventi.map(ev=>{
           const dEv = new Date(ev.data_ora);
           return `<div onclick="event.stopPropagation();modificaCalendarioCoordinatoreCAS('${ev.id}')" style="background:var(--accent);color:#fff;border-radius:4px;padding:2px 5px;font-size:.7rem;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${ev.titolo}">${dEv.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})} ${ev.titolo}</div>`;
