@@ -3523,6 +3523,9 @@ async function salvaEsitoAppuntamentoCAS(prendiNuovo) {
       _appReturnOspiteId = a.ospite_id || null;
     } else if (_casPaginaAttuale === 'cas-dashboard') {
       renderCasDashboard(document.getElementById('content-cas'));
+    } else if (_casPaginaAttuale === 'cas-commissioni') {
+      // resta sul mese che si stava guardando
+      renderCasAppuntamenti(document.getElementById('content-cas'), 'COMMISSIONI_RICORSI');
     } else {
       showPageCAS(_casPaginaAttuale);
     }
@@ -3541,7 +3544,7 @@ function showPageCAS(page) {
   else if (page === 'cas-dashboard') renderCasDashboard(content);
   else if (page === 'cas-strutture') renderCasStrutture(content);
   else if (page === 'cas-calendario') renderCasCalendario(content);
-  else if (page === 'cas-commissioni') renderCasAppuntamenti(content, 'COMMISSIONI_RICORSI');
+  else if (page === 'cas-commissioni') { _appMese = new Date().getMonth(); _appAnno = new Date().getFullYear(); renderCasAppuntamenti(content, 'COMMISSIONI_RICORSI'); }
   else if (page === 'cas-sanitari') renderCasAppuntamenti(content, 'Visita medica');
   else if (page === 'cas-avvocato') renderCasAppuntamenti(content, 'Avvocato');
   else if (page === 'cas-accompagnamenti') { _accMese = new Date().getMonth(); _accAnno = new Date().getFullYear(); renderAccompagnamentiCAS(content); }
@@ -4687,6 +4690,18 @@ async function renderCasScadenze(el) {
 }
 
 // ── COMMISSIONI E SANITARI ─────────────────────────────────────
+let _appMese = new Date().getMonth();
+let _appAnno = new Date().getFullYear();
+function cambiaMeseApp(delta) {
+  if (delta === 0) { _appMese = new Date().getMonth(); _appAnno = new Date().getFullYear(); }
+  else {
+    _appMese += delta;
+    if (_appMese < 0) { _appMese = 11; _appAnno--; }
+    if (_appMese > 11) { _appMese = 0; _appAnno++; }
+  }
+  renderCasAppuntamenti(document.getElementById('content-cas'), 'COMMISSIONI_RICORSI');
+}
+
 async function renderCasAppuntamenti(el, tipo) {
   // 'COMMISSIONI_RICORSI' = pagina unica che mostra insieme Commissioni e Ricorsi, con colori diversi
   const combinata = (tipo === 'COMMISSIONI_RICORSI');
@@ -4700,12 +4715,15 @@ async function renderCasAppuntamenti(el, tipo) {
     let appuntamenti = [];
     if (struttureIds.length>0) {
       const filtroTipo = combinata ? `tipo=in.(${tipiPagina.map(t=>encodeURIComponent('"'+t+'"')).join(',')})` : `tipo=eq.${encodeURIComponent(tipo)}`;
-      appuntamenti = await supa(`appuntamenti_cas?struttura_id=in.(${struttureIds.join(',')})&${filtroTipo}&order=data_ora`) || [];
+      const filtroMese = combinata ? `&data_ora=gte.${new Date(_appAnno,_appMese,1).toISOString()}&data_ora=lt.${new Date(_appAnno,_appMese+1,1).toISOString()}` : '';
+      appuntamenti = await supa(`appuntamenti_cas?struttura_id=in.(${struttureIds.join(',')})&${filtroTipo}${filtroMese}&order=data_ora`) || [];
     }
     const mapS = {}; strutture.forEach(s=>mapS[s.id]=s.nome);
     const oggi = new Date(); oggi.setHours(0,0,0,0);
-    const prossimi = appuntamenti.filter(a => new Date(a.data_ora) >= oggi);
-    const passati = appuntamenti.filter(a => new Date(a.data_ora) < oggi);
+    // Nella pagina Commissioni e Ricorsi si vede un mese alla volta: tutti gli appuntamenti del mese in ordine, passati compresi
+    const prossimi = combinata ? appuntamenti : appuntamenti.filter(a => new Date(a.data_ora) >= oggi);
+    const passati = combinata ? [] : appuntamenti.filter(a => new Date(a.data_ora) < oggi);
+    const nomiMesiApp = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
     const icona = combinata ? '⚖️' : tipoAppuntamentoIcon(tipo);
     const titoloPagina = combinata ? 'Commissioni e Ricorsi' : tipo;
     const bottoneNuovo = combinata
@@ -4719,12 +4737,15 @@ async function renderCasAppuntamenti(el, tipo) {
         <h2 style="font-size:1.1rem;">${icona} ${titoloPagina}</h2>
         ${bottoneNuovo}
       </div>
+      ${combinata?`<div style="display:flex;align-items:center;justify-content:center;gap:14px;margin:-6px 0 18px;"><button class="btn btn-ghost" onclick="cambiaMeseApp(-1)" title="Mese precedente">◀</button><div style="font-weight:600;min-width:150px;text-align:center;">${nomiMesiApp[_appMese]} ${_appAnno}</div><button class="btn btn-ghost" onclick="cambiaMeseApp(1)" title="Mese successivo">▶</button><button class="btn btn-ghost" style="font-size:.75rem;" onclick="cambiaMeseApp(0)">Oggi</button></div>`:''}
       <div style="display:grid;gap:10px;margin-bottom:28px;">
-        ${prossimi.length===0?`<div class="card" style="padding:20px;text-align:center;color:var(--muted);">Nessun appuntamento in programma</div>`:
+        ${prossimi.length===0?`<div class="card" style="padding:20px;text-align:center;color:var(--muted);">${combinata?`Nessuna commissione o ricorso a ${nomiMesiApp[_appMese]} ${_appAnno}`:'Nessun appuntamento in programma'}</div>`:
           prossimi.map(a=>{
             const d = new Date(a.data_ora);
             const isOggi = d.toDateString()===new Date().toDateString();
-            return `<div class="card" style="padding:16px;border-left:3px solid ${bordoTipo(a,isOggi)};">
+            const passatoMese = combinata && d < oggi;
+            const daSvolgereMese = passatoMese && a.stato !== 'Svolto';
+            return `<div class="card" style="padding:16px;border-left:3px solid ${bordoTipo(a,isOggi)};${passatoMese && !daSvolgereMese ? 'opacity:.6;' : ''}">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
                 <div>
                   ${badgeTipo(a)}
@@ -4733,6 +4754,8 @@ async function renderCasAppuntamenti(el, tipo) {
                   ${a.ospite_nome?`<div style="font-size:.82rem;color:var(--muted);">👤 ${a.ospite_nome}</div>`:''}
                   ${a.nome_avvocato?`<div style="font-size:.82rem;color:var(--muted);">⚖️ ${a.nome_avvocato}</div>`:''}
                   ${a.note?`<div style="font-size:.82rem;color:var(--muted);margin-top:4px;">${a.note}</div>`:''}
+                  ${passatoMese && a.stato==='Svolto' && a.esito ? `<div style="font-size:.8rem;color:var(--muted);margin-top:6px;">📝 ${a.esito}</div>` : ''}
+                  ${daSvolgereMese ? `<button onclick="aggiornaEsitoAppuntamentoCAS('${a.id}')" class="btn btn-primary" style="font-size:.75rem;padding:4px 10px;margin-top:8px;">✅ Aggiorna esito</button>` : ''}
                   <div style="margin-top:8px;">
                     ${SESSION.is_coordinatore_cas
                       ? `<select onchange="assegnaAccompagnatoreCAS('${a.id}', this.value)" style="font-size:.8rem;padding:4px 8px;border-radius:6px;border:1px solid var(--border);">
