@@ -3325,7 +3325,7 @@ function mostraAppCAS() {
   <div style="padding:10px 16px 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-top:4px;">Appuntamenti e Scadenze</div>
   <div class="nav-item" onclick="nuovoAppuntamentoCAS(null, true)" style="padding-left:24px;color:#4ade80;font-weight:600;"><span class="ico">＋</span> Aggiungi appuntamento</div>
   <div class="nav-item" onclick="showPageCAS('cas-calendario')" style="padding-left:24px;"><span class="ico">🏛️</span> Questura</div>
-  <div class="nav-item" onclick="showPageCAS('cas-commissioni')" style="padding-left:24px;"><span class="ico">⚖️</span> Commissioni</div>
+  <div class="nav-item" onclick="showPageCAS('cas-commissioni')" style="padding-left:24px;"><span class="ico">⚖️</span> Commissioni e Ricorsi</div>
   <div class="nav-item" onclick="showPageCAS('cas-sanitari')" style="padding-left:24px;"><span class="ico">🏥</span> Visite sanitarie</div>
   <div class="nav-item" onclick="showPageCAS('cas-avvocato')" style="padding-left:24px;"><span class="ico">👨‍⚖️</span> Appuntamenti Avvocato</div>
   <div class="nav-item" onclick="showPageCAS('cas-accompagnamenti')" style="padding-left:24px;"><span class="ico">🚗</span> Accompagnamenti</div>
@@ -3534,14 +3534,14 @@ function showPageCAS(page) {
   if (page === 'cas-calendario-coordinatore' && !SESSION.is_coordinatore_cas) return;
   _casPaginaAttuale = page;
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
-  const titles = { 'cas-dashboard':'Dashboard','cas-strutture':'Strutture e Ospiti','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-accompagnamenti':'Accompagnamenti','cas-mio-calendario':'Mio Calendario','cas-calendario-mensile-accompagnamenti':'Calendario Mensile Accompagnamenti','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti','cas-report-accompagnamenti':'Report Accompagnamenti' };
+  const titles = { 'cas-dashboard':'Dashboard','cas-strutture':'Strutture e Ospiti','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni e Ricorsi','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-accompagnamenti':'Accompagnamenti','cas-mio-calendario':'Mio Calendario','cas-calendario-mensile-accompagnamenti':'Calendario Mensile Accompagnamenti','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti','cas-report-accompagnamenti':'Report Accompagnamenti' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
   if (page === 'cas-calendario-coordinatore') { _calCoordMese = new Date().getMonth(); _calCoordAnno = new Date().getFullYear(); renderCalendarioCoordinatoreCAS(content); }
   else if (page === 'cas-dashboard') renderCasDashboard(content);
   else if (page === 'cas-strutture') renderCasStrutture(content);
   else if (page === 'cas-calendario') renderCasCalendario(content);
-  else if (page === 'cas-commissioni') renderCasAppuntamenti(content, 'Commissione Territoriale');
+  else if (page === 'cas-commissioni') renderCasAppuntamenti(content, 'COMMISSIONI_RICORSI');
   else if (page === 'cas-sanitari') renderCasAppuntamenti(content, 'Visita medica');
   else if (page === 'cas-avvocato') renderCasAppuntamenti(content, 'Avvocato');
   else if (page === 'cas-accompagnamenti') { _accMese = new Date().getMonth(); _accAnno = new Date().getFullYear(); renderAccompagnamentiCAS(content); }
@@ -3559,6 +3559,7 @@ function showPageCAS(page) {
 const STILE_TIPO_ACC = {
   'Questura': {colore:'#2563eb', etichetta:'Questura'},
   'Commissione Territoriale': {colore:'#7c3aed', etichetta:'Commissione Territoriale'},
+  'Ricorso': {colore:'#db2777', etichetta:'Ricorso'},
   'Avvocato': {colore:'#475569', etichetta:'Avvocato'},
   'Visita medica': {colore:'#0d9488', etichetta:'Visita medica'},
 };
@@ -3938,6 +3939,7 @@ async function renderAccompagnamentiCAS(el) {
     const stiliTipo = {
       'Questura': {colore:'#2563eb', icona:'🛂'},
       'Commissione Territoriale': {colore:'#7c3aed', icona:'⚖️'},
+      'Ricorso': {colore:'#db2777', icona:'📋'},
       'Avvocato': {colore:'#475569', icona:'👨\u200d⚖️'},
       'Visita medica': {colore:'#0d9488', icona:'🏥'},
     };
@@ -4140,6 +4142,7 @@ async function renderMioCalendarioCAS(el) {
             const stileTipo = {
               'Questura': {colore:'#2563eb', icona:'🛂', etichetta:'Questura'},
               'Commissione Territoriale': {colore:'#7c3aed', icona:'⚖️', etichetta:'Commissione'},
+              'Ricorso': {colore:'#db2777', icona:'📋', etichetta:'Ricorso'},
               'Avvocato': {colore:'#475569', icona:'👨\u200d⚖️', etichetta:'Avvocato'},
               'Visita medica': {colore:'#0d9488', icona:'🏥', etichetta:'Sanitario'},
             }[ev.dato.tipo] || {colore:'#64748b', icona:'📌', etichetta: ev.dato.tipo || 'Altro'};
@@ -4508,7 +4511,7 @@ function _notificheCasUltimaLettura() {
 async function caricaNotificheCAS() {
   const dopoDi = _notificheCasUltimaLettura();
   const eventi = [];
-  const paginaPerTipo = {'Questura':'cas-calendario','Commissione Territoriale':'cas-commissioni','Avvocato':'cas-avvocato','Visita medica':'cas-sanitari'};
+  const paginaPerTipo = {'Questura':'cas-calendario','Commissione Territoriale':'cas-commissioni','Ricorso':'cas-commissioni','Avvocato':'cas-avvocato','Visita medica':'cas-sanitari'};
   try {
     const nuoviApp = await supa(`appuntamenti_cas?created_at=gte.${dopoDi}&order=created_at.desc&limit=20`) || [];
     nuoviApp.forEach(a => eventi.push({
@@ -4685,35 +4688,46 @@ async function renderCasScadenze(el) {
 
 // ── COMMISSIONI E SANITARI ─────────────────────────────────────
 async function renderCasAppuntamenti(el, tipo) {
+  // 'COMMISSIONI_RICORSI' = pagina unica che mostra insieme Commissioni e Ricorsi, con colori diversi
+  const combinata = (tipo === 'COMMISSIONI_RICORSI');
+  const tipiPagina = combinata ? ['Commissione Territoriale','Ricorso'] : [tipo];
+  const badgeTipo = (a) => combinata ? `<span style="display:inline-block;background:${coloreTipoAppuntamento(a.tipo)};color:#fff;border-radius:4px;padding:1px 7px;font-size:.68rem;font-weight:600;margin-bottom:4px;">${a.tipo==='Ricorso'?'📋 Ricorso':'⚖️ Commissione'}</span>` : '';
+  const bordoTipo = (a, isOggi) => isOggi ? 'var(--danger)' : (combinata ? coloreTipoAppuntamento(a.tipo) : 'var(--accent)');
   el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
   try {
     const strutture = await supa('strutture_cas?order=nome') || [];
     const struttureIds = strutture.map(s=>s.id);
     let appuntamenti = [];
     if (struttureIds.length>0) {
-      appuntamenti = await supa(`appuntamenti_cas?struttura_id=in.(${struttureIds.join(',')})&tipo=eq.${encodeURIComponent(tipo)}&order=data_ora`) || [];
+      const filtroTipo = combinata ? `tipo=in.(${tipiPagina.map(t=>encodeURIComponent('"'+t+'"')).join(',')})` : `tipo=eq.${encodeURIComponent(tipo)}`;
+      appuntamenti = await supa(`appuntamenti_cas?struttura_id=in.(${struttureIds.join(',')})&${filtroTipo}&order=data_ora`) || [];
     }
     const mapS = {}; strutture.forEach(s=>mapS[s.id]=s.nome);
     const oggi = new Date(); oggi.setHours(0,0,0,0);
     const prossimi = appuntamenti.filter(a => new Date(a.data_ora) >= oggi);
     const passati = appuntamenti.filter(a => new Date(a.data_ora) < oggi);
-    const icona = tipoAppuntamentoIcon(tipo);
+    const icona = combinata ? '⚖️' : tipoAppuntamentoIcon(tipo);
+    const titoloPagina = combinata ? 'Commissioni e Ricorsi' : tipo;
+    const bottoneNuovo = combinata
+      ? `<div style="display:flex;gap:8px;"><button class="btn btn-primary" style="background:${coloreTipoAppuntamento('Commissione Territoriale')};" onclick="nuovoAppuntamentoCAS('Commissione Territoriale')">+ Commissione</button><button class="btn btn-primary" style="background:${coloreTipoAppuntamento('Ricorso')};" onclick="nuovoAppuntamentoCAS('Ricorso')">+ Ricorso</button></div>`
+      : `<button class="btn btn-primary" onclick="nuovoAppuntamentoCAS('${tipo}')">+ Nuovo</button>`;
 
     const opzioniOperatori2 = OPERATORI_CAS.map(o=>`<option value="${o.nome}">${o.nome}</option>`).join('');
 
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-        <h2 style="font-size:1.1rem;">${icona} ${tipo}</h2>
-        <button class="btn btn-primary" onclick="nuovoAppuntamentoCAS('${tipo}')">+ Nuovo</button>
+        <h2 style="font-size:1.1rem;">${icona} ${titoloPagina}</h2>
+        ${bottoneNuovo}
       </div>
       <div style="display:grid;gap:10px;margin-bottom:28px;">
         ${prossimi.length===0?`<div class="card" style="padding:20px;text-align:center;color:var(--muted);">Nessun appuntamento in programma</div>`:
           prossimi.map(a=>{
             const d = new Date(a.data_ora);
             const isOggi = d.toDateString()===new Date().toDateString();
-            return `<div class="card" style="padding:16px;border-left:3px solid ${isOggi?'var(--danger)':'var(--accent)'};">
+            return `<div class="card" style="padding:16px;border-left:3px solid ${bordoTipo(a,isOggi)};">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
                 <div>
+                  ${badgeTipo(a)}
                   <div style="font-weight:600;">${a.titolo}</div>
                   <div style="font-size:.82rem;color:var(--muted);">🏠 ${mapS[a.struttura_id]||'—'}</div>
                   ${a.ospite_nome?`<div style="font-size:.82rem;color:var(--muted);">👤 ${a.ospite_nome}</div>`:''}
@@ -4743,9 +4757,9 @@ async function renderCasAppuntamenti(el, tipo) {
       ${passati.length>0?`<details><summary style="cursor:pointer;color:var(--muted);font-size:.85rem;padding:8px 0;">Passati (${passati.length})</summary><div style="display:grid;gap:8px;margin-top:10px;">${passati.reverse().map(a=>{
         const d=new Date(a.data_ora);
         const daSvolgere = a.stato !== 'Svolto';
-        return `<div class="card" style="padding:12px;${daSvolgere?'':'opacity:.6;'}">
+        return `<div class="card" style="padding:12px;${combinata?`border-left:3px solid ${coloreTipoAppuntamento(a.tipo)};`:''}${daSvolgere?'':'opacity:.6;'}">
           <div style="display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-weight:500;">${a.titolo}</span>
+            <span style="font-weight:500;">${combinata?`${a.tipo==='Ricorso'?'📋':'⚖️'} `:''}${a.titolo}</span>
             <span style="font-size:.82rem;color:var(--muted);">${d.toLocaleDateString('it-IT')}</span>
           </div>
           ${daSvolgere
@@ -4983,7 +4997,7 @@ function nuovoAppuntamentoCAS(tipoPreselezionato, tornaADashboard) {
   _appEditId = null;
   _appReturnOspiteId = null;
   _appReturnPage = tornaADashboard ? 'cas-dashboard' : (tipoPreselezionato ? 'cas-appuntamenti-tipo' : 'cas-calendario');
-  _appReturnTipo = tipoPreselezionato || null;
+  _appReturnTipo = (tipoPreselezionato==='Commissione Territoriale'||tipoPreselezionato==='Ricorso') ? 'COMMISSIONI_RICORSI' : (tipoPreselezionato || null);
   document.getElementById('app-modal-title').textContent = 'Nuovo Appuntamento';
   document.getElementById('app-titolo').value='';
   document.getElementById('app-data').value='';
