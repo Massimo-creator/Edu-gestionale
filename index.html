@@ -4832,7 +4832,7 @@ async function renderCasCalendario(el) {
         ${puoModificareQuestura?`<button class="btn btn-primary" onclick="nuovoAppuntamentoCAS('Questura')">+ Nuovo</button>`:''}
       </div>
       <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin:-6px 0 18px;"><button class="btn btn-ghost" onclick="cambiaMeseQuest(-1)" title="Mese precedente">◀</button><div style="font-weight:600;min-width:150px;text-align:center;">${nomiMesiQuest[_questMese]} ${_questAnno}</div><button class="btn btn-ghost" onclick="cambiaMeseQuest(1)" title="Mese successivo">▶</button><button class="btn btn-ghost" style="font-size:.75rem;" onclick="cambiaMeseQuest(0)">Oggi</button></div>
-      ${!puoModificareQuestura?'<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;font-size:.82rem;margin-bottom:16px;">👁️ Visualizzazione in sola lettura. Gli appuntamenti Questura vengono inseriti e modificati solo da Parfait.</div>':''}
+      ${!puoModificareQuestura?'<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;font-size:.82rem;margin-bottom:16px;">👁️ Visualizzazione in sola lettura. Gli appuntamenti Questura vengono inseriti e modificati solo da Parfait e dal coordinatore.</div>':''}
       <div style="display:grid;gap:10px;margin-bottom:28px;">
         ${prossimi.length===0?`<div class="card" style="padding:20px;text-align:center;color:var(--muted);">Nessun appuntamento a ${nomiMesiQuest[_questMese]} ${_questAnno}</div>`:
           prossimi.map(a=>{
@@ -5016,7 +5016,7 @@ function nuovoAppuntamentoDaOspiteCAS(tipo, ospiteId, ospiteNome, strutturaId) {
 
 const _PARFAIT_EMAIL = 'p.ndri@coopmetis.com';
 function puoGestireQuestura() {
-  return !!(SESSION.utente && SESSION.utente.email === _PARFAIT_EMAIL);
+  return !!(SESSION.utente && (SESSION.utente.email === _PARFAIT_EMAIL || SESSION.is_coordinatore_cas));
 }
 
 function applicaVincoloQuesturaSelect() {
@@ -5106,7 +5106,7 @@ async function eliminaAppuntamentoCAS(id, tipoPagina) {
     const res = await supa(`appuntamenti_cas?id=eq.${id}&select=tipo&limit=1`);
     const tipoAttuale = res && res[0] && res[0].tipo;
     if (tipoAttuale === 'Questura' && !puoGestireQuestura()) {
-      alert('🔒 Gli appuntamenti Questura possono essere eliminati solo da Parfait.');
+      alert('🔒 Gli appuntamenti Questura possono essere eliminati solo da Parfait e dal coordinatore.');
       return;
     }
   } catch(e) { alert('Errore: '+e.message); return; }
@@ -5126,7 +5126,7 @@ async function salvaAppuntamentoCAS() {
   const data = document.getElementById('app-data').value;
   const ora = document.getElementById('app-ora').value;
   if(!titolo||!data||!ora) { alert('Compila titolo, data e ora.'); return; }
-  if(tipo === 'Questura' && !puoGestireQuestura()) { alert('🔒 Solo Parfait può inserire o modificare appuntamenti Questura.'); return; }
+  if(tipo === 'Questura' && !puoGestireQuestura()) { alert('🔒 Solo Parfait e il coordinatore possono inserire o modificare appuntamenti Questura.'); return; }
   const payload = {
     titolo, tipo, struttura_id,
     data_ora: new Date(`${data}T${ora}:00`).toISOString(),
@@ -5451,7 +5451,7 @@ async function apriOspiteCAS(id) {
     document.getElementById('cas-nuovo-app-wrap').innerHTML =
       `<select onchange="if(this.value){nuovoAppuntamentoDaOspiteCAS(this.value,'${o.id}','${(o.cognome+' '+o.nome).replace(/'/g,"\\'")}','${o.struttura_id}');this.value='';}" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;">
         <option value="">+ Nuovo appuntamento</option>
-        <option value="Questura" ${puoGestireQuestura()?'':'disabled'}>Questura${puoGestireQuestura()?'':' (solo Parfait)'}</option>
+        <option value="Questura" ${puoGestireQuestura()?'':'disabled'}>Questura${puoGestireQuestura()?'':' (solo Parfait e coordinatore)'}</option>
         <option value="Commissione Territoriale">Commissione Territoriale</option>
         <option value="Avvocato">Avvocato</option>
         <option value="Visita medica">Sanitario</option>
@@ -6573,7 +6573,7 @@ async function salvaTrasferimento() {
 <div class="modal-overlay" id="modal-appuntamento-cas">
   <div class="modal">
     <h3>📅 <span id="app-modal-title">Nuovo Appuntamento</span></h3>
-    <div id="app-soloLettura-avviso" style="display:none;background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:8px 12px;font-size:.8rem;margin-bottom:12px;">👁️ Sola visualizzazione — solo Parfait può modificare gli appuntamenti Questura.</div>
+    <div id="app-soloLettura-avviso" style="display:none;background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:8px 12px;font-size:.8rem;margin-bottom:12px;">👁️ Sola visualizzazione — solo Parfait e il coordinatore possono modificare gli appuntamenti Questura.</div>
     <div class="form-group"><label>Titolo *</label><input id="app-titolo" placeholder="es. Audizione Commissione - Ahmed"></div>
     <div class="grid g2">
       <div class="form-group"><label>Tipo *</label>
@@ -6586,7 +6586,7 @@ async function salvaTrasferimento() {
           <option value="Ricorso">Ricorso</option>
           <option value="Altro">Altro</option>
         </select>
-        <div id="app-tipo-avviso-questura" style="display:none;font-size:.75rem;color:var(--muted);margin-top:4px;">🔒 Solo Parfait può inserire o modificare appuntamenti Questura.</div>
+        <div id="app-tipo-avviso-questura" style="display:none;font-size:.75rem;color:var(--muted);margin-top:4px;">🔒 Solo Parfait e il coordinatore possono inserire o modificare appuntamenti Questura.</div>
       </div>
       <div class="form-group"><label>Struttura</label>
         <select id="app-struttura"></select>
