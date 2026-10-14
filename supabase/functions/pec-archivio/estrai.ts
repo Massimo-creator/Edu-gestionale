@@ -7,9 +7,10 @@ function pulisci(s: string): string {
 export type Convocazione = { data: string; ora: string; luogo: string; frase: string };
 
 // "La S.V. è invitata a presentarsi il giorno 28-10-2026, alle ore 09:00, presso la Commissione ..., per un colloquio"
+// Le lettere di Forlì non hanno la virgola: "... sita in P.zza Ordelaffi, 2 - 47121 Forli per un colloquio personale".
 export function leggiConvocazione(testo: string): Convocazione | null {
   const t = pulisci(testo);
-  const m = /presentarsi\s+il\s+giorno\s+(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4}),?\s+alle\s+ore\s+(\d{1,2})[:.](\d{2}),?\s+presso\s+(.+?),\s+per\s/i.exec(t);
+  const m = /presentarsi\s+il\s+giorno\s+(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4}),?\s+alle\s+ore\s+(\d{1,2})[:.](\d{2}),?\s+presso\s+(.+?)(?:,\s+per\s|\s+per\s+(?:un|il)\s+colloquio)/i.exec(t);
   if (!m) return null;
   const [g, me, a, h, mi] = [m[1], m[2], m[3], m[4], m[5]].map(Number);
   if (me < 1 || me > 12 || g < 1 || g > 31 || h > 23 || mi > 59) return null;
@@ -17,7 +18,8 @@ export function leggiConvocazione(testo: string): Convocazione | null {
   const ora = `${String(h).padStart(2, "0")}:${String(mi).padStart(2, "0")}`;
   const luogo = m[6].replace(/^la\s+/i, "").trim();
   const inizio = t.lastIndexOf("La S.V.", m.index) >= 0 ? t.lastIndexOf("La S.V.", m.index) : m.index;
-  return { data, ora, luogo, frase: t.slice(inizio, m.index + m[0].length - 5).trim() };
+  const fineLuogo = m.index + m[0].lastIndexOf(m[6]) + m[6].length;
+  return { data, ora, luogo, frase: t.slice(inizio, fineLuogo).trim() };
 }
 
 // Decreto della Commissione: dispositivo dopo "DECIDE" e procedura applicata.
