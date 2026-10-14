@@ -4,6 +4,7 @@ import { type Ospite } from "./logic.ts";
 import { NOMI_ATTO, ospitiNelTesto, type TipoAtto, tipoAtto } from "./atti.ts";
 import { frasiConTermini, leggiConvocazione, leggiDecreto } from "./estrai.ts";
 import { chiaveUsata, chiaviConfigurate } from "./chiave.ts";
+import { registraAtto, rigaAtto } from "./registro.ts";
 
 // Archiviazione PEC. Lo script Apps Script legge le PEC inoltrate e salva i PDF su Drive;
 // questa funzione riconosce atto e ospite, legge il PDF, segna le convocazioni in Approdo
@@ -97,24 +98,28 @@ function rigaConsegna(corpoPec: string): string {
 type OspiteDesc = { id: string; cognome: string; nome: string; cartella: string; data_nascita: string | null; attivo: boolean; struttura: string | null; struttura_id: string | null };
 
 // Segna in Approdo l'audizione letta dalla convocazione, senza doppioni.
-async function segnaAudizione(o: OspiteDesc, data: string, ora: string, rn: string, dataPec: string): Promise<string> {
+// Restituisce il messaggio per la mail e l'id dell'appuntamento creato o già presente per quel giorno.
+// In prova non scrive nulla: fa solo i controlli e trova l'appuntamento eventualmente già presente.
+type Audizione = { testo: string; id: string | null };
+async function segnaAudizione(o: OspiteDesc, data: string, ora: string, rn: string, dataPec: string, prova = false): Promise<Audizione> {
   const oggi = fmtRoma.format(new Date());
-  if (data < oggi) return `NON segnata in Approdo: la data letta (${dataIt(data)}) è già passata.`;
+  if (data < oggi) return { testo: `NON segnata in Approdo: la data letta (${dataIt(data)}) è già passata.`, id: null };
   const nomeApprodo = `${o.cognome} ${o.nome}`.trim();
   const { data: esistenti, error } = await supabase
     .from("appuntamenti_cas")
     .select("id, data_ora, stato, ospite_id, ospite_nome")
     .eq("tipo", "Commissione Territoriale")
     .or(`ospite_id.eq.${o.id},ospite_nome.ilike.${nomeApprodo.replace(/[,()]/g, " ")}`);
-  if (error) return `NON segnata in Approdo per un errore tecnico (${error.message}).`;
+  if (error) return { testo: `NON segnata in Approdo per un errore tecnico (${error.message}).`, id: null };
   const stessa = (esistenti ?? []).find((a) => dataLocale(a.data_ora as string) === data);
-  if (stessa) return `Già presente in Approdo per il ${dataIt(data)}: non l'ho inserita di nuovo.`;
+  if (stessa) return { testo: `Già presente in Approdo per il ${dataIt(data)}: non l'ho inserita di nuovo.`, id: stessa.id as string };
   const altre = (esistenti ?? []).filter((a) => a.stato === "Da svolgere" && dataLocale(a.data_ora as string) >= oggi);
   if (altre.length > 0) {
     const elenco = altre.map((a) => dataIt(dataLocale(a.data_ora as string))).join(", ");
-    return `NON segnata in Approdo: c'è già un'audizione aperta il ${elenco}. Massimo decide quale tenere.`;
+    return { testo: `NON segnata in Approdo: c'è già un'audizione aperta il ${elenco}. Massimo decide quale tenere.`, id: null };
   }
-  const { error: errIns } = await supabase.from("appuntamenti_cas").insert({
+  if (prova) return { testo: `Verrebbe segnata in Approdo: Commissione Territoriale il ${dataIt(data)} alle ${ora}.`, id: null };
+  const { data: creato, error: errIns } = await supabase.from("appuntamenti_cas").insert({
     struttura_id: o.struttura_id,
     ospite_id: o.id,
     ospite_nome: nomeApprodo,
@@ -123,9 +128,9 @@ async function segnaAudizione(o: OspiteDesc, data: string, ora: string, rn: stri
     data_ora: romaInUtc(data, ora),
     stato: "Da svolgere",
     note: `${rn ? rn + ". " : ""}Convocazione letta automaticamente dalla PEC del ${dataPec || "data non indicata"}. [pec-archivio]`,
-  });
-  if (errIns) return `NON segnata in Approdo per un errore tecnico (${errIns.message}).`;
-  return `Segnata in Approdo: Commissione Territoriale il ${dataIt(data)} alle ${ora}.`;
+  }).select("id").single();
+  if (errIns) return { testo: `NON segnata in Approdo per un errore tecnico (${errIns.message}).`, id: null };
+  return { testo: `Segnata in Approdo: Commissione Territoriale il ${dataIt(data)} alle ${ora}.`, id: creato.id as string };
 }
 
 Deno.serve(async (req: Request) => {
@@ -199,8 +204,12 @@ Deno.serve(async (req: Request) => {
 
     let oggettoMail = "";
     const righe: string[] = [];
+    // Dati letti dal PDF, per la riga in pec_atti
+    const letto: { decisione?: string | null; procedura?: string | null; dataAudizione?: string | null; oraAudizione?: string | null; appuntamentoId?: string | null; esitoApprodoProva?: string } = {};
     if (tipo === "decreto_commissione") {
       const d = leggiDecreto(contenuto);
+      letto.decisione = d.decisione;
+      letto.procedura = d.procedura;
       oggettoMail = `Approdo: decreto Commissione da consegnare: ${persona}`;
       righe.push(
         `È arrivato il decreto della Commissione Territoriale per ${persona} (${o.struttura ?? "struttura non indicata"}). PEC del ${dataPec}.`,
@@ -216,9 +225,16 @@ Deno.serve(async (req: Request) => {
     } else if (tipo === "convocazione") {
       const c = leggiConvocazione(contenuto);
       oggettoMail = `Approdo: convocazione in Commissione da consegnare: ${persona}`;
+      const audizione = c ? await segnaAudizione(o, c.data, c.ora, rn, dataPec, prova) : null;
       const esitoApprodo = c
-        ? (prova ? `(prova: in Approdo verrebbe controllata e segnata l'audizione del ${dataIt(c.data)} alle ${c.ora})` : await segnaAudizione(o, c.data, c.ora, rn, dataPec))
+        ? (prova ? `(prova: in Approdo verrebbe controllata e segnata l'audizione del ${dataIt(c.data)} alle ${c.ora})` : audizione!.testo)
         : "NON segnata in Approdo: data e ora non lette dal documento.";
+      if (c) {
+        letto.dataAudizione = c.data;
+        letto.oraAudizione = c.ora;
+        letto.appuntamentoId = audizione!.id;
+        if (prova) letto.esitoApprodoProva = audizione!.testo;
+      }
       righe.push(
         `È arrivata la convocazione in audizione per ${persona} (${o.struttura ?? "struttura non indicata"}). PEC del ${dataPec}.`,
         "",
@@ -253,9 +269,21 @@ Deno.serve(async (req: Request) => {
     righe.push("", "Il documento è già salvato nella cartella dell'ospite su Drive.");
     const corpo = righe.filter((r, i, a) => !(r === "" && a[i - 1] === "")).join("\n");
 
-    if (prova) return risposta({ status: "ok", dryRun: true, to, oggetto: oggettoMail, corpo, caratteriLetti: contenuto.length });
+    const riga = rigaAtto({
+      tipo, ospite: o, rn, oggetto, dataPec, link,
+      decisione: letto.decisione, procedura: letto.procedura,
+      dataAudizione: letto.dataAudizione, oraAudizione: letto.oraAudizione, appuntamentoId: letto.appuntamentoId,
+    });
+    if (prova) {
+      return risposta({
+        status: "ok", dryRun: true, to, oggetto: oggettoMail, corpo, caratteriLetti: contenuto.length,
+        ...(letto.esitoApprodoProva ? { esitoApprodo: letto.esitoApprodoProva } : {}),
+        rigaPecAtti: riga,
+      });
+    }
     const stato = await avvisa(to, oggettoMail, corpo, link);
-    return risposta({ status: "ok", inviato: stato === 200, destinatari: to });
+    const registro = await registraAtto(supabase, riga);
+    return risposta({ status: "ok", inviato: stato === 200, destinatari: to, registro });
   }
 
   // 3) problema: avviso solo a Massimo
@@ -283,9 +311,11 @@ Deno.serve(async (req: Request) => {
       "",
       "Cosa fare: salvare a mano il documento nella cartella dell'ospite. La mail in Gmail ha l'etichetta \"PEC da verificare\".",
     ].join("\n");
-    if (prova) return risposta({ status: "ok", dryRun: true, to: [EMAIL_MASSIMO], corpo });
+    const riga = rigaAtto({ tipo, ospite: o, rn: testo(body.rn), oggetto, dataPec: testo(body.dataPec), motivo: esito || "non_trovato" });
+    if (prova) return risposta({ status: "ok", dryRun: true, to: [EMAIL_MASSIMO], corpo, rigaPecAtti: riga });
     const stato = await avvisa([EMAIL_MASSIMO], `Approdo: PEC non archiviata, da verificare: ${nomeAtto}${persona ? " " + persona : ""}`, corpo);
-    return risposta({ status: "ok", inviato: stato === 200 });
+    const registro = await registraAtto(supabase, riga);
+    return risposta({ status: "ok", inviato: stato === 200, registro });
   }
 
   return new Response("azione non valida", { status: 400 });
