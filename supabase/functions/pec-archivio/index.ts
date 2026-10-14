@@ -133,6 +133,24 @@ async function segnaAudizione(o: OspiteDesc, data: string, ora: string, rn: stri
   return { testo: `Segnata in Approdo: Commissione Territoriale il ${dataIt(data)} alle ${ora}.`, id: creato.id as string };
 }
 
+// Annullamenti: si elencano le audizioni in Commissione ancora aperte dell'ospite, senza toccarle.
+async function righeAnnullamento(o: OspiteDesc | null): Promise<string[]> {
+  const intro = "In Approdo NON ho modificato nessun appuntamento.";
+  if (!o?.id) return [intro];
+  const { data, error } = await supabase
+    .from("appuntamenti_cas")
+    .select("data_ora, stato")
+    .eq("tipo", "Commissione Territoriale")
+    .eq("ospite_id", o.id)
+    .eq("stato", "Da svolgere");
+  if (error) return [intro, `Non sono riuscito a controllare le audizioni aperte (${error.message}).`];
+  const oggi = fmtRoma.format(new Date());
+  const date = (data ?? []).map((a) => dataLocale(a.data_ora as string)).filter((d) => d >= oggi).sort().map(dataIt);
+  return date.length
+    ? [intro, `Audizioni in Commissione ancora aperte per questo ospite: ${date.join(", ")}.`, "Cosa fare: verificare quale audizione è annullata e aggiornarla a mano in Approdo."]
+    : [intro, "Per questo ospite non risultano audizioni in Commissione aperte in Approdo."];
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
   if (!chiaviConfigurate) return risposta({ status: "errore", errore: "chiave PEC_SECRET non configurata nei segreti di Supabase" }, 500);
@@ -198,7 +216,8 @@ Deno.serve(async (req: Request) => {
     const persona = `${o.cognome.toUpperCase()} ${o.nome}`;
     const contenuto = await testoPdf(testo(body.pdfBase64));
     const s = (struttureDb ?? []).find((x) => x.nome === o.struttura) as Struttura | undefined;
-    const to = [EMAIL_MASSIMO, ...(await educatoriStruttura(s))];
+    // Annullamenti: avviso solo a Massimo (decisione di Massimo, 14/10/2026)
+    const to = tipo === "annullamento" ? [EMAIL_MASSIMO] : [EMAIL_MASSIMO, ...(await educatoriStruttura(s))];
     const consegna = rigaConsegna(corpoPec);
     const nonLetto = "Non sono riuscito a leggerlo automaticamente dal documento: aprire il PDF.";
 
@@ -244,6 +263,14 @@ Deno.serve(async (req: Request) => {
         c ? "Data letta automaticamente dalla lettera: controllare sul documento." : "",
         "",
         esitoApprodo,
+      );
+    } else if (tipo === "annullamento") {
+      oggettoMail = `Approdo: annullamento convocazione in Commissione: ${persona}`;
+      righe.push(
+        `È arrivato l'annullamento della convocazione in audizione per ${persona} (${o.struttura ?? "struttura non indicata"}). PEC del ${dataPec}.`,
+        `Oggetto della PEC: ${oggetto || "non indicato"}`,
+        "",
+        ...(await righeAnnullamento(o)),
       );
     } else {
       const frasi = frasiConTermini(contenuto);
@@ -293,6 +320,21 @@ Deno.serve(async (req: Request) => {
     const nomeAtto = NOMI_ATTO[tipo] ?? "Atto";
     const o = (body.ospite ?? null) as OspiteDesc | null;
     const persona = o ? `${o.cognome.toUpperCase()} ${o.nome}` : "";
+    // Gli annullamenti di solito arrivano senza PDF: non è un problema, si avvisa Massimo e si registra l'atto.
+    if (tipo === "annullamento" && esito === "senza_pdf" && o) {
+      const corpoAnn = [
+        `È arrivato l'annullamento della convocazione in audizione per ${persona} (${o.struttura ?? "struttura non indicata"}). PEC del ${testo(body.dataPec) || "data non indicata"}.`,
+        `Oggetto della PEC: ${oggetto || "non indicato"}`,
+        "La PEC non ha un PDF allegato: non c'è nulla da salvare su Drive.",
+        "",
+        ...(await righeAnnullamento(o)),
+      ].join("\n");
+      const rigaAnn = rigaAtto({ tipo, ospite: o, rn: testo(body.rn), oggetto, dataPec: testo(body.dataPec) });
+      if (prova) return risposta({ status: "ok", dryRun: true, to: [EMAIL_MASSIMO], corpo: corpoAnn, rigaPecAtti: rigaAnn });
+      const statoAnn = await avvisa([EMAIL_MASSIMO], `Approdo: annullamento convocazione in Commissione: ${persona}`, corpoAnn);
+      const registroAnn = await registraAtto(supabase, rigaAnn);
+      return risposta({ status: "ok", inviato: statoAnn === 200, registro: registroAnn });
+    }
     const motivi: Record<string, string> = {
       non_trovato: "Nell'oggetto della PEC non ho riconosciuto nessun ospite di Approdo.",
       ambiguo: "Nell'oggetto della PEC compaiono nomi che corrispondono a più ospiti di Approdo, quindi non so a chi assegnarla.",

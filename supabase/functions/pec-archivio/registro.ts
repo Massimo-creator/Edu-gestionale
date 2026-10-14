@@ -2,7 +2,7 @@
 // annotata nel log: non deve mai fermare la mail né l'appuntamento.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
-export const TIPI_REGISTRO = ["decreto_commissione", "convocazione", "revoca", "cessazione"] as const;
+export const TIPI_REGISTRO = ["decreto_commissione", "convocazione", "annullamento", "revoca", "cessazione"] as const;
 export const MOTIVI = ["non_trovato", "ambiguo", "cartella_mancante", "senza_pdf"] as const;
 
 export type RigaAtto = {
@@ -85,32 +85,31 @@ export function rigaAtto(p: {
 
 export type EsitoRegistro = { registrato: boolean; id?: string; nota: string };
 
-// Inserisce la riga. Se l'atto c'è già (stessi RN, tipo e data, oppure stesso documento) non lo duplica;
-// se c'era come "da verificare" e ora arriva archiviato, completa quella riga.
+// Inserisce la riga. È un doppione solo lo stesso PDF (stesso link); le righe senza PDF sono doppioni
+// se hanno stessi RN, tipo e data. Se lo stesso atto c'era come "da verificare" e ora arriva
+// archiviato, si completa quella riga invece di aggiungerne un'altra.
 export async function registraAtto(db: SupabaseClient, riga: RigaAtto): Promise<EsitoRegistro> {
   try {
     if (!(TIPI_REGISTRO as readonly string[]).includes(riga.tipo_atto)) {
       console.error(`[pec-archivio] pec_atti: tipo "${riga.tipo_atto}" non previsto, riga non scritta`);
       return { registrato: false, nota: `tipo ${riga.tipo_atto} non previsto` };
     }
+    if (riga.stato === "archiviata" && riga.rn && riga.data_pec) {
+      const { data: agg, error: e1 } = await db.from("pec_atti").update(riga)
+        .eq("rn", riga.rn).eq("tipo_atto", riga.tipo_atto).eq("data_pec", riga.data_pec)
+        .eq("stato", "da_verificare").is("link_documento", null)
+        .select("id");
+      if (e1) console.error(`[pec-archivio] pec_atti: controllo righe da verificare non riuscito (${e1.message})`);
+      else if (agg && agg.length) return { registrato: true, id: agg[0].id as string, nota: "completata la riga da verificare" };
+    }
     const { data, error } = await db.from("pec_atti").insert(riga).select("id").single();
     if (!error) return { registrato: true, id: data.id as string, nota: "inserito" };
-    if (error.code !== "23505") {
-      console.error(`[pec-archivio] pec_atti: scrittura non riuscita (${error.message})`);
-      return { registrato: false, nota: error.message };
+    if (error.code === "23505") {
+      console.log(`[pec-archivio] pec_atti: atto già registrato (${riga.link_documento ?? riga.rn ?? "senza RN"})`);
+      return { registrato: false, nota: "già registrato" };
     }
-    if (riga.stato === "archiviata" && riga.rn && riga.data_pec) {
-      const { data: agg, error: e2 } = await db.from("pec_atti").update(riga)
-        .eq("rn", riga.rn).eq("tipo_atto", riga.tipo_atto).eq("data_pec", riga.data_pec).eq("stato", "da_verificare")
-        .select("id");
-      if (e2) {
-        console.error(`[pec-archivio] pec_atti: aggiornamento non riuscito (${e2.message})`);
-        return { registrato: false, nota: e2.message };
-      }
-      if (agg && agg.length) return { registrato: true, id: agg[0].id as string, nota: "completata la riga da verificare" };
-    }
-    console.log(`[pec-archivio] pec_atti: atto già registrato (${riga.rn ?? riga.link_documento ?? "senza RN"})`);
-    return { registrato: false, nota: "già registrato" };
+    console.error(`[pec-archivio] pec_atti: scrittura non riuscita (${error.message})`);
+    return { registrato: false, nota: error.message };
   } catch (e) {
     console.error(`[pec-archivio] pec_atti: errore (${String((e as Error)?.message ?? e)})`);
     return { registrato: false, nota: "errore" };

@@ -1,10 +1,12 @@
 // Riconoscimento del tipo di atto e dell'ospite a partire dall'oggetto di una PEC inoltrata.
 import { dateNascita, type Ospite, parole, paroleUguali } from "./logic.ts";
 
-export type TipoAtto = "decreto_commissione" | "revoca" | "cessazione" | "convocazione" | "altro";
+export type TipoAtto = "decreto_commissione" | "revoca" | "cessazione" | "convocazione" | "annullamento" | "altro";
 
 export function tipoAtto(oggetto: string): TipoAtto {
   const s = oggetto.toLowerCase();
+  // "ANNULLAMENTO CONVOCAZIONE ...": tipo a sé, prima delle convocazioni (decisione di Massimo, 14/10/2026)
+  if (/annullament/.test(s) && /convocazion/.test(s)) return "annullamento";
   if (/convocazion/.test(s)) return "convocazione";
   if (/revoca/.test(s)) return "revoca";
   if (/cessazione/.test(s)) return "cessazione";
@@ -17,6 +19,7 @@ export const NOMI_ATTO: Record<TipoAtto, string> = {
   revoca: "Revoca accoglienza",
   cessazione: "Cessazione accoglienza",
   convocazione: "Convocazione",
+  annullamento: "Annullamento convocazione",
   altro: "Atto",
 };
 

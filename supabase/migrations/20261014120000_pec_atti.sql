@@ -6,7 +6,7 @@ create table public.pec_atti (
   created_at timestamptz not null default now(),
   ospite_id uuid references public.ospiti_cas(id) on delete set null, -- vuoto per le righe da verificare
   struttura_id uuid references public.strutture_cas(id) on delete set null,
-  tipo_atto text not null check (tipo_atto in ('decreto_commissione', 'convocazione', 'revoca', 'cessazione')),
+  tipo_atto text not null check (tipo_atto in ('decreto_commissione', 'convocazione', 'annullamento', 'revoca', 'cessazione')),
   rn text,
   data_pec date,
   oggetto_pec text,
@@ -23,9 +23,12 @@ create table public.pec_atti (
 
 comment on table public.pec_atti is 'Atti arrivati via PEC. Scrittura solo da pec-archivio (service role).';
 
--- Niente doppioni: stesso RN + tipo + data della PEC (quando l'RN c'è), oppure stesso documento.
-create unique index pec_atti_unico_rn on public.pec_atti (rn, tipo_atto, data_pec) where rn is not null and rn <> '';
+-- Niente doppioni (decisione di Massimo, 14/10/2026): è un doppione solo lo stesso PDF.
+-- Due PDF diversi con lo stesso RN nello stesso giorno si registrano tutti e due.
+-- Per le righe senza documento (da verificare, annullamenti senza PDF) vale RN + tipo + data della PEC.
 create unique index pec_atti_unico_documento on public.pec_atti (link_documento) where link_documento is not null and link_documento <> '';
+create unique index pec_atti_unico_senza_documento on public.pec_atti (rn, tipo_atto, data_pec)
+  where (link_documento is null or link_documento = '') and rn is not null and rn <> '';
 
 create index pec_atti_ospite on public.pec_atti (ospite_id, data_pec desc);
 create index pec_atti_appuntamento on public.pec_atti (appuntamento_id) where appuntamento_id is not null;
