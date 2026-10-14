@@ -5,6 +5,9 @@ export type TipoAtto = "decreto_commissione" | "revoca" | "cessazione" | "convoc
 
 export function tipoAtto(oggetto: string): TipoAtto {
   const s = oggetto.toLowerCase();
+  // Gli avvisi mandati da Approdo stesso ("Approdo: PEC non archiviata ...") non sono atti,
+  // anche se inoltrati: altrimenti lo script li rilegge e ne nasce un avviso ogni 15 minuti.
+  if (/^\s*(?:(?:r|re|i|fw|fwd)\s*:\s*)*approdo\s*:/i.test(oggetto)) return "altro";
   // "ANNULLAMENTO CONVOCAZIONE ...": tipo a sé, prima delle convocazioni (decisione di Massimo, 14/10/2026)
   if (/annullament/.test(s) && /convocazion/.test(s)) return "annullamento";
   if (/convocazion/.test(s)) return "convocazione";
