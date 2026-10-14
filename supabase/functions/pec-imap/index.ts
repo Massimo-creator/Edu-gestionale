@@ -3,6 +3,7 @@ import { ImapFlow } from "npm:imapflow@1.0.164";
 import { apriPec } from "./pec.ts";
 import { oggettoDaIntestazioni } from "./oggetto.ts";
 import { scaricaSorgente } from "./grezzo.ts";
+import { chiaveUsata, chiaviConfigurate } from "./chiave.ts";
 
 // Lettura della casella PEC Aruba in SOLA LETTURA: la casella viene aperta con EXAMINE,
 // quindi nessun messaggio viene segnato come letto, spostato o cancellato.
@@ -10,7 +11,6 @@ import { scaricaSorgente } from "./grezzo.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const SEGRETO = Deno.env.get("PEC_SECRET") ?? "<chiave vecchia: tolta dal repository>";
 const CASELLA = Deno.env.get("PEC_PROFUGHI_USER") ?? "profughi.metis@pec.it";
 const PASSWORD = Deno.env.get("PEC_PROFUGHI_PASSWORD") ?? "";
 const HOST = "imaps.pec.aruba.it";
@@ -27,7 +27,8 @@ function risposta(corpo: unknown, stato = 200): Response {
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
-  if ((req.headers.get("Authorization") || "") !== `Bearer ${SEGRETO}`) return new Response("Unauthorized", { status: 401 });
+  if (!chiaviConfigurate) return risposta({ status: "errore", errore: "chiave PEC_SECRET non configurata nei segreti di Supabase" }, 500);
+  if (!chiaveUsata(req)) return new Response("Unauthorized", { status: 401 });
   let body: Record<string, unknown> = {};
   try {
     body = await req.json();

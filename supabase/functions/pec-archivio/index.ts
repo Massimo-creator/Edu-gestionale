@@ -3,6 +3,7 @@ import { extractText, getDocumentProxy } from "npm:unpdf@0.12.1";
 import { type Ospite } from "./logic.ts";
 import { NOMI_ATTO, ospitiNelTesto, type TipoAtto, tipoAtto } from "./atti.ts";
 import { frasiConTermini, leggiConvocazione, leggiDecreto } from "./estrai.ts";
+import { chiaveUsata, chiaviConfigurate } from "./chiave.ts";
 
 // Archiviazione PEC. Lo script Apps Script legge le PEC inoltrate e salva i PDF su Drive;
 // questa funzione riconosce atto e ospite, legge il PDF, segna le convocazioni in Approdo
@@ -10,7 +11,6 @@ import { frasiConTermini, leggiConvocazione, leggiDecreto } from "./estrai.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const SEGRETO = Deno.env.get("PEC_SECRET") ?? "<chiave vecchia: tolta dal repository>";
 const EMAIL_MASSIMO = "m.andreoni@coopmetis.com";
 // Co-referenti in più, per nome del responsabile della struttura (decisione di Massimo).
 const CO_REFERENTI: Record<string, string[]> = { james: ["m.bylyshi@coopmetis.com"] };
@@ -130,7 +130,8 @@ async function segnaAudizione(o: OspiteDesc, data: string, ora: string, rn: stri
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
-  if ((req.headers.get("Authorization") || "") !== `Bearer ${SEGRETO}`) return new Response("Unauthorized", { status: 401 });
+  if (!chiaviConfigurate) return risposta({ status: "errore", errore: "chiave PEC_SECRET non configurata nei segreti di Supabase" }, 500);
+  if (!chiaveUsata(req)) return new Response("Unauthorized", { status: 401 });
 
   let body: Record<string, unknown>;
   try {
