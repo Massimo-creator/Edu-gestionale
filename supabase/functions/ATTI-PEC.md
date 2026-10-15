@@ -4,7 +4,7 @@ Aggiornato al 15/10/2026.
 
 ## Cosa è in produzione
 
-- **pec-archivio** (Supabase v12): come prima, più la registrazione di ogni atto in `pec_atti`
+- **pec-archivio** (Supabase v13): come prima, più la registrazione di ogni atto in `pec_atti`
   e gli annullamenti di convocazione come tipo a sé (avviso solo a Massimo, nessun appuntamento toccato).
   Un errore su `pec_atti` va solo nel log: mail e appuntamenti non si fermano.
 - **pec-imap** (Supabase v23): invariata, tranne il controllo della chiave.
@@ -14,6 +14,9 @@ Aggiornato al 15/10/2026.
   Doppione = stesso PDF (stesso link); per le righe senza PDF, stessi RN + tipo + data PEC.
   Lettura con le stesse regole di `ospiti_cas`; scrive solo la funzione.
 
+- **v13 (15/10)**: la decisione dei decreti si ferma prima di intestazione, firma e traduzioni.
+- **Interfaccia (15/10, su main)**: sezione "Atti PEC" nella scheda ospite e link alla convocazione
+  nell'appuntamento di Commissione.
 - Correzioni del 15/10: lettura delle convocazioni di Forlì (senza virgola prima di "per un colloquio");
   gli avvisi di Approdo ("Approdo: ...") non vengono più presi per PEC (prima ne nasceva uno ogni 15 minuti).
 - **Storico importato**: 85 righe dal foglio "Archivio PEC storiche", `origine = 'storico'`, tutte abbinate
@@ -34,10 +37,6 @@ Aggiornato al 15/10/2026.
 
 ## Da fare
 
-- Pubblicare su pec-archivio la correzione di `leggiDecreto` (si ferma prima di intestazione, firma e
-  traduzioni della decisione): è nel ramo, non ancora in produzione.
-- Pubblicare l'interfaccia (sezione "Atti PEC" nella scheda ospite e link alla convocazione nell'appuntamento
-  di Commissione): è in `index.html` nel ramo, non ancora in produzione.
 - Togliere la tabella d'appoggio dal SQL Editor: `drop schema importazioni cascade;`
 - Le altre funzioni hanno ancora chiavi scritte nel codice (questura-sync, questura-promemoria,
   accompagnamenti-domani, chiave Resend in send-email): vanno spostate nei segreti come fatto qui.
