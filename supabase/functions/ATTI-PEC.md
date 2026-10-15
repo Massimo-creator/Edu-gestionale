@@ -28,7 +28,8 @@ Aggiornato al 15/10/2026.
   19 avevano già l'appuntamento (stesso ospite, stesso giorno); per Mia Md Rakib e Talukda Dulal l'appuntamento
   esisteva con data 01/01/2000 ed è stato riportato al 17/09/2026; 10 appuntamenti "Svolto" sono stati creati il 15/10
   su conferma di Massimo (nota "[pec-archivio]"): per chi aveva più convocazioni solo l'ultima, le precedenti
-  (9, rinviate) restano senza appuntamento. Resta con data 01/01/2000 la Commissione di Camara Boubacar (data da Parfait).
+  (9, rinviate) restano senza appuntamento. La Commissione di Camara Boubacar con data 01/01/2000
+  è stata tolta: quella valida è l'11/11/2026 (nessuna PEC sua nell'archivio).
 
 ## Come tornare indietro
 
