@@ -3422,6 +3422,9 @@ function mostraAppCAS() {
     <h4 style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Appuntamenti</h4>
     <div id="cas-appuntamenti-box" style="font-size:.85rem;color:var(--muted);margin-bottom:4px;">—</div>
     <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
+    <h4 style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Atti PEC</h4>
+    <div id="cas-atti-pec-box" style="font-size:.85rem;color:var(--muted);margin-bottom:4px;">—</div>
+    <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
     <h4 style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Permesso di soggiorno</h4>
     <div class="grid g2">
       <div class="form-group"><label>Tipo permesso</label><input id="cas-tipo-permesso" placeholder="es. Attesa protezione"></div>
@@ -4924,6 +4927,56 @@ async function caricaAppuntamentiOspiteCAS(ospiteId, ospiteNome) {
   }
 }
 
+// --- Atti PEC (tabella pec_atti, scritta da pec-archivio): elenco nella scheda ospite e link nella convocazione ---
+const NOMI_ATTO_PEC = { decreto_commissione:'Decreto Commissione', convocazione:'Convocazione', annullamento:'Annullamento convocazione', revoca:'Revoca accoglienza', cessazione:'Cessazione accoglienza' };
+const ICONE_ATTO_PEC = { decreto_commissione:'⚖️', convocazione:'📨', annullamento:'🚫', revoca:'⛔', cessazione:'⛔' };
+function _escAtto(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function _linkDocumentoAtto(url){
+  // Solo link Drive: il valore arriva dalla funzione, ma si mostra come link solo se è davvero un documento Drive.
+  return /^https:\/\/drive\.google\.com\//.test(url||'')
+    ? `<a href="${_escAtto(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="font-size:.8rem;">📄 Apri documento</a>` : '';
+}
+
+async function caricaAttiPecOspiteCAS(ospiteId) {
+  const box = document.getElementById('cas-atti-pec-box');
+  if(!box) return;
+  box.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Caricamento…</div>';
+  try {
+    const atti = (await supa(`pec_atti?ospite_id=eq.${ospiteId}&select=id,tipo_atto,rn,data_pec,link_documento,decisione,procedura,data_audizione,ora_audizione,stato,origine&order=data_pec.desc.nullslast,created_at.desc`)) || [];
+    if(atti.length===0) { box.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Nessun atto PEC registrato.</div>'; return; }
+    box.innerHTML = atti.map(a => {
+      const extra = [];
+      if(a.tipo_atto==='decreto_commissione' && a.decisione) extra.push(`<div style="font-size:.8rem;margin-top:2px;">Decisione: “${_escAtto(a.decisione)}”</div>`);
+      if(a.tipo_atto==='convocazione' && a.data_audizione) extra.push(`<div style="font-size:.8rem;margin-top:2px;">Audizione: ${fmtData(a.data_audizione)}${a.ora_audizione?' alle '+_escAtto(String(a.ora_audizione).slice(0,5)):''}</div>`);
+      const etichette = [a.rn?_escAtto(a.rn):'', a.stato==='da_verificare'?'<span style="color:var(--danger);">da verificare</span>':'', a.origine==='storico'?'storico':''].filter(Boolean).join(' · ');
+      return `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;">
+        <div style="font-size:1rem;">${ICONE_ATTO_PEC[a.tipo_atto]||'📄'}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:.85rem;">${NOMI_ATTO_PEC[a.tipo_atto]||'Atto'} — ${a.data_pec?fmtData(a.data_pec):'data non indicata'}</div>
+          ${etichette?`<div style="color:var(--muted);font-size:.78rem;">${etichette}</div>`:''}
+          ${extra.join('')}
+        </div>
+        <div style="white-space:nowrap;">${_linkDocumentoAtto(a.link_documento)}</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    box.innerHTML = `<div style="color:var(--danger);font-size:.85rem;">Errore nel caricamento degli atti PEC: ${_escAtto(e.message)}</div>`;
+  }
+}
+
+async function mostraConvocazioneAppuntamentoCAS(appId, tipo) {
+  const el = document.getElementById('app-convocazione-link');
+  if(!el) return;
+  el.innerHTML = '';
+  if(!appId || tipo!=='Commissione Territoriale') return;
+  try {
+    const atti = (await supa(`pec_atti?appuntamento_id=eq.${appId}&tipo_atto=eq.convocazione&select=data_pec,link_documento&order=data_pec.desc.nullslast&limit=1`)) || [];
+    if(atti.length && _linkDocumentoAtto(atti[0].link_documento)) {
+      el.innerHTML = `📨 Convocazione arrivata via PEC${atti[0].data_pec?' il '+fmtData(atti[0].data_pec):''}: ${_linkDocumentoAtto(atti[0].link_documento)}`;
+    }
+  } catch(e) { /* il link è un aiuto in più: se non si carica, l'appuntamento resta utilizzabile */ }
+}
+
 async function apriAppuntamentoDaSchedaOspiteCAS(appId, ospiteId) {
   closeModal('modal-ospite-cas');
   await modificaAppuntamentoCAS(appId);
@@ -5059,6 +5112,7 @@ function nuovoAppuntamentoCAS(tipoPreselezionato, tornaADashboard) {
   const sel = document.getElementById('app-struttura');
   const strutture = SESSION.strutture_cas||[];
   sel.innerHTML = strutture.map(s=>`<option value="${s.id}">${s.nome}</option>`).join('');
+  const linkConv = document.getElementById('app-convocazione-link'); if(linkConv) linkConv.innerHTML = '';
   openModal('modal-appuntamento-cas');
 }
 
@@ -5097,6 +5151,7 @@ async function modificaAppuntamentoCAS(id, tipoPagina) {
     document.getElementById('app-note').value = a.note || '';
     document.getElementById('app-nome-avvocato').value = a.nome_avvocato || '';
     document.getElementById('app-avvocato-wrap').style.display = (a.tipo==='Avvocato')?'block':'none';
+    mostraConvocazioneAppuntamentoCAS(a.id, a.tipo);
     openModal('modal-appuntamento-cas');
   } catch(e) { alert('Errore: '+e.message); }
 }
@@ -5406,6 +5461,8 @@ function nuovoOspiteCAS(strutturaIdPreselezionata) {
   document.getElementById('cas-nucleo-membri').innerHTML = '';
   const boxApp = document.getElementById('cas-appuntamenti-box');
   if(boxApp) boxApp.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Salva la scheda per poter collegare gli appuntamenti.</div>';
+  const boxAtti = document.getElementById('cas-atti-pec-box');
+  if(boxAtti) boxAtti.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Nessun atto PEC.</div>';
   document.getElementById('cas-sposta-wrap').innerHTML = '';
   document.getElementById('cas-nuovo-app-wrap').innerHTML = '';
   ['cas-ha-tessera-sanitaria','cas-ha-carta-identita','cas-ha-residenza'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='No';});
@@ -5457,6 +5514,7 @@ async function apriOspiteCAS(id) {
         <option value="Visita medica">Sanitario</option>
       </select>`;
     caricaAppuntamentiOspiteCAS(o.id, `${o.cognome} ${o.nome}`);
+    caricaAttiPecOspiteCAS(o.id);
     openModal('modal-ospite-cas');
   } catch(e) { alert('Errore: '+e.message); }
 }
@@ -6604,6 +6662,7 @@ async function salvaTrasferimento() {
       <div id="app-ospite-info" style="font-size:.78rem;color:var(--muted);margin-top:4px;"></div>
     </div>
     <div class="form-group"><label>Note</label><textarea id="app-note" rows="2" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
+    <div id="app-convocazione-link" style="font-size:.82rem;margin:-4px 0 10px;"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-appuntamento-cas')">Annulla</button>
       <button class="btn btn-primary" id="app-salva-btn" onclick="salvaAppuntamentoCAS()">💾 Salva</button>
