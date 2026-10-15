@@ -44,3 +44,8 @@ Aggiornato al 15/10/2026.
 
 - Le altre funzioni hanno ancora chiavi scritte nel codice (questura-sync, questura-promemoria,
   accompagnamenti-domani, chiave Resend in send-email): vanno spostate nei segreti come fatto qui.
+- Sicurezza degli accessi (da riprogrammare, emerso il 15/10): la tabella `utenti` è leggibile e scrivibile con la
+  chiave pubblica (hash delle password compresi) e il controllo della password avviene nel browser; altre tabelle
+  sono aperte senza login (turni, riunioni, ferie, pocket money, manutenzioni, strutture, tabelle della vecchia app).
+  Primo passo: chiudere `utenti` e le tabelle aperte; poi login solo con Supabase Auth; poi decidere se ogni
+  educatore vede solo le sue strutture (oggi tutti vedono tutto).
