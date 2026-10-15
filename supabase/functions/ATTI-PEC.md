@@ -17,8 +17,11 @@ Aggiornato al 15/10/2026.
 - Correzioni del 15/10: lettura delle convocazioni di Forlì (senza virgola prima di "per un colloquio");
   gli avvisi di Approdo ("Approdo: ...") non vengono più presi per PEC (prima ne nasceva uno ogni 15 minuti).
 - **Storico importato**: 85 righe dal foglio "Archivio PEC storiche", `origine = 'storico'`, tutte abbinate
-  all'ospite con la logica di "abbina" (85/85, nessun caso incerto). Senza decisione né data di audizione
-  (il foglio non le ha).
+  all'ospite con la logica di "abbina" (85/85, nessun caso incerto). Il 15/10 completato leggendo i PDF
+  (pec-imap `storico_pec` + pec-archivio `elabora` con dryRun, nessuna mail): 39 decreti con la decisione
+  (31 anche con la procedura; i decreti più vecchi non la riportano), 40 convocazioni con data e ora
+  dell'audizione (2 collegate all'appuntamento già esistente). Restano senza dati le 3 revoche, i 2 annullamenti
+  e la convocazione senza PDF (UID 2987).
 
 ## Come tornare indietro
 
@@ -31,7 +34,10 @@ Aggiornato al 15/10/2026.
 
 ## Da fare
 
-- Storico: aggiungere decisione/procedura e data audizione leggendo i PDF da Drive.
-- Passo 4: sezione "Atti PEC" nella scheda ospite e link alla convocazione nell'appuntamento di Commissione.
+- Pubblicare su pec-archivio la correzione di `leggiDecreto` (si ferma prima di intestazione, firma e
+  traduzioni della decisione): è nel ramo, non ancora in produzione.
+- Pubblicare l'interfaccia (sezione "Atti PEC" nella scheda ospite e link alla convocazione nell'appuntamento
+  di Commissione): è in `index.html` nel ramo, non ancora in produzione.
+- Togliere la tabella d'appoggio dal SQL Editor: `drop schema importazioni cascade;`
 - Le altre funzioni hanno ancora chiavi scritte nel codice (questura-sync, questura-promemoria,
   accompagnamenti-domani, chiave Resend in send-email): vanno spostate nei segreti come fatto qui.

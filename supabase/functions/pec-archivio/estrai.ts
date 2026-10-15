@@ -29,7 +29,9 @@ export function leggiDecreto(testo: string): { decisione: string | null; procedu
   const i = t.search(/\bDECIDE\b/);
   if (i >= 0) {
     let resto = t.slice(i + "DECIDE".length).trim();
-    const fine = resto.search(/(\\?-{5,}|Per consentire|Decides to|PRESO ATTO)/);
+    // Si ferma anche prima dell'intestazione o della firma di pagina (decreti del 2024: "Ministero dell'Interno…",
+    // "Forlì, 26/07/2024 IL PRESIDENTE…", "Documento Firmato Digitalmente") e prima delle traduzioni ("DECIDES not to grant…").
+    const fine = resto.search(/(\\?-{5,}|Per consentire|\bDECIDES\b|Decides to|\bATTESTA\b|PRESO ATTO|Ministero dell|Forl[ìi]’?,\s*\d{1,2}\/\d{1,2}\/\d{4}|IL PRESIDENTE|Documento Firmato)/);
     if (fine > 0) resto = resto.slice(0, fine);
     decisione = resto.trim().slice(0, 600) || null;
   }
