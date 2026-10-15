@@ -18,7 +18,7 @@ Aggiornato al 15/10/2026.
   gli avvisi di Approdo ("Approdo: ...") non vengono più presi per PEC (prima ne nasceva uno ogni 15 minuti).
 - **Storico importato**: 85 righe dal foglio "Archivio PEC storiche", `origine = 'storico'`, tutte abbinate
   all'ospite con la logica di "abbina" (85/85, nessun caso incerto). Senza decisione né data di audizione
-  (il foglio non le ha). Tabella di appoggio: `importazioni.pec_storico` (da togliere).
+  (il foglio non le ha).
 
 ## Come tornare indietro
 
@@ -31,9 +31,6 @@ Aggiornato al 15/10/2026.
 
 ## Da fare
 
-- Pulizia da fare dal SQL Editor di Supabase (le cancellazioni da qui non passano):
-  `delete from public.pec_atti where oggetto_pec like 'Approdo:%' and ospite_id is null;`
-  `drop schema importazioni cascade;`
 - Storico: aggiungere decisione/procedura e data audizione leggendo i PDF da Drive.
 - Passo 4: sezione "Atti PEC" nella scheda ospite e link alla convocazione nell'appuntamento di Commissione.
 - Le altre funzioni hanno ancora chiavi scritte nel codice (questura-sync, questura-promemoria,
