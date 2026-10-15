@@ -25,9 +25,10 @@ select vault.create_secret(encode(extensions.gen_random_bytes(24), 'hex'), 'cron
   'Chiave del job appuntamenti-da-aggiornare (pg_cron -> funzione Edge)')
 where not exists (select 1 from vault.secrets where name = 'cron_appuntamenti_da_aggiornare');
 
--- Job pianificato (creato con cron.schedule il 16/10/2026): ogni giorno alle 10:15 e alle 11:15 UTC;
+-- Job pianificato (creato con cron.schedule il 16/10/2026): dal lunedì al venerdì alle 10:15 e alle 11:15 UTC
+-- (niente mail il sabato e la domenica, decisione di Massimo del 16/10/2026);
 -- la funzione parte davvero solo quando a Roma sono le 12, quindi alle 12:15 con ora legale e solare.
--- select cron.schedule('appuntamenti-da-aggiornare-giornaliero', '15 10,11 * * *', $$
+-- select cron.schedule('appuntamenti-da-aggiornare-giornaliero', '15 10,11 * * 1-5', $$
 --   select net.http_post(
 --     url := 'https://nvwqykhosumrjkdlejtb.supabase.co/functions/v1/appuntamenti-da-aggiornare',
 --     headers := jsonb_build_object('Content-Type','application/json',

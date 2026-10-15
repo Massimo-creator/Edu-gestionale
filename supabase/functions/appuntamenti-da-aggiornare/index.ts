@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { type Appuntamento, mailOperatore, mailRiepilogo, prepara, type Struttura, type Utente } from "./logica.ts";
 
-// Ogni giorno alle 12:15 (ora di Roma): a ogni operatore la lista dei suoi appuntamenti passati da almeno
+// Dal lunedì al venerdì alle 12:15 (ora di Roma): a ogni operatore la lista dei suoi appuntamenti passati da almeno
 // 5 giorni e ancora "Da svolgere"; a Massimo il riepilogo. Chiamata dal job pianificato (pg_cron).
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
