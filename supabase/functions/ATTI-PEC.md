@@ -24,7 +24,8 @@ Aggiornato al 15/10/2026.
   (pec-imap `storico_pec` + pec-archivio `elabora` con dryRun, nessuna mail): 39 decreti con la decisione
   (31 anche con la procedura; i decreti più vecchi non la riportano), 40 convocazioni con data e ora
   dell'audizione (2 collegate all'appuntamento già esistente). Restano senza dati le 3 revoche, i 2 annullamenti
-  e la convocazione senza PDF (UID 2987).
+  e la convocazione senza PDF (UID 2987). Collegate agli appuntamenti di Commissione 19 convocazioni su 40
+  (stesso ospite, stesso giorno); le altre 21 non hanno un appuntamento in Approdo.
 
 ## Come tornare indietro
 
@@ -37,6 +38,5 @@ Aggiornato al 15/10/2026.
 
 ## Da fare
 
-- Togliere la tabella d'appoggio dal SQL Editor: `drop schema importazioni cascade;`
 - Le altre funzioni hanno ancora chiavi scritte nel codice (questura-sync, questura-promemoria,
   accompagnamenti-domani, chiave Resend in send-email): vanno spostate nei segreti come fatto qui.
