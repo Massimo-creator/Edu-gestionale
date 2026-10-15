@@ -6,8 +6,9 @@ import { type Appuntamento, mailOperatore, mailRiepilogo, prepara, type Struttur
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-// Chiave condivisa con il job pianificato: solo nei segreti di Supabase, mai nel codice.
-const CHIAVE = (Deno.env.get("APPUNTAMENTI_SECRET") ?? "").trim();
+// La chiave condivisa con il job pianificato sta solo nella cassaforte (Vault) del database, mai nel codice:
+// la controlla la funzione SQL verifica_chiave_cron, che solo il service role può chiamare.
+const NOME_CHIAVE = "appuntamenti_da_aggiornare";
 const EMAIL_MASSIMO = "m.andreoni@coopmetis.com";
 const ORA_INVIO = 12; // il job gira alle 10:15 e alle 11:15 UTC: parte solo quando a Roma sono le 12
 const SOGLIA = 5;
@@ -34,15 +35,17 @@ async function invia(to: string, subject: string, html: string): Promise<boolean
 }
 
 Deno.serve(async (req: Request) => {
-  if (CHIAVE.length < 32) return risposta({ status: "errore", errore: "APPUNTAMENTI_SECRET non configurata nei segreti di Supabase" }, 500);
-  if ((req.headers.get("Authorization") || "") !== `Bearer ${CHIAVE}`) return new Response("Unauthorized", { status: 401 });
+  const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  const { data: valida, error: errChiave } = await supabase.rpc("verifica_chiave_cron", { p_nome: NOME_CHIAVE, p_valore: token });
+  if (errChiave) return risposta({ status: "errore", errore: `controllo chiave non riuscito: ${errChiave.message}` }, 500);
+  if (valida !== true) return new Response("Unauthorized", { status: 401 });
 
   // prova=1: non invia nulla e restituisce le mail che partirebbero (con giorni=N si prova un'altra soglia);
   // forza=1: ignora il controllo dell'ora.
   const url = new URL(req.url);
   const prova = url.searchParams.get("prova") === "1";
   const forza = url.searchParams.get("forza") === "1";
-  const giorni = Number(url.searchParams.get("giorni"));
+  const giorni = url.searchParams.has("giorni") ? Number(url.searchParams.get("giorni")) : NaN;
   const soglia = prova && Number.isInteger(giorni) && giorni >= 0 && giorni <= 60 ? giorni : SOGLIA;
 
   if (!prova && !forza && oraRoma() !== ORA_INVIO) {
