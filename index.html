@@ -3928,7 +3928,7 @@ async function renderAccompagnamentiCAS(el) {
       if(richieste.length>0) {
         const idsAppunt = [...new Set(richieste.map(r=>r.appuntamento_id).filter(Boolean))];
         if(idsAppunt.length>0) {
-          const dettagli = await supa(`appuntamenti_cas?id=in.(${idsAppunt.join(',')})&select=id,ospite_nome,titolo,tipo,data_ora,struttura_id`) || [];
+          const dettagli = await supa(`appuntamenti_cas?id=in.(${idsAppunt.join(',')})&select=id,ospite_nome,titolo,tipo,data_ora,ora_da_definire,struttura_id`) || [];
           const mapDettagli = {}; dettagli.forEach(d=>mapDettagli[d.id]=d);
           richieste.forEach(r=>r._appuntamento = mapDettagli[r.appuntamento_id] || null);
         }
@@ -3972,8 +3972,7 @@ async function renderAccompagnamentiCAS(el) {
     const blocchiGiorno = (lista) => {
       const perBlocco = {};
       lista.forEach(a=>{
-        const d = new Date(a.data_ora);
-        const ora = d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+        const ora = oraAppCAS(a, false);
         const chiave = `${ora}|||${a.tipo}`;
         (perBlocco[chiave] = perBlocco[chiave]||[]).push(a);
       });
@@ -4004,7 +4003,7 @@ async function renderAccompagnamentiCAS(el) {
         ${richieste.map(r=>{
           const app = r._appuntamento;
           const rigaAppuntamento = app
-            ? `<div style="font-size:.85rem;margin-bottom:4px;"><b>${app.ospite_nome||app.titolo}</b> — ${stileDi(app.tipo).icona} ${app.tipo||''} · ${new Date(app.data_ora).toLocaleDateString('it-IT',{day:'numeric',month:'long'})} ore ${new Date(app.data_ora).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})} <span style="opacity:.75;">— ${mapS[app.struttura_id]||'—'}</span></div>`
+            ? `<div style="font-size:.85rem;margin-bottom:4px;"><b>${app.ospite_nome||app.titolo}</b> — ${stileDi(app.tipo).icona} ${app.tipo||''} · ${new Date(app.data_ora).toLocaleDateString('it-IT',{day:'numeric',month:'long'})} ${app.ora_da_definire?'ora da definire':'ore '+oraAppCAS(app)} <span style="opacity:.75;">— ${mapS[app.struttura_id]||'—'}</span></div>`
             : `<div style="font-size:.85rem;margin-bottom:4px;color:var(--danger);">⚠️ Appuntamento non trovato (potrebbe essere stato eliminato)</div>`;
           return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
           ${rigaAppuntamento}
@@ -4036,9 +4035,9 @@ async function assegnaAccompagnatoreCAS(appuntamentoId, operatore) {
       const corrente = await supa(`appuntamenti_cas?id=eq.${appuntamentoId}&select=data_ora`);
       if (corrente && corrente[0]) {
         const giorno = corrente[0].data_ora.slice(0,10);
-        const altri = await supa(`appuntamenti_cas?operatore_accompagnatore=eq.${encodeURIComponent(operatore)}&data_ora=gte.${giorno}T00:00:00&data_ora=lte.${giorno}T23:59:59&id=neq.${appuntamentoId}&select=titolo,tipo,data_ora,ospite_nome`);
+        const altri = await supa(`appuntamenti_cas?operatore_accompagnatore=eq.${encodeURIComponent(operatore)}&data_ora=gte.${giorno}T00:00:00&data_ora=lte.${giorno}T23:59:59&id=neq.${appuntamentoId}&select=titolo,tipo,data_ora,ora_da_definire,ospite_nome`);
         if (altri && altri.length > 0) {
-          const elenco = altri.map(a => `• ${a.tipo} — ${a.ospite_nome||a.titolo} (${new Date(a.data_ora).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})})`).join('\n');
+          const elenco = altri.map(a => `• ${a.tipo} — ${a.ospite_nome||a.titolo} (${oraAppCAS(a, false)})`).join('\n');
           const procedi = confirm(`⚠️ ${operatore} ha già altri impegni lo stesso giorno:\n\n${elenco}\n\nAssegnare comunque?`);
           if (!procedi) return;
         }
@@ -4145,7 +4144,7 @@ async function renderMioCalendarioCAS(el) {
         <div style="font-size:.78rem;font-weight:${isOggi?'700':'500'};color:${isOggi?'var(--accent2)':'var(--text)'};">${data.getDate()}</div>
         ${eventi.map(ev=>{
           const dEv = new Date(ev.dato.data_ora);
-          const ora = dEv.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+          const ora = ev.tipo==='accompagnamento' && ev.dato.ora_da_definire ? 'ora ?' : dEv.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
           if(ev.tipo==='accompagnamento') {
             const stileTipo = {
               'Questura': {colore:'#2563eb', icona:'🛂', etichetta:'Questura'},
@@ -4271,7 +4270,7 @@ async function renderCalendarioMensileAccompagnamentiCAS(el) {
     const ultimoGiorno = new Date(anno, mese+1, 0).getDate();
     const iniISO = `${anno}-${String(mese+1).padStart(2,'0')}-01`;
     const fineISO = `${anno}-${String(mese+1).padStart(2,'0')}-${String(ultimoGiorno).padStart(2,'0')}`;
-    const appuntamenti = await supa(`appuntamenti_cas?data_ora=gte.${iniISO}T00:00:00&data_ora=lte.${fineISO}T23:59:59&select=id,tipo,data_ora,ospite_nome,struttura_id,operatore_accompagnatore&order=data_ora`) || [];
+    const appuntamenti = await supa(`appuntamenti_cas?data_ora=gte.${iniISO}T00:00:00&data_ora=lte.${fineISO}T23:59:59&select=id,tipo,data_ora,ora_da_definire,ospite_nome,struttura_id,operatore_accompagnatore&order=data_ora`) || [];
     const mapS = {}; (SESSION.strutture_cas||[]).forEach(s=>mapS[s.id]=s.nome);
     const NON_ACCOMPAGNANO = ['Max','Paola','Mediazione Linguistica'];
     const operatoriAccompagnamento = OPERATORI_CAS.filter(o=>!NON_ACCOMPAGNANO.includes(o.nome));
@@ -4317,7 +4316,7 @@ async function renderCalendarioMensileAccompagnamentiCAS(el) {
                   return `<td style="padding:4px 2px;background:${isFestivo?'#f9fafb':'var(--card)'};border-bottom:1px solid var(--border);border-right:1px solid var(--border);vertical-align:middle;">
                     <div style="display:flex;flex-direction:column;gap:2px;align-items:center;">
                       ${eventi.length===0 ? '<span style="color:var(--border);">·</span>' : eventi.map(a=>{
-                        const ora = new Date(a.data_ora).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+                        const ora = oraAppCAS(a, false);
                         const dettaglio = `${ora} · ${a.tipo}${a.ospite_nome?' · '+a.ospite_nome:''}${mapS[a.struttura_id]?' · '+mapS[a.struttura_id]:''}`.replace(/"/g,'&quot;');
                         return `<div onclick="modificaAppuntamentoCAS('${a.id}','CALENDARIO_MENSILE')" title="${dettaglio}" style="width:16px;height:16px;border-radius:4px;background:${coloreTipoAppuntamento(a.tipo)};cursor:pointer;"></div>`;
                       }).join('')}
@@ -4776,7 +4775,7 @@ async function renderCasAppuntamenti(el, tipo) {
                 </div>
                 <div style="text-align:right;flex-shrink:0;margin-left:12px;">
                   <div style="font-weight:700;color:${isOggi?'var(--danger)':'var(--text)'};">${isOggi?'OGGI':d.toLocaleDateString('it-IT',{day:'2-digit',month:'short'})}</div>
-                  <div style="font-size:.82rem;color:var(--muted);">${d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</div>
+                  <div style="font-size:.82rem;color:var(--muted);">${oraAppCAS(a)}</div>
                   <button onclick="modificaAppuntamentoCAS('${a.id}','${tipo}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85rem;margin-top:4px;margin-right:8px;">✏️</button>
                   <button onclick="eliminaAppuntamentoCAS('${a.id}','${tipo}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.75rem;margin-top:4px;">✕</button>
                 </div>
@@ -4855,7 +4854,7 @@ async function renderCasCalendario(el) {
                 </div>
                 <div style="text-align:right;flex-shrink:0;margin-left:12px;">
                   <div style="font-weight:700;color:${isOggi?'var(--accent2)':'var(--text)'};">${isOggi?'OGGI':d.toLocaleDateString('it-IT',{day:'2-digit',month:'short'})}</div>
-                  <div style="font-size:.82rem;color:var(--muted);">${d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</div>
+                  <div style="font-size:.82rem;color:var(--muted);">${oraAppCAS(a)}</div>
                   ${puoModificareQuestura?`<button onclick="modificaAppuntamentoCAS('${a.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85rem;margin-top:4px;margin-right:8px;">✏️</button>
                   <button onclick="eliminaAppuntamentoCAS('${a.id}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.75rem;margin-top:4px;">✕ elimina</button>`:''}
                 </div>
@@ -4873,7 +4872,7 @@ async function renderCasCalendario(el) {
               return `<div class="card" style="padding:12px;${daSvolgere?'':'opacity:.6;'}">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
                   <div><span style="font-weight:500;">${a.titolo}</span> <span style="font-size:.78rem;color:var(--muted);">· ${tipoAppuntamentoIcon(a.tipo)} ${a.tipo}</span></div>
-                  <div style="font-size:.82rem;color:var(--muted);">${d.toLocaleDateString('it-IT')} ${d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</div>
+                  <div style="font-size:.82rem;color:var(--muted);">${d.toLocaleDateString('it-IT')} ${oraAppCAS(a)}</div>
                 </div>
                 ${daSvolgere && puoModificareQuestura
                   ? `<div style="margin-top:8px;text-align:right;"><button onclick="aggiornaEsitoAppuntamentoCAS('${a.id}')" class="btn btn-primary" style="font-size:.75rem;padding:4px 10px;">✅ Aggiorna esito</button></div>`
@@ -4892,7 +4891,17 @@ function tipoAppuntamentoIcon(tipo) {
 }
 
 // --- Appuntamenti nella scheda ospite ---
-const _APP_SELECT_SCHEDA = 'id,tipo,titolo,data_ora,stato,esito,operatore_accompagnatore,ospite_nome';
+// Orario di un appuntamento: se non è ancora noto (ora_da_definire) non si mostra un'ora finta.
+// L'appuntamento senza ora è salvato alle 12:00 di Roma, così il giorno resta lo stesso in ogni fuso.
+function oraAppCAS(a, html) {
+  if (a && a.ora_da_definire) return html === false ? 'ora da definire' : '<span style="color:var(--warn);">ora da definire</span>';
+  return new Date(a.data_ora).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+}
+function dataLocaleCAS(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+const _APP_SELECT_SCHEDA = 'id,tipo,titolo,data_ora,ora_da_definire,stato,esito,operatore_accompagnatore,ospite_nome';
 
 async function caricaAppuntamentiOspiteCAS(ospiteId, ospiteNome) {
   const box = document.getElementById('cas-appuntamenti-box');
@@ -4913,7 +4922,7 @@ async function caricaAppuntamentiOspiteCAS(ospiteId, ospiteNome) {
       return `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;" onclick="apriAppuntamentoDaSchedaOspiteCAS('${a.id}','${ospiteId}')">
         <div style="font-size:1rem;">${tipoAppuntamentoIcon(a.tipo)}</div>
         <div style="flex:1;min-width:0;">
-          <div style="font-weight:600;font-size:.85rem;">${a.tipo||'Appuntamento'} — ${fmt(a.data_ora)}</div>
+          <div style="font-weight:600;font-size:.85rem;">${a.tipo||'Appuntamento'} — ${a.ora_da_definire ? new Date(a.data_ora).toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'})+', '+oraAppCAS(a) : fmt(a.data_ora)}</div>
           ${dettagli?`<div style="color:var(--muted);font-size:.78rem;">${dettagli}</div>`:''}
         </div>
       </div>`;
@@ -5144,8 +5153,8 @@ async function modificaAppuntamentoCAS(id, tipoPagina) {
     sel.innerHTML = strutture.map(s=>`<option value="${s.id}">${s.nome}</option>`).join('');
     sel.value = a.struttura_id || '';
     const d = new Date(a.data_ora);
-    document.getElementById('app-data').value = d.toISOString().slice(0,10);
-    document.getElementById('app-ora').value = d.toTimeString().slice(0,5);
+    document.getElementById('app-data').value = dataLocaleCAS(d);
+    document.getElementById('app-ora').value = a.ora_da_definire ? '' : d.toTimeString().slice(0,5);
     document.getElementById('app-ospite').value = a.ospite_nome || '';
     await popolaSelectOspitiApp(a.ospite_id, a.ospite_nome);
     document.getElementById('app-note').value = a.note || '';
@@ -5180,11 +5189,12 @@ async function salvaAppuntamentoCAS() {
   const struttura_id = document.getElementById('app-struttura').value;
   const data = document.getElementById('app-data').value;
   const ora = document.getElementById('app-ora').value;
-  if(!titolo||!data||!ora) { alert('Compila titolo, data e ora.'); return; }
+  if(!titolo||!data) { alert('Compila titolo e data.'); return; }
   if(tipo === 'Questura' && !puoGestireQuestura()) { alert('🔒 Solo Parfait e il coordinatore possono inserire o modificare appuntamenti Questura.'); return; }
   const payload = {
     titolo, tipo, struttura_id,
-    data_ora: new Date(`${data}T${ora}:00`).toISOString(),
+    data_ora: new Date(`${data}T${ora || '12:00'}:00`).toISOString(),
+    ora_da_definire: !ora,
     ospite_nome: document.getElementById('app-ospite').value||null,
     note: document.getElementById('app-note').value||null,
     nome_avvocato: tipo==='Avvocato' ? (document.getElementById('app-nome-avvocato').value||null) : null,
@@ -5193,9 +5203,9 @@ async function salvaAppuntamentoCAS() {
   try {
     if(!_appEditId && payload.ospite_nome) {
       const giorno = data;
-      const possibiliDoppioni = await supa(`appuntamenti_cas?ospite_nome=eq.${encodeURIComponent(payload.ospite_nome)}&tipo=eq.${encodeURIComponent(tipo)}&data_ora=gte.${giorno}T00:00:00&data_ora=lte.${giorno}T23:59:59&select=data_ora,operatore_accompagnatore`);
+      const possibiliDoppioni = await supa(`appuntamenti_cas?ospite_nome=eq.${encodeURIComponent(payload.ospite_nome)}&tipo=eq.${encodeURIComponent(tipo)}&data_ora=gte.${giorno}T00:00:00&data_ora=lte.${giorno}T23:59:59&select=data_ora,ora_da_definire,operatore_accompagnatore`);
       if(possibiliDoppioni && possibiliDoppioni.length > 0) {
-        const dettagli = possibiliDoppioni.map(a => `• ore ${new Date(a.data_ora).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}, accompagnatore: ${a.operatore_accompagnatore||'non assegnato'}`).join('\n');
+        const dettagli = possibiliDoppioni.map(a => `• ${a.ora_da_definire?'ora da definire':'ore '+oraAppCAS(a)}, accompagnatore: ${a.operatore_accompagnatore||'non assegnato'}`).join('\n');
         const procedi = confirm(`⚠️ Esiste già un appuntamento di tipo "${tipo}" per ${payload.ospite_nome} lo stesso giorno:\n\n${dettagli}\n\nSalvare comunque come nuovo appuntamento separato?`);
         if(!procedi) return;
       }
@@ -6652,7 +6662,7 @@ async function salvaTrasferimento() {
     </div>
     <div class="grid g2">
       <div class="form-group"><label>Data *</label><input id="app-data" type="date"></div>
-      <div class="form-group"><label>Ora *</label><input id="app-ora" type="time"></div>
+      <div class="form-group"><label>Ora <span style="color:var(--muted);font-size:.8rem;">(vuota = da definire)</span></label><input id="app-ora" type="time"></div>
     </div>
     <div class="form-group" id="app-avvocato-wrap" style="display:none;"><label>Nome avvocato</label><input id="app-nome-avvocato" placeholder="es. Avv. Rossi"></div>
     <div class="form-group" style="position:relative;"><label>Nome e cognome ospite</label>
