@@ -38,6 +38,11 @@ function etichettaOra(a: any): string {
   return a.ora_da_definire ? "Ora da definire" : `Ore ${oraItalia(new Date(a.data_ora))}`;
 }
 
+// Battito per il controllo delle automazioni (non blocca mai l'invio).
+async function registra(esito: "ok" | "errore", messaggio: string): Promise<void> {
+  await supabase.rpc("registra_automazione", { p_nome: "accompagnamenti-domani", p_esito: esito, p_messaggio: messaggio });
+}
+
 async function inviaMail(to: string, subject: string, html: string): Promise<boolean> {
   const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
     method: "POST",
@@ -91,6 +96,7 @@ Deno.serve(async (req: Request) => {
   ]);
 
   if (error || errUtenti) {
+    if (!prova) await registra("errore", `lettura dal database non riuscita: ${(error ?? errUtenti)!.message}`);
     return new Response(JSON.stringify({ status: "errore", messaggio: (error ?? errUtenti)!.message }), { status: 500 });
   }
 
@@ -110,6 +116,7 @@ Deno.serve(async (req: Request) => {
   );
 
   if (rilevanti.length === 0) {
+    if (!prova) await registra("ok", "nessun accompagnamento domani");
     return new Response(JSON.stringify({ status: "ok", inviate: 0, motivo: "nessun accompagnamento domani" }), { status: 200 });
   }
 
@@ -154,6 +161,14 @@ Deno.serve(async (req: Request) => {
 
   if (prova) {
     return new Response(JSON.stringify({ status: "ok", prova: true, giorno: domaniKey, anteprima, nonMappati }), { status: 200 });
+  }
+  if (nonMappati.length || fallite.length) {
+    await registra("errore", [
+      nonMappati.length ? `senza indirizzo: ${nonMappati.join(", ")}` : "",
+      fallite.length ? `invio non riuscito: ${fallite.join(", ")}` : "",
+    ].filter(Boolean).join("; "));
+  } else {
+    await registra("ok", `${inviate} mail inviate`);
   }
   return new Response(JSON.stringify({ status: "ok", inviate, nonMappati, fallite }), { status: 200 });
 });

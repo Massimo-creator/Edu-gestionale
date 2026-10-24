@@ -60,7 +60,10 @@ Deno.serve(async (req: Request) => {
     supabase.from("utenti").select("nome, email").is("comunita_id", null),
   ]);
   const errore = app.error ?? str.error ?? ute.error;
-  if (errore) return risposta({ status: "errore", errore: errore.message }, 500);
+  if (errore) {
+    if (!prova) await supabase.rpc("registra_automazione", { p_nome: "appuntamenti-da-aggiornare", p_esito: "errore", p_messaggio: `lettura dal database non riuscita: ${errore.message}` });
+    return risposta({ status: "errore", errore: errore.message }, 500);
+  }
 
   const { mail, nonInviate } = prepara(
     (app.data ?? []) as Appuntamento[], (str.data ?? []) as Struttura[], (ute.data ?? []) as Utente[], new Date(), soglia,
@@ -82,5 +85,11 @@ Deno.serve(async (req: Request) => {
     if (await invia(EMAIL_MASSIMO, riepilogo.oggetto, riepilogo.html)) inviate++;
     else fallite.push(EMAIL_MASSIMO);
   }
+  // Battito per il controllo delle automazioni.
+  await supabase.rpc("registra_automazione", {
+    p_nome: "appuntamenti-da-aggiornare",
+    p_esito: fallite.length ? "errore" : "ok",
+    p_messaggio: fallite.length ? `invio non riuscito a: ${fallite.join(", ")}` : `${inviate} mail inviate`,
+  });
   return risposta({ status: "ok", inviate, fallite, appuntamenti: operatori.reduce((n, m) => n + m.voci, 0) + nonInviate.length });
 });

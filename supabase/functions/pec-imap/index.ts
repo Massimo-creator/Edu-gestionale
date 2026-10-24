@@ -25,6 +25,14 @@ function risposta(corpo: unknown, stato = 200): Response {
   return new Response(JSON.stringify(corpo), { status: stato, headers: { "Content-Type": "application/json" } });
 }
 
+// Battito per il controllo delle automazioni: a ogni lettura riuscita aggiorna solo lo stato (niente storico),
+// gli errori finiscono anche nello storico. Non blocca mai la lettura.
+async function battito(esito: "ok" | "errore", messaggio: string): Promise<void> {
+  try {
+    await supabase.rpc("registra_automazione", { p_nome: "pec-lettura", p_esito: esito, p_messaggio: messaggio, p_evento: esito === "errore" });
+  } catch { /* */ }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
   if (!chiaviConfigurate) return risposta({ status: "errore", errore: "chiave PEC_SECRET non configurata nei segreti di Supabase" }, 500);
@@ -172,6 +180,7 @@ Deno.serve(async (req: Request) => {
       const ultimo = Number(box.uidNext) - 1;
       await supabase.from("pec_stato").upsert({ casella: CASELLA, uidvalidity, ultimo_uid: ultimo, aggiornato: new Date().toISOString() });
       await client.logout();
+      await battito("ok", "casella inizializzata");
       return risposta({ status: "ok", inizializzato: true, ultimo_uid: ultimo, messaggi: [] });
     }
 
@@ -190,9 +199,11 @@ Deno.serve(async (req: Request) => {
       const pec = sorgente ? await apriPec(sorgente) : null;
       messaggi.push(pec ? { uid, ...pec } : { uid, saltato: true });
     }
+    await battito("ok", `${uids.length} nuove`);
     return risposta({ status: "ok", messaggi, altri: Math.max(0, uids.length - MAX_PER_GIRO) });
   } catch (e) {
     try { await client.logout(); } catch { /* */ }
+    if (azione === "nuove") await battito("errore", `lettura della casella non riuscita: ${String((e as Error)?.message ?? e)}`);
     return risposta({ status: "errore", errore: String((e as Error)?.message ?? e) }, 500);
   }
 });

@@ -54,6 +54,16 @@ function romaInUtc(data: string, hhmm: string): string {
   return new Date(ts).toISOString();
 }
 
+// Per il controllo delle automazioni: se una mail sugli atti non parte, resta traccia (non blocca mai nulla).
+async function segnalaInvioFallito(stato: number, oggetto: string): Promise<void> {
+  if (stato === 200) return;
+  try {
+    await supabase.rpc("registra_automazione", {
+      p_nome: "pec-archivio", p_esito: "errore", p_messaggio: `mail non inviata (stato ${stato}): ${oggetto}`,
+    });
+  } catch { /* */ }
+}
+
 async function avvisa(to: string[], oggetto: string, corpo: string, link?: string): Promise<number> {
   const html = `<pre style="font-family:Arial,Helvetica,sans-serif;font-size:14px;white-space:pre-wrap">${esc(corpo)}</pre>` +
     (link ? `<p style="font-family:Arial,Helvetica,sans-serif;font-size:14px"><a href="${esc(link)}">Apri il documento su Drive</a></p>` : "");
@@ -309,6 +319,7 @@ Deno.serve(async (req: Request) => {
       });
     }
     const stato = await avvisa(to, oggettoMail, corpo, link);
+    await segnalaInvioFallito(stato, oggettoMail);
     const registro = await registraAtto(supabase, riga);
     return risposta({ status: "ok", inviato: stato === 200, destinatari: to, registro });
   }
@@ -332,6 +343,7 @@ Deno.serve(async (req: Request) => {
       const rigaAnn = rigaAtto({ tipo, ospite: o, rn: testo(body.rn), oggetto, dataPec: testo(body.dataPec) });
       if (prova) return risposta({ status: "ok", dryRun: true, to: [EMAIL_MASSIMO], corpo: corpoAnn, rigaPecAtti: rigaAnn });
       const statoAnn = await avvisa([EMAIL_MASSIMO], `Approdo: annullamento convocazione in Commissione: ${persona}`, corpoAnn);
+      await segnalaInvioFallito(statoAnn, `annullamento convocazione: ${persona}`);
       const registroAnn = await registraAtto(supabase, rigaAnn);
       return risposta({ status: "ok", inviato: statoAnn === 200, registro: registroAnn });
     }
@@ -356,6 +368,7 @@ Deno.serve(async (req: Request) => {
     const riga = rigaAtto({ tipo, ospite: o, rn: testo(body.rn), oggetto, dataPec: testo(body.dataPec), motivo: esito || "non_trovato" });
     if (prova) return risposta({ status: "ok", dryRun: true, to: [EMAIL_MASSIMO], corpo, rigaPecAtti: riga });
     const stato = await avvisa([EMAIL_MASSIMO], `Approdo: PEC non archiviata, da verificare: ${nomeAtto}${persona ? " " + persona : ""}`, corpo);
+    await segnalaInvioFallito(stato, `PEC non archiviata, da verificare: ${nomeAtto}`);
     const registro = await registraAtto(supabase, riga);
     return risposta({ status: "ok", inviato: stato === 200, registro });
   }
