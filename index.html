@@ -4937,8 +4937,8 @@ async function caricaAppuntamentiOspiteCAS(ospiteId, ospiteNome) {
 }
 
 // --- Atti PEC (tabella pec_atti, scritta da pec-archivio): elenco nella scheda ospite e link nella convocazione ---
-const NOMI_ATTO_PEC = { decreto_commissione:'Decreto Commissione', convocazione:'Convocazione', annullamento:'Annullamento convocazione', revoca:'Revoca accoglienza', cessazione:'Cessazione accoglienza' };
-const ICONE_ATTO_PEC = { decreto_commissione:'⚖️', convocazione:'📨', annullamento:'🚫', revoca:'⛔', cessazione:'⛔' };
+const NOMI_ATTO_PEC = { decreto_commissione:'Decreto Commissione', decreto_tribunale:'Decreto Tribunale', convocazione:'Convocazione', annullamento:'Annullamento convocazione', revoca:'Revoca accoglienza', cessazione:'Cessazione accoglienza' };
+const ICONE_ATTO_PEC = { decreto_commissione:'⚖️', decreto_tribunale:'🏛️', convocazione:'📨', annullamento:'🚫', revoca:'⛔', cessazione:'⛔' };
 function _escAtto(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function _linkDocumentoAtto(url){
   // Solo link Drive: il valore arriva dalla funzione, ma si mostra come link solo se è davvero un documento Drive.
@@ -4957,7 +4957,10 @@ async function caricaAttiPecOspiteCAS(ospiteId) {
       const extra = [];
       if(a.tipo_atto==='decreto_commissione' && a.decisione) extra.push(`<div style="font-size:.8rem;margin-top:2px;">Decisione: “${_escAtto(a.decisione)}”</div>`);
       if(a.tipo_atto==='convocazione' && a.data_audizione) extra.push(`<div style="font-size:.8rem;margin-top:2px;">Audizione: ${fmtData(a.data_audizione)}${a.ora_audizione?' alle '+_escAtto(String(a.ora_audizione).slice(0,5)):''}</div>`);
-      const etichette = [a.rn?_escAtto(a.rn):'', a.stato==='da_verificare'?'<span style="color:var(--danger);">da verificare</span>':'', a.origine==='storico'?'storico':''].filter(Boolean).join(' · ');
+      // Decreto del Tribunale (es. fissazione udienza sul ricorso): data_audizione/ora_audizione contengono la data dell'udienza, decisione l'oggetto del decreto.
+      if(a.tipo_atto==='decreto_tribunale' && a.decisione) extra.push(`<div style="font-size:.8rem;margin-top:2px;">${_escAtto(a.decisione)}</div>`);
+      if(a.tipo_atto==='decreto_tribunale' && a.data_audizione) extra.push(`<div style="font-size:.8rem;margin-top:2px;">Udienza: ${fmtData(a.data_audizione)}${a.ora_audizione?' alle '+_escAtto(String(a.ora_audizione).slice(0,5)):''}</div>`);
+      const etichette = [a.rn?_escAtto(a.rn):'', a.stato==='da_verificare'?'<span style="color:var(--danger);">da verificare</span>':'', a.origine==='storico'?'storico':'', a.origine==='manuale'?'inserito a mano':''].filter(Boolean).join(' · ');
       return `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;">
         <div style="font-size:1rem;">${ICONE_ATTO_PEC[a.tipo_atto]||'📄'}</div>
         <div style="flex:1;min-width:0;">
@@ -4977,11 +4980,15 @@ async function mostraConvocazioneAppuntamentoCAS(appId, tipo) {
   const el = document.getElementById('app-convocazione-link');
   if(!el) return;
   el.innerHTML = '';
-  if(!appId || tipo!=='Commissione Territoriale') return;
+  if(!appId || (tipo!=='Commissione Territoriale' && tipo!=='Ricorso')) return;
   try {
-    const atti = (await supa(`pec_atti?appuntamento_id=eq.${appId}&tipo_atto=eq.convocazione&select=data_pec,link_documento&order=data_pec.desc.nullslast&limit=1`)) || [];
+    // Commissione: convocazione arrivata via PEC. Ricorso: decreto del Tribunale (es. fissazione udienza).
+    const tipoAtto = tipo==='Ricorso' ? 'decreto_tribunale' : 'convocazione';
+    const atti = (await supa(`pec_atti?appuntamento_id=eq.${appId}&tipo_atto=eq.${tipoAtto}&select=data_pec,link_documento&order=data_pec.desc.nullslast&limit=1`)) || [];
     if(atti.length && _linkDocumentoAtto(atti[0].link_documento)) {
-      el.innerHTML = `📨 Convocazione arrivata via PEC${atti[0].data_pec?' il '+fmtData(atti[0].data_pec):''}: ${_linkDocumentoAtto(atti[0].link_documento)}`;
+      el.innerHTML = tipo==='Ricorso'
+        ? `🏛️ Decreto del Tribunale${atti[0].data_pec?' del '+fmtData(atti[0].data_pec):''}: ${_linkDocumentoAtto(atti[0].link_documento)}`
+        : `📨 Convocazione arrivata via PEC${atti[0].data_pec?' il '+fmtData(atti[0].data_pec):''}: ${_linkDocumentoAtto(atti[0].link_documento)}`;
     }
   } catch(e) { /* il link è un aiuto in più: se non si carica, l'appuntamento resta utilizzabile */ }
 }
