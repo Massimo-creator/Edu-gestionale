@@ -5,10 +5,11 @@ import { NOMI_ATTO, ospitiNelTesto, type TipoAtto, tipoAtto } from "./atti.ts";
 import { frasiConTermini, leggiConvocazione, leggiDecreto } from "./estrai.ts";
 import { chiaveUsata, chiaviConfigurate } from "./chiave.ts";
 import { registraAtto, rigaAtto } from "./registro.ts";
+import { esitoDaDecisione, esitoSovrascrivibile } from "./esito.ts";
 
 // Archiviazione PEC. Lo script Apps Script legge le PEC inoltrate e salva i PDF su Drive;
-// questa funzione riconosce atto e ospite, legge il PDF, segna le convocazioni in Approdo
-// e manda gli avvisi (Resend, via send-email).
+// questa funzione riconosce atto e ospite, legge il PDF, segna le convocazioni in Approdo,
+// compila l'esito dei decreti nella scheda ospite e manda gli avvisi (Resend, via send-email).
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -52,6 +53,32 @@ function romaInUtc(data: string, hhmm: string): string {
     ts = nominale - Math.round(anticipo) * 60000;
   }
   return new Date(ts).toISOString();
+}
+
+// Per il controllo delle automazioni: se una mail sugli atti non parte, resta traccia (non blocca mai nulla).
+async function segnalaInvioFallito(stato: number, oggetto: string): Promise<void> {
+  if (stato === 200) return;
+  try {
+    await supabase.rpc("registra_automazione", {
+      p_nome: "pec-archivio", p_esito: "errore", p_messaggio: `mail non inviata (stato ${stato}): ${oggetto}`,
+    });
+  } catch { /* */ }
+}
+
+// Doppioni (decisione di Massimo, 26/10/2026): una PEC già registrata in pec_atti con lo stesso RN e lo
+// stesso tipo di atto (per esempio inoltrata di nuovo a mano dai colleghi) non va rielaborata.
+// soloArchiviati=true: conta solo gli atti già archiviati; false: qualsiasi riga già presente.
+async function giaRegistrato(rn: string, tipo: string, soloArchiviati: boolean): Promise<boolean> {
+  if (!rn || !tipo) return false;
+  try {
+    let q = supabase.from("pec_atti").select("id").eq("rn", rn).eq("tipo_atto", tipo);
+    if (soloArchiviati) q = q.eq("stato", "archiviata");
+    const { data, error } = await q.limit(1);
+    if (error) return false;
+    return (data ?? []).length > 0;
+  } catch {
+    return false;
+  }
 }
 
 async function avvisa(to: string[], oggetto: string, corpo: string, link?: string): Promise<number> {
@@ -133,6 +160,30 @@ async function segnaAudizione(o: OspiteDesc, data: string, ora: string, rn: stri
   return { testo: `Segnata in Approdo: Commissione Territoriale il ${dataIt(data)} alle ${ora}.`, id: creato.id as string };
 }
 
+// Decreti: compila "Esito audizione" nella scheda ospite (decisione di Massimo, 03/11/2026).
+// Scrive solo se il campo è vuoto o "Commissione sostenuta" e se l'esito si legge con certezza;
+// non tocca mai un esito già compilato. Non blocca mai la mail.
+async function compilaEsito(o: OspiteDesc, decisione: string | null | undefined, prova = false): Promise<string> {
+  const esito = esitoDaDecisione(decisione);
+  if (!esito) return "Esito NON compilato nella scheda Approdo: dal testo non sono riuscito a capirlo con certezza. Compilarlo a mano.";
+  if (!o?.id) return `Esito letto: ${esito}. NON compilato nella scheda: ospite non indicato.`;
+  try {
+    const { data, error } = await supabase.from("ospiti_cas").select("esito_audizione").eq("id", o.id).single();
+    if (error) return `Esito letto: ${esito}. NON compilato nella scheda per un errore tecnico (${error.message}).`;
+    const attuale = (data?.esito_audizione as string | null) ?? null;
+    if (attuale && attuale.trim() === esito) return `Esito nella scheda Approdo: ${esito} (era già compilato).`;
+    if (!esitoSovrascrivibile(attuale)) {
+      return `Esito letto: ${esito}. NON compilato nella scheda: c'è già "${attuale}". Verificare a mano.`;
+    }
+    if (prova) return `(prova: nella scheda verrebbe compilato l'esito "${esito}")`;
+    const { error: errUpd } = await supabase.from("ospiti_cas").update({ esito_audizione: esito, updated_at: new Date().toISOString() }).eq("id", o.id);
+    if (errUpd) return `Esito letto: ${esito}. NON compilato nella scheda per un errore tecnico (${errUpd.message}).`;
+    return `Esito compilato automaticamente nella scheda Approdo: ${esito}. Controllare sul decreto.`;
+  } catch (e) {
+    return `Esito letto: ${esito}. NON compilato nella scheda per un errore (${String((e as Error)?.message ?? e)}).`;
+  }
+}
+
 // Annullamenti: si elencano le audizioni in Commissione ancora aperte dell'ospite, senza toccarle.
 async function righeAnnullamento(o: OspiteDesc | null): Promise<string[]> {
   const intro = "In Approdo NON ho modificato nessun appuntamento.";
@@ -193,8 +244,12 @@ Deno.serve(async (req: Request) => {
   if (azione === "abbina") {
     const tipo: TipoAtto = tipoAtto(oggetto);
     if (tipo === "altro") return risposta({ status: "ok", tipo, esito: "ignorato" });
-    const trovati = ospitiNelTesto(oggetto, (ospitiDb ?? []) as Ospite[]);
     const rn = /\bRN\d{5,}\b/.exec(oggetto)?.[0] ?? "";
+    // Atto già archiviato (stesso RN e tipo): è un doppione, si ignora come le mail che non sono atti.
+    if (rn && await giaRegistrato(rn, tipo, true)) {
+      return risposta({ status: "ok", tipo: "altro", esito: "ignorato", motivo: "doppione", rn });
+    }
+    const trovati = ospitiNelTesto(oggetto, (ospitiDb ?? []) as Ospite[]);
     if (trovati.length === 1) {
       return risposta({ status: "ok", tipo, nomeAtto: NOMI_ATTO[tipo], esito: "trovato", rn, chiave: rn ? `${rn}|${tipo}` : "", ospite: descrivi(trovati[0]) });
     }
@@ -230,6 +285,7 @@ Deno.serve(async (req: Request) => {
       letto.decisione = d.decisione;
       letto.procedura = d.procedura;
       oggettoMail = `Approdo: decreto Commissione da consegnare: ${persona}`;
+      const esitoScheda = await compilaEsito(o, d.decisione, prova);
       righe.push(
         `È arrivato il decreto della Commissione Territoriale per ${persona} (${o.struttura ?? "struttura non indicata"}). PEC del ${dataPec}.`,
         "",
@@ -238,6 +294,8 @@ Deno.serve(async (req: Request) => {
         "",
         "Procedura (testo del decreto):",
         d.procedura ? `"${d.procedura}"` : nonLetto,
+        "",
+        esitoScheda,
         "",
         "Termine per il ricorso: il decreto riporta termini diversi a seconda della procedura. Verificare il termine nel documento e con l'avvocato.",
       );
@@ -309,6 +367,7 @@ Deno.serve(async (req: Request) => {
       });
     }
     const stato = await avvisa(to, oggettoMail, corpo, link);
+    await segnalaInvioFallito(stato, oggettoMail);
     const registro = await registraAtto(supabase, riga);
     return risposta({ status: "ok", inviato: stato === 200, destinatari: to, registro });
   }
@@ -320,6 +379,11 @@ Deno.serve(async (req: Request) => {
     const nomeAtto = NOMI_ATTO[tipo] ?? "Atto";
     const o = (body.ospite ?? null) as OspiteDesc | null;
     const persona = o ? `${o.cognome.toUpperCase()} ${o.nome}` : "";
+    // Stesso atto già registrato (archiviato o da verificare): niente nuova riga né nuovo avviso.
+    const rnProblema = testo(body.rn) || (/\bRN\d{5,}\b/.exec(oggetto)?.[0] ?? "");
+    if (!prova && rnProblema && await giaRegistrato(rnProblema, tipo, false)) {
+      return risposta({ status: "ok", inviato: false, registro: { registrato: false, nota: "doppione: atto già registrato" } });
+    }
     // Gli annullamenti di solito arrivano senza PDF: non è un problema, si avvisa Massimo e si registra l'atto.
     if (tipo === "annullamento" && esito === "senza_pdf" && o) {
       const corpoAnn = [
@@ -332,6 +396,7 @@ Deno.serve(async (req: Request) => {
       const rigaAnn = rigaAtto({ tipo, ospite: o, rn: testo(body.rn), oggetto, dataPec: testo(body.dataPec) });
       if (prova) return risposta({ status: "ok", dryRun: true, to: [EMAIL_MASSIMO], corpo: corpoAnn, rigaPecAtti: rigaAnn });
       const statoAnn = await avvisa([EMAIL_MASSIMO], `Approdo: annullamento convocazione in Commissione: ${persona}`, corpoAnn);
+      await segnalaInvioFallito(statoAnn, `annullamento convocazione: ${persona}`);
       const registroAnn = await registraAtto(supabase, rigaAnn);
       return risposta({ status: "ok", inviato: statoAnn === 200, registro: registroAnn });
     }
@@ -356,6 +421,7 @@ Deno.serve(async (req: Request) => {
     const riga = rigaAtto({ tipo, ospite: o, rn: testo(body.rn), oggetto, dataPec: testo(body.dataPec), motivo: esito || "non_trovato" });
     if (prova) return risposta({ status: "ok", dryRun: true, to: [EMAIL_MASSIMO], corpo, rigaPecAtti: riga });
     const stato = await avvisa([EMAIL_MASSIMO], `Approdo: PEC non archiviata, da verificare: ${nomeAtto}${persona ? " " + persona : ""}`, corpo);
+    await segnalaInvioFallito(stato, `PEC non archiviata, da verificare: ${nomeAtto}`);
     const registro = await registraAtto(supabase, riga);
     return risposta({ status: "ok", inviato: stato === 200, registro });
   }

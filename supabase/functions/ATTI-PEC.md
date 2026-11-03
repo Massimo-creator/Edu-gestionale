@@ -1,6 +1,12 @@
 # Atti PEC: stato dei lavori
 
-Aggiornato al 15/10/2026.
+Aggiornato al 03/11/2026.
+
+- **v16 (03/11)**: per i decreti della Commissione compila anche "Esito audizione" nella scheda ospite
+  (Diniego, Protezione sussidiaria, Protezione speciale, Status di rifugiato; logica in `esito.ts`).
+  Scrive solo se il campo è vuoto o "Commissione sostenuta" e solo se l'esito si legge con certezza;
+  la mail dice sempre cosa ha fatto. Allineato il repo con la versione in produzione (v15: doppioni per RN,
+  segnalazione delle mail non partite).
 
 ## Cosa è in produzione
 
