@@ -287,6 +287,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:199;}
 
 /* ===== MOBILE RESPONSIVE ===== */
+
+@keyframes clioPulse{0%,100%{opacity:1}50%{opacity:.45}}
+.clio-badge-testo{font-size:.78rem;font-weight:600;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;}
+.clio-cella{min-height:64px;border-radius:8px;padding:4px;cursor:pointer;overflow:hidden;}
+.clio-chips{display:flex;flex-direction:column;gap:2px;margin-top:2px;}
+.clio-chip{display:block;color:#fff;font-size:.62rem;border-radius:4px;padding:1px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.clio-dot{display:inline-block;width:9px;height:9px;border-radius:50%;vertical-align:middle;}
+@media(max-width:600px){
+  .clio-badge-testo{display:none;}
+  .clio-cella{min-height:48px;}
+  .clio-chips{flex-direction:row;flex-wrap:wrap;gap:3px;margin-top:4px;}
+  .clio-chip{width:9px;height:9px;padding:0;border-radius:50%;font-size:0;}
+}
 @media(max-width:768px){
   body{overflow:auto;}
   .app-shell{overflow:auto;}
@@ -3251,6 +3264,7 @@ function mostraAppCAS() {
         if(!SESSION.is_coordinatore_cas && t.includes('Calendario Coordinatore')) item.style.display='none';
       });
       avviaPollingNotificheCAS();
+      avviaBadgeClio();
       if (isMax) {
         var sidebarCas = document.getElementById('sidebar-cas');
         if (sidebarCas) sidebarCas.style.display = 'none';
@@ -3360,7 +3374,7 @@ function mostraAppCAS() {
 <div id="main-cas">
   <div id="topbar-cas" style="display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:56px;background:var(--card);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;">
     <h3 id="cas-page-title" style="font-size:1rem;font-weight:600;">Dashboard CAS</h3>
-    <div style="position:relative;flex:1;max-width:320px;margin:0 20px;">
+    <div style="position:relative;flex:1;min-width:0;max-width:320px;margin:0 20px;">
       <input id="cas-ricerca-ospiti" type="text" placeholder="🔍 Cerca ospite per nome o cognome..." autocomplete="off"
         style="width:100%;padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;box-sizing:border-box;"
         oninput="cercaOspitiTopbar(this.value)"
@@ -3368,6 +3382,7 @@ function mostraAppCAS() {
         onblur="setTimeout(()=>{const r=document.getElementById('cas-ricerca-risultati');if(r)r.style.display='none';},150)">
       <div id="cas-ricerca-risultati" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-top:4px;max-height:340px;overflow-y:auto;z-index:50;box-shadow:0 6px 16px rgba(0,0,0,.12);"></div>
     </div>
+    <button id="clio-badge" onclick="showPageCAS('cas-clio')" title="Clio" style="background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:6px;padding:4px 6px;margin-right:8px;flex-shrink:0;"></button>
     <div style="position:relative;margin-right:14px;">
       <button id="cas-notifiche-bell" onclick="toggleNotificheCAS()" style="background:none;border:none;font-size:1.15rem;cursor:pointer;position:relative;padding:4px 6px;line-height:1;">
         🔔
@@ -5672,82 +5687,193 @@ function clioSovrapposte(inizio, fine, stati, escludiId) {
     new Date(p.inizio).getTime() < b && new Date(p.fine_prevista).getTime() > a);
 }
 
-async function renderCasClio(el) {
-  el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
+let _clioMese = new Date().getMonth();
+let _clioAnno = new Date().getFullYear();
+let _clioGiornoSel = null;
+let _clioUltimiKmVal = '';
+const CLIO_COLORI = {richiesta:'#f59e0b',approvata:'#16a34a',in_uso:'#dc2626',riconsegnata:'#94a3b8',rifiutata:'#991b1b',annullata:'#cbd5e1'};
+const CLIO_ETICHETTE = {richiesta:'Da approvare',approvata:'Approvata',in_uso:'In uso',riconsegnata:'Riconsegnata',rifiutata:'Rifiutata',annullata:'Annullata'};
+
+function clioSvg(colore) {
+  return `<svg viewBox="0 0 64 32" width="44" height="22" aria-hidden="true" style="display:block;">
+    <path d="M4 23 L4 18 Q5 13.5 10 12.5 L18 11.5 L25 5.2 Q27 4 30 4 L43 4 Q47.5 4 50.5 7.5 L54.5 12 Q60 13 60 18 L60 23 Z" fill="${colore}"/>
+    <path d="M21.5 11.3 L27.3 6.6 L35.5 6.6 L35.5 11.3 Z M38 6.6 L43.3 6.6 Q46.3 6.6 48.4 9 L50.2 11.3 L38 11.3 Z" fill="#e0f2fe" opacity=".9"/>
+    <rect x="56.5" y="14.5" width="3.5" height="2.6" rx="1" fill="#fef08a"/>
+    <rect x="4" y="15" width="2.5" height="2.6" rx="1" fill="#fecaca"/>
+    <circle cx="16" cy="23.5" r="5" fill="#1f2937"/><circle cx="16" cy="23.5" r="2" fill="#9ca3af"/>
+    <circle cx="48" cy="23.5" r="5" fill="#1f2937"/><circle cx="48" cy="23.5" r="2" fill="#9ca3af"/>
+  </svg>`;
+}
+async function aggiornaBadgeClio(inUsoNoto) {
+  const el = document.getElementById('clio-badge'); if (!el) return;
   try {
-    const da = new Date(Date.now() - 60*24*3600*1000).toISOString();
-    _clioDati = await supa(`clio_prenotazioni?or=(stato.in.(richiesta,approvata,in_uso),created_at.gte.${da})&order=inizio.asc`) || [];
-    const me = (SESSION.utente.email||'').toLowerCase();
-    const ora = Date.now();
-    const inUso = _clioDati.find(p=>p.stato==='in_uso');
-    const daApprovare = _clioDati.filter(p=>p.stato==='richiesta');
-    const prossime = _clioDati.filter(p=>p.stato==='approvata');
-    const storico = _clioDati.filter(p=>['riconsegnata','rifiutata','annullata'].includes(p.stato)).sort((a,b)=>new Date(b.inizio)-new Date(a.inizio));
-    const approvo = clioPuoApprovare();
-
-    let stato;
-    if (inUso) {
-      const ritardo = new Date(inUso.fine_prevista).getTime() < ora;
-      stato = `
-        <div style="background:${ritardo?'#7f1d1d':'#dc2626'};color:#fff;border-radius:16px;padding:22px;text-align:center;">
-          <div style="font-size:2.4rem;line-height:1;">🚗</div>
-          <div style="font-size:1.4rem;font-weight:700;margin-top:6px;">${ritardo?'IN RITARDO':'FUORI'}</div>
-          <div style="font-size:1rem;margin-top:6px;">ce l'ha <b>${clioEsc(inUso.operatore_nome)}</b>${inUso.urgenza?' · uso immediato':''}</div>
-          <div style="font-size:.9rem;opacity:.9;margin-top:4px;">rientro previsto ${clioFmt(inUso.fine_prevista)} · chiave ${CLIO_CHIAVE[inUso.chiave]||'—'}</div>
-          ${(inUso.operatore_email===me||approvo)?`<button class="btn" style="margin-top:14px;background:#fff;color:#dc2626;font-weight:700;font-size:1rem;padding:14px 20px;width:100%;max-width:340px;" onclick="clioApriRiconsegna('${inUso.id}')">🔑 Riconsegna</button>`:''}
-        </div>`;
-    } else {
-      const prossima = prossime.find(p=>new Date(p.fine_prevista).getTime()>ora);
-      stato = `
-        <div style="background:#16a34a;color:#fff;border-radius:16px;padding:22px;text-align:center;">
-          <div style="font-size:2.4rem;line-height:1;">🚗</div>
-          <div style="font-size:1.4rem;font-weight:700;margin-top:6px;">LIBERA</div>
-          <div style="font-size:.9rem;opacity:.9;margin-top:4px;">${prossima?`prossima: ${clioEsc(prossima.operatore_nome)}, ${clioFmt(prossima.inizio)}`:'nessuna prenotazione in arrivo'}</div>
-        </div>`;
+    const inUso = inUsoNoto !== undefined ? inUsoNoto :
+      ((await supa('clio_prenotazioni?stato=eq.in_uso&select=operatore_nome,fine_prevista&limit=1')) || [])[0] || null;
+    let col, glow, testo, titolo, anim = '';
+    if (!inUso) { col='#16a34a'; glow='#22c55e'; testo='Libera'; titolo='Clio libera: nel parcheggio, disponibile anche per urgenze'; }
+    else {
+      const ritardo = new Date(inUso.fine_prevista).getTime() < Date.now();
+      col = ritardo ? '#991b1b' : '#dc2626'; glow = '#ef4444';
+      testo = (ritardo ? 'In ritardo · ' : 'Fuori · ') + (inUso.operatore_nome||'');
+      titolo = `Clio fuori con ${inUso.operatore_nome||''}, rientro previsto ${clioFmt(inUso.fine_prevista)}`;
+      anim = `animation:clioPulse ${ritardo?'.8s':'1.8s'} ease-in-out infinite;`;
     }
+    el.title = titolo;
+    el.innerHTML = `<span style="filter:drop-shadow(0 0 4px ${glow}) drop-shadow(0 0 9px ${glow});${anim}display:block;">${clioSvg(col)}</span><span class="clio-badge-testo" style="color:${col};">${clioEsc(testo)}</span>`;
+  } catch(e) { /* non bloccante */ }
+}
+let _clioBadgeTimer = null;
+function avviaBadgeClio() {
+  aggiornaBadgeClio();
+  if (_clioBadgeTimer) clearInterval(_clioBadgeTimer);
+  _clioBadgeTimer = setInterval(()=>aggiornaBadgeClio(), 60000);
+}
 
-    const cardPren = (p) => {
-      const mia = p.operatore_email===me;
-      const badge = {richiesta:['#f59e0b','Da approvare'],approvata:['#16a34a','Approvata'],in_uso:['#dc2626','In uso'],riconsegnata:['#64748b','Riconsegnata'],rifiutata:['#991b1b','Rifiutata'],annullata:['#94a3b8','Annullata']}[p.stato];
-      let azioni = '';
-      if (p.stato==='richiesta' && approvo) azioni += `<button class="btn btn-primary" style="flex:1;padding:12px;" onclick="clioDecidi('${p.id}','approvata')">✓ Approva</button><button class="btn btn-ghost" style="flex:1;padding:12px;color:var(--danger);" onclick="clioDecidi('${p.id}','rifiutata')">✕ Rifiuta</button>`;
-      if (p.stato==='approvata' && (mia||approvo) && !inUso) azioni += `<button class="btn btn-primary" style="flex:1;padding:12px;" onclick="clioApriRitiro('${p.id}')">🔑 Ritiro</button>`;
-      if (['richiesta','approvata'].includes(p.stato) && (mia||approvo)) azioni += `<button class="btn btn-ghost" style="flex:1;padding:12px;" onclick="clioAnnulla('${p.id}')">Annulla</button>`;
-      const dettagli = [];
-      if (p.km_ritiro!=null) dettagli.push(`ritiro ${p.km_ritiro} km, ${clioEsc(p.carburante_ritiro||'')}, chiave ${CLIO_CHIAVE[p.chiave]||'—'}`);
-      if (p.km_riconsegna!=null) dettagli.push(`riconsegna ${p.km_riconsegna} km, ${clioEsc(p.carburante_riconsegna||'')}${p.km_ritiro!=null?` (${p.km_riconsegna-p.km_ritiro} km fatti)`:''}${p.chiave_restituita===false?', ⚠️ chiave NON rimessa al suo posto':''}`);
-      if (p.note_danni) dettagli.push(`⚠️ ${clioEsc(p.note_danni)}`);
-      if (p.nota_approvazione) dettagli.push(`💬 ${clioEsc(p.nota_approvazione)}`);
-      return `
-        <div class="card" style="padding:14px;border-left:4px solid ${badge[0]};">
-          <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
-            <div>
-              <div style="font-weight:600;">${clioEsc(p.operatore_nome)}${p.urgenza?' <span style="color:var(--danger);font-size:.8rem;">· uso immediato</span>':''}</div>
-              <div style="font-size:.85rem;margin-top:2px;">${clioFmt(p.inizio)} → ${clioOra(p.fine_prevista)}</div>
-              ${p.motivo?`<div style="font-size:.82rem;color:var(--muted);margin-top:2px;">${clioEsc(p.motivo)}</div>`:''}
-            </div>
-            <span style="background:${badge[0]};color:#fff;border-radius:20px;padding:2px 10px;font-size:.72rem;white-space:nowrap;">${badge[1]}</span>
-          </div>
-          ${dettagli.length?`<div style="font-size:.8rem;color:var(--muted);margin-top:6px;line-height:1.5;">${dettagli.join('<br>')}</div>`:''}
-          ${azioni?`<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">${azioni}</div>`:''}
-        </div>`;
-    };
+function clioCambiaMese(delta) {
+  _clioMese += delta;
+  if (_clioMese < 0) { _clioMese = 11; _clioAnno--; }
+  if (_clioMese > 11) { _clioMese = 0; _clioAnno++; }
+  _clioGiornoSel = null;
+  renderCasClio(document.getElementById('content-cas'));
+}
+function clioSelezionaGiorno(g) {
+  _clioGiornoSel = g;
+  renderCasClio(document.getElementById('content-cas'), true);
+}
+function clioChiaveGiorno(d) {
+  const x = new Date(d); const p = n=>String(n).padStart(2,'0');
+  return `${x.getFullYear()}-${p(x.getMonth()+1)}-${p(x.getDate())}`;
+}
+function clioPrenDelGiorno(chiave) {
+  const a = new Date(chiave+'T00:00:00').getTime(), b = a + 24*3600*1000;
+  return _clioDati.filter(p => new Date(p.inizio).getTime() < b && new Date(p.fine_prevista).getTime() > a)
+    .sort((x,y)=>new Date(x.inizio)-new Date(y.inizio));
+}
 
-    el.innerHTML = `
-      <div style="max-width:560px;margin:0 auto;">
-        ${stato}
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 22px;">
-          <button class="btn btn-primary" style="padding:16px 10px;font-size:1rem;" onclick="clioApriPrenota()">📅 Prenota</button>
-          <button class="btn" style="padding:16px 10px;font-size:1rem;background:#dc2626;color:#fff;${inUso?'opacity:.45;':''}" ${inUso?'disabled':''} onclick="clioApriImmediato()">⚡ Uso immediato</button>
-        </div>
-        ${daApprovare.length?`<div style="font-weight:600;color:var(--warn);margin-bottom:8px;">Da approvare (${daApprovare.length})</div><div style="display:grid;gap:10px;margin-bottom:20px;">${daApprovare.map(cardPren).join('')}</div>`:''}
-        ${inUso?`<div style="font-weight:600;color:var(--danger);margin-bottom:8px;">In uso</div><div style="display:grid;gap:10px;margin-bottom:20px;">${cardPren(inUso)}</div>`:''}
-        <div style="font-weight:600;margin-bottom:8px;">Prossime prenotazioni</div>
-        <div style="display:grid;gap:10px;margin-bottom:20px;">${prossime.length?prossime.map(cardPren).join(''):'<div class="card" style="padding:16px;text-align:center;color:var(--muted);font-size:.9rem;">Nessuna prenotazione approvata</div>'}</div>
-        ${storico.length?`<details><summary style="cursor:pointer;color:var(--muted);font-size:.88rem;padding:8px 0;">Storico ultimi 60 giorni (${storico.length})</summary><div style="display:grid;gap:8px;margin-top:10px;">${storico.map(cardPren).join('')}</div></details>`:''}
-        <div style="font-size:.78rem;color:var(--muted);text-align:center;margin-top:20px;line-height:1.5;">La Clio resta sempre nel parcheggio. Una chiave sta sempre al Bike, l'altra sempre in ufficio: a fine uso rimetti la chiave dove l'hai presa.</div>
+async function renderCasClio(el, soloRidisegna) {
+  if (!soloRidisegna) {
+    el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
+    try {
+      const m0 = new Date(_clioAnno, _clioMese, 1), m1 = new Date(_clioAnno, _clioMese+1, 1);
+      const [delMese, attive, ultima] = await Promise.all([
+        supa(`clio_prenotazioni?inizio=lt.${m1.toISOString()}&fine_prevista=gte.${m0.toISOString()}&order=inizio.asc`),
+        supa(`clio_prenotazioni?stato=in.(richiesta,approvata,in_uso)&order=inizio.asc`),
+        supa(`clio_prenotazioni?km_riconsegna=not.is.null&order=riconsegna_at.desc&limit=1&select=km_riconsegna`)
+      ]);
+      const mappa = {}; [...(delMese||[]), ...(attive||[])].forEach(p=>mappa[p.id]=p);
+      _clioDati = Object.values(mappa).sort((a,b)=>new Date(a.inizio)-new Date(b.inizio));
+      _clioUltimiKmVal = (ultima&&ultima[0]) ? ultima[0].km_riconsegna : '';
+    } catch(e) { el.innerHTML = `<div style="color:var(--danger);padding:20px;">Errore: ${clioEsc(e.message)}</div>`; return; }
+  }
+  const me = (SESSION.utente.email||'').toLowerCase();
+  const ora = Date.now();
+  const oggi = clioChiaveGiorno(new Date());
+  const inUso = _clioDati.find(p=>p.stato==='in_uso') || null;
+  aggiornaBadgeClio(inUso);
+  const daApprovare = _clioDati.filter(p=>p.stato==='richiesta');
+  const approvo = clioPuoApprovare();
+  if (!_clioGiornoSel) {
+    _clioGiornoSel = (new Date().getMonth()===_clioMese && new Date().getFullYear()===_clioAnno) ? oggi : clioChiaveGiorno(new Date(_clioAnno,_clioMese,1));
+  }
+
+  let stato;
+  if (inUso) {
+    const ritardo = new Date(inUso.fine_prevista).getTime() < ora;
+    stato = `
+      <div style="background:${ritardo?'#7f1d1d':'#dc2626'};color:#fff;border-radius:16px;padding:18px;text-align:center;">
+        <div style="display:inline-block;background:#fff;border-radius:12px;padding:6px 10px;"><span style="display:block;filter:drop-shadow(0 0 6px #ef4444);">${clioSvg('#dc2626').replace('width="44" height="22"','width="80" height="40"')}</span></div>
+        <div style="font-size:1.35rem;font-weight:700;margin-top:6px;">${ritardo?'IN RITARDO':'FUORI'}</div>
+        <div style="font-size:1rem;margin-top:4px;">ce l'ha <b>${clioEsc(inUso.operatore_nome)}</b>${inUso.urgenza?' · uso immediato':''}</div>
+        <div style="font-size:.88rem;opacity:.9;margin-top:4px;">rientro previsto ${clioFmt(inUso.fine_prevista)} · chiave ${CLIO_CHIAVE[inUso.chiave]||'—'}</div>
+        ${(inUso.operatore_email===me||approvo)?`<button class="btn" style="margin-top:12px;background:#fff;color:#dc2626;font-weight:700;font-size:1rem;padding:14px 20px;width:100%;max-width:340px;" onclick="clioApriRiconsegna('${inUso.id}')">🔑 Riconsegna</button>`:''}
       </div>`;
-  } catch(e) { el.innerHTML = `<div style="color:var(--danger);padding:20px;">Errore: ${clioEsc(e.message)}</div>`; }
+  } else {
+    const prossima = _clioDati.find(p=>p.stato==='approvata' && new Date(p.fine_prevista).getTime()>ora);
+    stato = `
+      <div style="background:#16a34a;color:#fff;border-radius:16px;padding:18px;text-align:center;">
+        <div style="display:inline-block;background:#fff;border-radius:12px;padding:6px 10px;"><span style="display:block;filter:drop-shadow(0 0 6px #22c55e);">${clioSvg('#16a34a').replace('width="44" height="22"','width="80" height="40"')}</span></div>
+        <div style="font-size:1.35rem;font-weight:700;margin-top:6px;">LIBERA</div>
+        <div style="font-size:.88rem;opacity:.9;margin-top:4px;">${prossima?`prossima: ${clioEsc(prossima.operatore_nome)}, ${clioFmt(prossima.inizio)}`:'nessuna prenotazione in arrivo'}</div>
+      </div>`;
+  }
+
+  const cardPren = (p) => {
+    const mia = p.operatore_email===me;
+    const col = CLIO_COLORI[p.stato];
+    let azioni = '';
+    if (p.stato==='richiesta' && approvo) azioni += `<button class="btn btn-primary" style="flex:1;padding:12px;" onclick="clioDecidi('${p.id}','approvata')">✓ Approva</button><button class="btn btn-ghost" style="flex:1;padding:12px;color:var(--danger);" onclick="clioDecidi('${p.id}','rifiutata')">✕ Rifiuta</button>`;
+    if (p.stato==='approvata' && (mia||approvo) && !inUso) azioni += `<button class="btn btn-primary" style="flex:1;padding:12px;" onclick="clioApriRitiro('${p.id}')">🔑 Ritiro</button>`;
+    if (['richiesta','approvata'].includes(p.stato) && (mia||approvo)) azioni += `<button class="btn btn-ghost" style="flex:1;padding:12px;" onclick="clioAnnulla('${p.id}')">Annulla</button>`;
+    const dettagli = [];
+    if (p.km_ritiro!=null) dettagli.push(`ritiro ${p.km_ritiro} km, ${clioEsc(p.carburante_ritiro||'')}, chiave ${CLIO_CHIAVE[p.chiave]||'—'}`);
+    if (p.km_riconsegna!=null) dettagli.push(`riconsegna ${p.km_riconsegna} km, ${clioEsc(p.carburante_riconsegna||'')}${p.km_ritiro!=null?` (${p.km_riconsegna-p.km_ritiro} km fatti)`:''}${p.chiave_restituita===false?', ⚠️ chiave NON rimessa al suo posto':''}`);
+    if (p.note_danni) dettagli.push(`⚠️ ${clioEsc(p.note_danni)}`);
+    if (p.nota_approvazione) dettagli.push(`💬 ${clioEsc(p.nota_approvazione)}`);
+    return `
+      <div class="card" style="padding:14px;border-left:4px solid ${col};">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
+          <div>
+            <div style="font-weight:600;">${clioEsc(p.operatore_nome)}${p.urgenza?' <span style="color:var(--danger);font-size:.8rem;">· uso immediato</span>':''}</div>
+            <div style="font-size:.85rem;margin-top:2px;">${clioFmt(p.inizio)} → ${clioOra(p.fine_prevista)}</div>
+            ${p.motivo?`<div style="font-size:.82rem;color:var(--muted);margin-top:2px;">${clioEsc(p.motivo)}</div>`:''}
+          </div>
+          <span style="background:${col};color:#fff;border-radius:20px;padding:2px 10px;font-size:.72rem;white-space:nowrap;">${CLIO_ETICHETTE[p.stato]}</span>
+        </div>
+        ${dettagli.length?`<div style="font-size:.8rem;color:var(--muted);margin-top:6px;line-height:1.5;">${dettagli.join('<br>')}</div>`:''}
+        ${azioni?`<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">${azioni}</div>`:''}
+      </div>`;
+  };
+
+  // Calendario del mese
+  const nomiMesi = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  const primo = new Date(_clioAnno, _clioMese, 1);
+  const offset = (primo.getDay()+6)%7;
+  const giorni = new Date(_clioAnno, _clioMese+1, 0).getDate();
+  let celle = '';
+  for (let i=0;i<offset;i++) celle += '<div></div>';
+  for (let g=1; g<=giorni; g++) {
+    const k = clioChiaveGiorno(new Date(_clioAnno,_clioMese,g));
+    const pren = clioPrenDelGiorno(k).filter(p=>!['rifiutata','annullata'].includes(p.stato));
+    const sel = k===_clioGiornoSel, isOggi = k===oggi, passato = k<oggi;
+    celle += `<div class="clio-cella" onclick="clioSelezionaGiorno('${k}')" style="border:${sel?'2px solid var(--accent)':'1px solid var(--border)'};background:${isOggi?'#eff6ff':'var(--card)'};opacity:${passato&&!sel?.6:1};">
+      <div style="font-size:.8rem;font-weight:${isOggi?700:500};">${g}</div>
+      <div class="clio-chips">${pren.slice(0,3).map(p=>`<span class="clio-chip" style="background:${CLIO_COLORI[p.stato]};">${clioOra(p.inizio)} ${clioEsc(p.operatore_nome)}</span>`).join('')}${pren.length>3?`<span style="font-size:.65rem;color:var(--muted);">+${pren.length-3}</span>`:''}</div>
+    </div>`;
+  }
+  const delGiorno = clioPrenDelGiorno(_clioGiornoSel);
+  const dataSel = new Date(_clioGiornoSel+'T12:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
+  const storico = _clioDati.filter(p=>['riconsegnata','rifiutata','annullata'].includes(p.stato) && new Date(p.inizio).getMonth()===_clioMese).sort((a,b)=>new Date(b.inizio)-new Date(a.inizio));
+
+  el.innerHTML = `
+    <div style="max-width:680px;margin:0 auto;">
+      ${stato}
+      <div style="display:grid;grid-template-columns:1fr;gap:10px;margin:12px 0 18px;">
+        <button class="btn" style="padding:15px 10px;font-size:1rem;background:#dc2626;color:#fff;${inUso?'opacity:.45;':''}" ${inUso?'disabled':''} onclick="clioApriImmediato()">⚡ Uso immediato (urgenza)</button>
+      </div>
+      ${daApprovare.length?`<div style="font-weight:600;color:var(--warn);margin-bottom:8px;">Da approvare (${daApprovare.length})</div><div style="display:grid;gap:10px;margin-bottom:18px;">${daApprovare.map(cardPren).join('')}</div>`:''}
+      <div class="card" style="padding:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <button class="btn btn-ghost" style="padding:8px 14px;" onclick="clioCambiaMese(-1)">‹</button>
+          <div style="font-weight:600;">${nomiMesi[_clioMese]} ${_clioAnno}</div>
+          <button class="btn btn-ghost" style="padding:8px 14px;" onclick="clioCambiaMese(1)">›</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;font-size:.7rem;color:var(--muted);text-align:center;margin-bottom:4px;">${['L','M','M','G','V','S','D'].map(d=>`<div>${d}</div>`).join('')}</div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">${celle}</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;font-size:.72rem;color:var(--muted);margin-top:10px;">
+          <span><span class="clio-dot" style="background:#f59e0b;"></span> da approvare</span>
+          <span><span class="clio-dot" style="background:#16a34a;"></span> approvata</span>
+          <span><span class="clio-dot" style="background:#dc2626;"></span> fuori</span>
+          <span><span class="clio-dot" style="background:#94a3b8;"></span> riconsegnata</span>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin:18px 0 10px;flex-wrap:wrap;">
+        <div style="font-weight:600;text-transform:capitalize;">${dataSel}</div>
+        ${_clioGiornoSel>=oggi?`<button class="btn btn-primary" style="padding:12px 16px;" onclick="clioApriPrenota('${_clioGiornoSel}')">📅 Prenota questo giorno</button>`:''}
+      </div>
+      <div style="display:grid;gap:10px;">${delGiorno.length?delGiorno.map(cardPren).join(''):'<div class="card" style="padding:16px;text-align:center;color:var(--muted);font-size:.9rem;">Nessuna prenotazione in questo giorno</div>'}</div>
+      ${storico.length?`<details style="margin-top:18px;"><summary style="cursor:pointer;color:var(--muted);font-size:.88rem;padding:8px 0;">Storico di ${nomiMesi[_clioMese].toLowerCase()} (${storico.length})</summary><div style="display:grid;gap:8px;margin-top:10px;">${storico.map(cardPren).join('')}</div></details>`:''}
+      <div style="font-size:.78rem;color:var(--muted);text-align:center;margin-top:20px;line-height:1.5;">La Clio resta sempre nel parcheggio. Una chiave sta sempre al Bike, l'altra sempre in ufficio: a fine uso rimetti la chiave dove l'hai presa.</div>
+    </div>`;
 }
 
 function clioModal(titolo, corpo, bottone, azione) {
@@ -5762,8 +5888,9 @@ const clioSelChiave = `<select id="clio-chiave" style="width:100%;padding:12px;f
 const clioCampo = (lab, html) => `<div class="form-group"><label>${lab}</label>${html}</div>`;
 const clioInput = (id, tipo, extra='') => `<input id="${id}" type="${tipo}" style="width:100%;padding:12px;font-size:1rem;" ${extra}>`;
 
-function clioApriPrenota() {
-  const inizio = new Date(Date.now()+60*60*1000); inizio.setMinutes(0);
+function clioApriPrenota(giorno) {
+  let inizio = new Date(Date.now()+60*60*1000); inizio.setMinutes(0);
+  if (giorno && giorno !== clioChiaveGiorno(new Date())) inizio = new Date(giorno+'T09:00:00');
   const fine = new Date(inizio.getTime()+2*60*60*1000);
   clioModal('📅 Prenota la Clio',
     clioCampo('Dal *', clioInput('clio-inizio','datetime-local',`value="${clioLocalInput(inizio)}"`)) +
@@ -5824,10 +5951,7 @@ async function clioAnnulla(id) {
   } catch(e) { alert('Errore: '+e.message); }
 }
 
-function clioUltimiKm() {
-  const r = _clioDati.filter(p=>p.km_riconsegna!=null).sort((a,b)=>new Date(b.riconsegna_at)-new Date(a.riconsegna_at))[0];
-  return r ? r.km_riconsegna : '';
-}
+function clioUltimiKm() { return _clioUltimiKmVal; }
 function clioCampiRitiro() {
   return clioCampo('Km sul contachilometri *', clioInput('clio-km','number',`inputmode="numeric" value="${clioUltimiKm()}"`)) +
     clioCampo('Carburante', clioSelCarb('clio-carb')) +
