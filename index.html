@@ -3337,6 +3337,9 @@ function mostraAppCAS() {
   <div class="nav-item" onclick="showPageCAS('cas-ferie')" style="padding-left:24px;"><span class="ico">🟥</span> Permessi e Ferie</div>
   <div class="nav-item" onclick="showPageCAS('cas-report-accompagnamenti')" style="padding-left:24px;"><span class="ico">📊</span> Report Accompagnamenti</div>
 
+  <div style="padding:10px 16px 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-top:4px;">Auto</div>
+  <div class="nav-item" onclick="showPageCAS('cas-clio')" style="padding-left:24px;"><span class="ico">🚙</span> Clio</div>
+
   <div style="padding:10px 16px 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-top:4px;">Manutenzioni</div>
   <div class="nav-item" onclick="showPageCAS('cas-manutenzioni')" style="padding-left:24px;"><span class="ico">🔧</span> Segnalazioni</div>
 
@@ -3538,11 +3541,11 @@ async function salvaEsitoAppuntamentoCAS(prendiNuovo) {
 }
 
 function showPageCAS(page) {
-  if (SESSION.is_max) page = 'cas-manutenzioni';
+  if (SESSION.is_max && page !== 'cas-clio') page = 'cas-manutenzioni';
   if (page === 'cas-calendario-coordinatore' && !SESSION.is_coordinatore_cas) return;
   _casPaginaAttuale = page;
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
-  const titles = { 'cas-dashboard':'Dashboard','cas-strutture':'Strutture e Ospiti','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni e Ricorsi','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-accompagnamenti':'Accompagnamenti','cas-mio-calendario':'Mio Calendario','cas-calendario-mensile-accompagnamenti':'Calendario Mensile Accompagnamenti','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti','cas-report-accompagnamenti':'Report Accompagnamenti' };
+  const titles = { 'cas-dashboard':'Dashboard','cas-strutture':'Strutture e Ospiti','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni e Ricorsi','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-accompagnamenti':'Accompagnamenti','cas-mio-calendario':'Mio Calendario','cas-calendario-mensile-accompagnamenti':'Calendario Mensile Accompagnamenti','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti','cas-report-accompagnamenti':'Report Accompagnamenti','cas-clio':'Auto Clio' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
   if (page === 'cas-calendario-coordinatore') { _calCoordMese = new Date().getMonth(); _calCoordAnno = new Date().getFullYear(); renderCalendarioCoordinatoreCAS(content); }
@@ -3559,6 +3562,7 @@ function showPageCAS(page) {
   else if (page === 'cas-turni') { _turniMese = new Date().getMonth(); _turniAnno = new Date().getFullYear(); renderCasTurni(content); }
   else if (page === 'cas-ferie') renderCasFerie(content);
   else if (page === 'cas-manutenzioni') renderCasManutenzioni(content);
+  else if (page === 'cas-clio') renderCasClio(content);
   else if (page === 'cas-trasferimenti') renderCasTrasferimenti(content);
   else if (page === 'cas-progetti') renderCasProgetti(content);
   else if (page === 'cas-report-accompagnamenti') renderCasReportAccompagnamenti(content);
@@ -5619,6 +5623,309 @@ async function salvaOspiteCAS() {
 }
 
 // ── MANUTENZIONI ───────────────────────────────────────────────
+// ===================== AUTO CLIO =====================
+const CLIO_RESPONSABILI = [
+  {nome:'Massimo', email:'m.andreoni@coopmetis.com'},
+  {nome:'Simona', email:'s.demartino@coopmetis.com'},
+  {nome:'Isabella', email:'i.mei@coopmetis.com'},
+];
+const CLIO_CARBURANTE = ['Pieno','3/4','1/2','1/4','Riserva'];
+const CLIO_CHIAVE = {ufficio:'Ufficio', bike:'Bike'};
+let _clioDati = [];
+
+function clioNomeMio() {
+  const me = (SESSION.utente.email||'').toLowerCase();
+  const op = OPERATORI_CAS.find(o=>o.email===me) || CLIO_RESPONSABILI.find(o=>o.email===me);
+  return op ? op.nome : ((SESSION.utente.nome||'') + ' ' + (SESSION.utente.cognome||'')).trim() || me;
+}
+function clioPuoApprovare() {
+  return CLIO_RESPONSABILI.some(r=>r.email===(SESSION.utente.email||'').toLowerCase());
+}
+function clioFmt(d) {
+  return new Date(d).toLocaleString('it-IT',{weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Rome'});
+}
+function clioOra(d) {
+  return new Date(d).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Rome'});
+}
+function clioEsc(s) { return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function clioLocalInput(date) {
+  const d = new Date(date); d.setSeconds(0,0);
+  const p = n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function clioEmailResponsabili(oggetto, corpo) {
+  inviaEmailApprodo(CLIO_RESPONSABILI.map(r=>r.email), oggetto,
+    `${corpo}<p style="margin-top:18px;"><a href="https://approdocas.it" style="background:#2563eb;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;">Apri Approdo</a></p>`,
+    SESSION.utente.email);
+}
+function clioRiepilogoHtml(p) {
+  return `<table style="border-collapse:collapse;font-size:14px;">
+    <tr><td style="padding:3px 12px 3px 0;color:#64748b;">Operatore</td><td><b>${clioEsc(p.operatore_nome)}</b></td></tr>
+    <tr><td style="padding:3px 12px 3px 0;color:#64748b;">Dal</td><td>${clioFmt(p.inizio)}</td></tr>
+    <tr><td style="padding:3px 12px 3px 0;color:#64748b;">Rientro previsto</td><td>${clioFmt(p.fine_prevista)}</td></tr>
+    ${p.motivo?`<tr><td style="padding:3px 12px 3px 0;color:#64748b;">Motivo</td><td>${clioEsc(p.motivo)}</td></tr>`:''}
+  </table>`;
+}
+function clioSovrapposte(inizio, fine, stati, escludiId) {
+  const a = new Date(inizio).getTime(), b = new Date(fine).getTime();
+  return _clioDati.filter(p => p.id!==escludiId && stati.includes(p.stato) &&
+    new Date(p.inizio).getTime() < b && new Date(p.fine_prevista).getTime() > a);
+}
+
+async function renderCasClio(el) {
+  el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
+  try {
+    const da = new Date(Date.now() - 60*24*3600*1000).toISOString();
+    _clioDati = await supa(`clio_prenotazioni?or=(stato.in.(richiesta,approvata,in_uso),created_at.gte.${da})&order=inizio.asc`) || [];
+    const me = (SESSION.utente.email||'').toLowerCase();
+    const ora = Date.now();
+    const inUso = _clioDati.find(p=>p.stato==='in_uso');
+    const daApprovare = _clioDati.filter(p=>p.stato==='richiesta');
+    const prossime = _clioDati.filter(p=>p.stato==='approvata');
+    const storico = _clioDati.filter(p=>['riconsegnata','rifiutata','annullata'].includes(p.stato)).sort((a,b)=>new Date(b.inizio)-new Date(a.inizio));
+    const approvo = clioPuoApprovare();
+
+    let stato;
+    if (inUso) {
+      const ritardo = new Date(inUso.fine_prevista).getTime() < ora;
+      stato = `
+        <div style="background:${ritardo?'#7f1d1d':'#dc2626'};color:#fff;border-radius:16px;padding:22px;text-align:center;">
+          <div style="font-size:2.4rem;line-height:1;">🚗</div>
+          <div style="font-size:1.4rem;font-weight:700;margin-top:6px;">${ritardo?'IN RITARDO':'FUORI'}</div>
+          <div style="font-size:1rem;margin-top:6px;">ce l'ha <b>${clioEsc(inUso.operatore_nome)}</b>${inUso.urgenza?' · uso immediato':''}</div>
+          <div style="font-size:.9rem;opacity:.9;margin-top:4px;">rientro previsto ${clioFmt(inUso.fine_prevista)} · chiave ${CLIO_CHIAVE[inUso.chiave]||'—'}</div>
+          ${(inUso.operatore_email===me||approvo)?`<button class="btn" style="margin-top:14px;background:#fff;color:#dc2626;font-weight:700;font-size:1rem;padding:14px 20px;width:100%;max-width:340px;" onclick="clioApriRiconsegna('${inUso.id}')">🔑 Riconsegna</button>`:''}
+        </div>`;
+    } else {
+      const prossima = prossime.find(p=>new Date(p.fine_prevista).getTime()>ora);
+      stato = `
+        <div style="background:#16a34a;color:#fff;border-radius:16px;padding:22px;text-align:center;">
+          <div style="font-size:2.4rem;line-height:1;">🚗</div>
+          <div style="font-size:1.4rem;font-weight:700;margin-top:6px;">LIBERA</div>
+          <div style="font-size:.9rem;opacity:.9;margin-top:4px;">${prossima?`prossima: ${clioEsc(prossima.operatore_nome)}, ${clioFmt(prossima.inizio)}`:'nessuna prenotazione in arrivo'}</div>
+        </div>`;
+    }
+
+    const cardPren = (p) => {
+      const mia = p.operatore_email===me;
+      const badge = {richiesta:['#f59e0b','Da approvare'],approvata:['#16a34a','Approvata'],in_uso:['#dc2626','In uso'],riconsegnata:['#64748b','Riconsegnata'],rifiutata:['#991b1b','Rifiutata'],annullata:['#94a3b8','Annullata']}[p.stato];
+      let azioni = '';
+      if (p.stato==='richiesta' && approvo) azioni += `<button class="btn btn-primary" style="flex:1;padding:12px;" onclick="clioDecidi('${p.id}','approvata')">✓ Approva</button><button class="btn btn-ghost" style="flex:1;padding:12px;color:var(--danger);" onclick="clioDecidi('${p.id}','rifiutata')">✕ Rifiuta</button>`;
+      if (p.stato==='approvata' && (mia||approvo) && !inUso) azioni += `<button class="btn btn-primary" style="flex:1;padding:12px;" onclick="clioApriRitiro('${p.id}')">🔑 Ritiro</button>`;
+      if (['richiesta','approvata'].includes(p.stato) && (mia||approvo)) azioni += `<button class="btn btn-ghost" style="flex:1;padding:12px;" onclick="clioAnnulla('${p.id}')">Annulla</button>`;
+      const dettagli = [];
+      if (p.km_ritiro!=null) dettagli.push(`ritiro ${p.km_ritiro} km, ${clioEsc(p.carburante_ritiro||'')}, chiave ${CLIO_CHIAVE[p.chiave]||'—'}`);
+      if (p.km_riconsegna!=null) dettagli.push(`riconsegna ${p.km_riconsegna} km, ${clioEsc(p.carburante_riconsegna||'')}${p.km_ritiro!=null?` (${p.km_riconsegna-p.km_ritiro} km fatti)`:''}${p.chiave_restituita===false?', ⚠️ chiave NON rimessa al suo posto':''}`);
+      if (p.note_danni) dettagli.push(`⚠️ ${clioEsc(p.note_danni)}`);
+      if (p.nota_approvazione) dettagli.push(`💬 ${clioEsc(p.nota_approvazione)}`);
+      return `
+        <div class="card" style="padding:14px;border-left:4px solid ${badge[0]};">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
+            <div>
+              <div style="font-weight:600;">${clioEsc(p.operatore_nome)}${p.urgenza?' <span style="color:var(--danger);font-size:.8rem;">· uso immediato</span>':''}</div>
+              <div style="font-size:.85rem;margin-top:2px;">${clioFmt(p.inizio)} → ${clioOra(p.fine_prevista)}</div>
+              ${p.motivo?`<div style="font-size:.82rem;color:var(--muted);margin-top:2px;">${clioEsc(p.motivo)}</div>`:''}
+            </div>
+            <span style="background:${badge[0]};color:#fff;border-radius:20px;padding:2px 10px;font-size:.72rem;white-space:nowrap;">${badge[1]}</span>
+          </div>
+          ${dettagli.length?`<div style="font-size:.8rem;color:var(--muted);margin-top:6px;line-height:1.5;">${dettagli.join('<br>')}</div>`:''}
+          ${azioni?`<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">${azioni}</div>`:''}
+        </div>`;
+    };
+
+    el.innerHTML = `
+      <div style="max-width:560px;margin:0 auto;">
+        ${stato}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 22px;">
+          <button class="btn btn-primary" style="padding:16px 10px;font-size:1rem;" onclick="clioApriPrenota()">📅 Prenota</button>
+          <button class="btn" style="padding:16px 10px;font-size:1rem;background:#dc2626;color:#fff;${inUso?'opacity:.45;':''}" ${inUso?'disabled':''} onclick="clioApriImmediato()">⚡ Uso immediato</button>
+        </div>
+        ${daApprovare.length?`<div style="font-weight:600;color:var(--warn);margin-bottom:8px;">Da approvare (${daApprovare.length})</div><div style="display:grid;gap:10px;margin-bottom:20px;">${daApprovare.map(cardPren).join('')}</div>`:''}
+        ${inUso?`<div style="font-weight:600;color:var(--danger);margin-bottom:8px;">In uso</div><div style="display:grid;gap:10px;margin-bottom:20px;">${cardPren(inUso)}</div>`:''}
+        <div style="font-weight:600;margin-bottom:8px;">Prossime prenotazioni</div>
+        <div style="display:grid;gap:10px;margin-bottom:20px;">${prossime.length?prossime.map(cardPren).join(''):'<div class="card" style="padding:16px;text-align:center;color:var(--muted);font-size:.9rem;">Nessuna prenotazione approvata</div>'}</div>
+        ${storico.length?`<details><summary style="cursor:pointer;color:var(--muted);font-size:.88rem;padding:8px 0;">Storico ultimi 60 giorni (${storico.length})</summary><div style="display:grid;gap:8px;margin-top:10px;">${storico.map(cardPren).join('')}</div></details>`:''}
+        <div style="font-size:.78rem;color:var(--muted);text-align:center;margin-top:20px;line-height:1.5;">La Clio resta sempre nel parcheggio. Una chiave sta sempre al Bike, l'altra sempre in ufficio: a fine uso rimetti la chiave dove l'hai presa.</div>
+      </div>`;
+  } catch(e) { el.innerHTML = `<div style="color:var(--danger);padding:20px;">Errore: ${clioEsc(e.message)}</div>`; }
+}
+
+function clioModal(titolo, corpo, bottone, azione) {
+  document.getElementById('clio-modal-titolo').textContent = titolo;
+  document.getElementById('clio-modal-corpo').innerHTML = corpo;
+  const b = document.getElementById('clio-modal-ok');
+  b.textContent = bottone; b.onclick = azione; b.disabled = false;
+  openModal('modal-clio');
+}
+const clioSelCarb = (id) => `<select id="${id}" style="width:100%;padding:12px;font-size:1rem;">${CLIO_CARBURANTE.map(c=>`<option>${c}</option>`).join('')}</select>`;
+const clioSelChiave = `<select id="clio-chiave" style="width:100%;padding:12px;font-size:1rem;"><option value="ufficio">Ufficio</option><option value="bike">Bike</option></select>`;
+const clioCampo = (lab, html) => `<div class="form-group"><label>${lab}</label>${html}</div>`;
+const clioInput = (id, tipo, extra='') => `<input id="${id}" type="${tipo}" style="width:100%;padding:12px;font-size:1rem;" ${extra}>`;
+
+function clioApriPrenota() {
+  const inizio = new Date(Date.now()+60*60*1000); inizio.setMinutes(0);
+  const fine = new Date(inizio.getTime()+2*60*60*1000);
+  clioModal('📅 Prenota la Clio',
+    clioCampo('Dal *', clioInput('clio-inizio','datetime-local',`value="${clioLocalInput(inizio)}"`)) +
+    clioCampo('Rientro previsto *', clioInput('clio-fine','datetime-local',`value="${clioLocalInput(fine)}"`)) +
+    clioCampo('Motivo *', clioInput('clio-motivo','text','placeholder="es. accompagnamento in Questura"')) +
+    `<div style="font-size:.8rem;color:var(--muted);">La richiesta arriva a Massimo, Simona e Isabella per l'approvazione.</div>`,
+    '📨 Invia richiesta', clioSalvaPrenota);
+}
+async function clioSalvaPrenota() {
+  const vi = document.getElementById('clio-inizio').value, vf = document.getElementById('clio-fine').value;
+  const motivo = document.getElementById('clio-motivo').value.trim();
+  if (!vi||!vf||!motivo) { alert('Compila data, rientro e motivo.'); return; }
+  const inizio = new Date(vi).toISOString(), fine = new Date(vf).toISOString();
+  if (new Date(fine) <= new Date(inizio)) { alert('Il rientro deve essere dopo la partenza.'); return; }
+  const occupata = clioSovrapposte(inizio, fine, ['approvata','in_uso']);
+  if (occupata.length) { alert(`In quell'orario la Clio è già prenotata da ${occupata[0].operatore_nome} (${clioFmt(occupata[0].inizio)} → ${clioOra(occupata[0].fine_prevista)}).`); return; }
+  const inAttesa = clioSovrapposte(inizio, fine, ['richiesta']);
+  if (inAttesa.length && !confirm(`C'è già una richiesta in attesa di ${inAttesa[0].operatore_nome} nello stesso orario. Invii comunque?`)) return;
+  document.getElementById('clio-modal-ok').disabled = true;
+  try {
+    const r = await supa('clio_prenotazioni', {method:'POST', body: JSON.stringify({
+      operatore_email: SESSION.utente.email.toLowerCase(), operatore_nome: clioNomeMio(),
+      inizio, fine_prevista: fine, motivo, stato:'richiesta'
+    })});
+    const p = r[0];
+    clioEmailResponsabili(`Clio: richiesta di ${p.operatore_nome} da approvare`,
+      `<p>Nuova richiesta di prenotazione della Clio da approvare:</p>${clioRiepilogoHtml(p)}<p>Puoi approvarla o rifiutarla nella sezione Auto Clio di Approdo.</p>`);
+    closeModal('modal-clio');
+    renderCasClio(document.getElementById('content-cas'));
+  } catch(e) { alert('Errore: '+e.message); document.getElementById('clio-modal-ok').disabled = false; }
+}
+
+async function clioDecidi(id, esito) {
+  const p = _clioDati.find(x=>x.id===id); if (!p) return;
+  if (esito==='approvata') {
+    const occ = clioSovrapposte(p.inizio, p.fine_prevista, ['approvata','in_uso'], id);
+    if (occ.length) { alert(`Si sovrappone con la prenotazione già approvata di ${occ[0].operatore_nome}.`); return; }
+  }
+  const nota = prompt(esito==='approvata' ? 'Nota per l\'operatore (facoltativa):' : 'Motivo del rifiuto (facoltativo):', '');
+  if (nota===null) return;
+  try {
+    await supa(`clio_prenotazioni?id=eq.${id}&stato=eq.richiesta`, {method:'PATCH', body: JSON.stringify({
+      stato: esito, approvata_da: clioNomeMio(), approvata_at: new Date().toISOString(), nota_approvazione: nota.trim()||null
+    })});
+    const ok = esito==='approvata';
+    inviaEmailApprodo(p.operatore_email, `Clio: prenotazione ${ok?'approvata':'non approvata'}`,
+      `<p>Ciao ${clioEsc(p.operatore_nome)},</p><p>la tua prenotazione della Clio è stata <b>${ok?'approvata':'rifiutata'}</b> da ${clioEsc(clioNomeMio())}.</p>${clioRiepilogoHtml(p)}${nota.trim()?`<p>Nota: ${clioEsc(nota.trim())}</p>`:''}${ok?'<p>Quando prendi la macchina registra il ritiro su Approdo (km, carburante, chiave).</p>':''}`,
+      SESSION.utente.email);
+    renderCasClio(document.getElementById('content-cas'));
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+async function clioAnnulla(id) {
+  if (!confirm('Annullare questa prenotazione?')) return;
+  try {
+    await supa(`clio_prenotazioni?id=eq.${id}`, {method:'PATCH', body: JSON.stringify({stato:'annullata'})});
+    renderCasClio(document.getElementById('content-cas'));
+  } catch(e) { alert('Errore: '+e.message); }
+}
+
+function clioUltimiKm() {
+  const r = _clioDati.filter(p=>p.km_riconsegna!=null).sort((a,b)=>new Date(b.riconsegna_at)-new Date(a.riconsegna_at))[0];
+  return r ? r.km_riconsegna : '';
+}
+function clioCampiRitiro() {
+  return clioCampo('Km sul contachilometri *', clioInput('clio-km','number',`inputmode="numeric" value="${clioUltimiKm()}"`)) +
+    clioCampo('Carburante', clioSelCarb('clio-carb')) +
+    clioCampo('Quale chiave prendi?', clioSelChiave);
+}
+function clioApriRitiro(id) {
+  clioModal('🔑 Ritiro Clio', clioCampiRitiro(), '✓ Registra ritiro', ()=>clioSalvaRitiro(id));
+}
+async function clioSalvaRitiro(id) {
+  const km = parseInt(document.getElementById('clio-km').value,10);
+  if (isNaN(km)) { alert('Inserisci i km.'); return; }
+  document.getElementById('clio-modal-ok').disabled = true;
+  try {
+    const fresche = await supa('clio_prenotazioni?stato=eq.in_uso&select=operatore_nome') || [];
+    if (fresche.length) { alert(`La Clio risulta già fuori con ${fresche[0].operatore_nome}.`); closeModal('modal-clio'); renderCasClio(document.getElementById('content-cas')); return; }
+    await supa(`clio_prenotazioni?id=eq.${id}`, {method:'PATCH', body: JSON.stringify({
+      stato:'in_uso', ritiro_at:new Date().toISOString(), km_ritiro:km,
+      carburante_ritiro:document.getElementById('clio-carb').value, chiave:document.getElementById('clio-chiave').value
+    })});
+    closeModal('modal-clio');
+    renderCasClio(document.getElementById('content-cas'));
+  } catch(e) { alert('Errore: '+e.message); document.getElementById('clio-modal-ok').disabled = false; }
+}
+
+function clioApriImmediato() {
+  const fine = new Date(Date.now()+2*60*60*1000);
+  clioModal('⚡ Uso immediato',
+    `<div style="font-size:.85rem;color:var(--danger);margin-bottom:10px;">Solo per urgenze: la macchina risulta subito fuori e Massimo, Simona e Isabella ricevono un avviso.</div>` +
+    clioCampo('Motivo *', clioInput('clio-motivo','text','placeholder="es. accompagnamento al Pronto Soccorso"')) +
+    clioCampo('Rientro previsto *', clioInput('clio-fine','datetime-local',`value="${clioLocalInput(fine)}"`)) +
+    clioCampiRitiro(),
+    '⚡ Prendo la macchina', clioSalvaImmediato);
+}
+async function clioSalvaImmediato() {
+  const motivo = document.getElementById('clio-motivo').value.trim();
+  const vf = document.getElementById('clio-fine').value;
+  const km = parseInt(document.getElementById('clio-km').value,10);
+  if (!motivo||!vf||isNaN(km)) { alert('Compila motivo, rientro e km.'); return; }
+  const fine = new Date(vf).toISOString();
+  if (new Date(fine) <= new Date()) { alert('Il rientro previsto deve essere nel futuro.'); return; }
+  document.getElementById('clio-modal-ok').disabled = true;
+  try {
+    const fresche = await supa('clio_prenotazioni?stato=eq.in_uso&select=operatore_nome') || [];
+    if (fresche.length) { alert(`La Clio risulta già fuori con ${fresche[0].operatore_nome}.`); closeModal('modal-clio'); renderCasClio(document.getElementById('content-cas')); return; }
+    const adesso = new Date().toISOString();
+    const r = await supa('clio_prenotazioni', {method:'POST', body: JSON.stringify({
+      operatore_email: SESSION.utente.email.toLowerCase(), operatore_nome: clioNomeMio(),
+      inizio: adesso, fine_prevista: fine, motivo, urgenza: true, stato:'in_uso',
+      approvata_da:'uso immediato', ritiro_at: adesso, km_ritiro: km,
+      carburante_ritiro: document.getElementById('clio-carb').value, chiave: document.getElementById('clio-chiave').value
+    })});
+    const p = r[0];
+    const conflitti = clioSovrapposte(p.inizio, p.fine_prevista, ['approvata','richiesta'], p.id);
+    clioEmailResponsabili(`Clio: uso immediato di ${p.operatore_nome}`,
+      `<p><b>${clioEsc(p.operatore_nome)}</b> ha preso la Clio per un'urgenza.</p>${clioRiepilogoHtml(p)}<p>Ritiro: ${km} km, carburante ${clioEsc(p.carburante_ritiro)}, chiave ${CLIO_CHIAVE[p.chiave]}.</p>${conflitti.length?`<p style="color:#b91c1c;">Attenzione: si sovrappone con la prenotazione di ${conflitti.map(c=>clioEsc(c.operatore_nome)+' ('+clioFmt(c.inizio)+')').join(', ')}.</p>`:''}`);
+    closeModal('modal-clio');
+    renderCasClio(document.getElementById('content-cas'));
+  } catch(e) { alert('Errore: '+e.message); document.getElementById('clio-modal-ok').disabled = false; }
+}
+
+function clioApriRiconsegna(id) {
+  const p = _clioDati.find(x=>x.id===id);
+  clioModal('🔑 Riconsegna Clio',
+    clioCampo('Km sul contachilometri *', clioInput('clio-km','number',`inputmode="numeric" ${p&&p.km_ritiro!=null?`min="${p.km_ritiro}" placeholder="al ritiro: ${p.km_ritiro}"`:''}`)) +
+    clioCampo('Carburante', clioSelCarb('clio-carb')) +
+    `<label style="display:flex;gap:10px;align-items:center;font-size:.95rem;margin:6px 0 14px;"><input id="clio-chiave-ok" type="checkbox" checked style="width:22px;height:22px;"> Ho rimesso la chiave ${p&&p.chiave?(p.chiave==='bike'?'al Bike':'in ufficio'):'al suo posto'}</label>` +
+    clioCampo('Danni, problemi o note', `<textarea id="clio-note" rows="3" style="width:100%;padding:10px;font-size:1rem;border:1px solid var(--border);border-radius:8px;" placeholder="Lascia vuoto se è tutto a posto"></textarea>`),
+    '✓ Riconsegna', ()=>clioSalvaRiconsegna(id));
+}
+async function clioSalvaRiconsegna(id) {
+  const p = _clioDati.find(x=>x.id===id);
+  const km = parseInt(document.getElementById('clio-km').value,10);
+  if (isNaN(km)) { alert('Inserisci i km.'); return; }
+  if (p && p.km_ritiro!=null && km < p.km_ritiro && !confirm(`I km inseriti (${km}) sono meno di quelli al ritiro (${p.km_ritiro}). Confermi?`)) return;
+  const carb = document.getElementById('clio-carb').value;
+  const chiaveOk = document.getElementById('clio-chiave-ok').checked;
+  const note = document.getElementById('clio-note').value.trim();
+  document.getElementById('clio-modal-ok').disabled = true;
+  try {
+    const adesso = new Date().toISOString();
+    await supa(`clio_prenotazioni?id=eq.${id}`, {method:'PATCH', body: JSON.stringify({
+      stato:'riconsegnata', riconsegna_at: adesso, km_riconsegna: km, carburante_riconsegna: carb,
+      chiave_restituita: chiaveOk, note_danni: note||null
+    })});
+    const fatti = p && p.km_ritiro!=null ? km - p.km_ritiro : null;
+    const ritardo = p && new Date(adesso) > new Date(p.fine_prevista);
+    clioEmailResponsabili(`Clio riconsegnata da ${p?p.operatore_nome:''}${note?' · con note':''}`,
+      `<p>La Clio è stata riconsegnata.</p>${p?clioRiepilogoHtml(p):''}
+       <p>Riconsegna: ${clioFmt(adesso)}${ritardo?' <b style="color:#b91c1c;">(in ritardo)</b>':''}<br>
+       Km: ${km}${fatti!=null?` (${fatti} km percorsi)`:''}<br>
+       Carburante: ${clioEsc(carb)}${p&&p.carburante_ritiro?` (al ritiro: ${clioEsc(p.carburante_ritiro)})`:''}<br>
+       Chiave: ${chiaveOk?'rimessa al suo posto':'<b style="color:#b91c1c;">NON rimessa al suo posto</b>'}</p>
+       ${note?`<p style="color:#b91c1c;"><b>Note / danni:</b> ${clioEsc(note)}</p>`:''}`);
+    closeModal('modal-clio');
+    renderCasClio(document.getElementById('content-cas'));
+  } catch(e) { alert('Errore: '+e.message); document.getElementById('clio-modal-ok').disabled = false; }
+}
+
 async function renderCasManutenzioni(el) {
   el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
   try {
@@ -6926,6 +7233,17 @@ async function salvaTrasferimento() {
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-manutenzione-cas')">Annulla</button>
       <button class="btn btn-primary" onclick="salvaManutenzioneCAS()">📤 Invia segnalazione</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-clio">
+  <div class="modal">
+    <h3 id="clio-modal-titolo"></h3>
+    <div id="clio-modal-corpo" style="margin-top:12px;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-clio')">Annulla</button>
+      <button class="btn btn-primary" id="clio-modal-ok" style="padding:12px 18px;"></button>
     </div>
   </div>
 </div>
