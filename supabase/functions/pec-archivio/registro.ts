@@ -87,16 +87,18 @@ export type EsitoRegistro = { registrato: boolean; id?: string; nota: string };
 
 // Inserisce la riga. È un doppione solo lo stesso PDF (stesso link); le righe senza PDF sono doppioni
 // se hanno stessi RN, tipo e data. Se lo stesso atto c'era come "da verificare" e ora arriva
-// archiviato, si completa quella riga invece di aggiungerne un'altra.
+// archiviato, si completa quella riga invece di aggiungerne un'altra (anche se la PEC arriva in un
+// altro giorno, per esempio inoltrata di nuovo: si tiene la data della prima PEC).
 export async function registraAtto(db: SupabaseClient, riga: RigaAtto): Promise<EsitoRegistro> {
   try {
     if (!(TIPI_REGISTRO as readonly string[]).includes(riga.tipo_atto)) {
       console.error(`[pec-archivio] pec_atti: tipo "${riga.tipo_atto}" non previsto, riga non scritta`);
       return { registrato: false, nota: `tipo ${riga.tipo_atto} non previsto` };
     }
-    if (riga.stato === "archiviata" && riga.rn && riga.data_pec) {
-      const { data: agg, error: e1 } = await db.from("pec_atti").update(riga)
-        .eq("rn", riga.rn).eq("tipo_atto", riga.tipo_atto).eq("data_pec", riga.data_pec)
+    if (riga.stato === "archiviata" && riga.rn) {
+      const { data_pec: _dataPec, ...completamento } = riga;
+      const { data: agg, error: e1 } = await db.from("pec_atti").update(completamento)
+        .eq("rn", riga.rn).eq("tipo_atto", riga.tipo_atto)
         .eq("stato", "da_verificare").is("link_documento", null)
         .select("id");
       if (e1) console.error(`[pec-archivio] pec_atti: controllo righe da verificare non riuscito (${e1.message})`);
