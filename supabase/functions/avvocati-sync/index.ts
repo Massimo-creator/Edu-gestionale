@@ -308,10 +308,11 @@ Deno.serve(async (req: Request) => {
     const allegatiRighe: string[] = [];
     for (const f of file) {
       const nome = f.nome.toLowerCase();
-      let tipo = /sentenz|permesso|protezione|accolt|riconosc|rigett/.test(nome) ? "decreto_tribunale"
-        : /udienz|audizion|fissazion|rinvio|convoc/.test(nome) ? "convocazione" : null;
-      // Se la mail comunica l'esito del ricorso, il PDF allegato è l'atto del Tribunale anche se il nome non lo dice.
-      if (!tipo && decisioneMail && /\.pdf$/.test(nome)) tipo = "decreto_tribunale";
+      // Ogni PDF dell'avvocata va collegato alla scheda dell'ospite (decisione di Massimo, 03/11/2026):
+      // le convocazioni riconoscibili dal nome come convocazione, tutti gli altri come atto del Tribunale.
+      // Gli allegati che non sono PDF (immagini, documenti Word) restano solo su Drive.
+      const tipo = /udienz|audizion|fissazion|rinvio|convoc/.test(nome) ? "convocazione"
+        : /\.pdf$/.test(nome) ? "decreto_tribunale" : null;
       let nota = f.nuovo ? "salvato" : "era già presente, non duplicato";
       if (!prova && ospite && tipo) {
         const { error } = await supabase.from("pec_atti").insert({
@@ -324,7 +325,7 @@ Deno.serve(async (req: Request) => {
         if (!error) nota += ", collegato alla scheda dell'ospite";
         else if (error.code !== "23505") nota += `, collegamento non riuscito (${error.message})`;
       } else if (!tipo) {
-        nota += ", non collegato alla scheda (non è un atto del tribunale riconoscibile dal nome)";
+        nota += ", non collegato alla scheda (non è un PDF)";
       }
       allegatiRighe.push(`- ${f.nome}: ${prova ? "verrebbe salvato nella cartella Giuridico" : nota}${f.link ? "\n  " + f.link : ""}`);
     }
