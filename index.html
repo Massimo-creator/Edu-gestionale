@@ -3511,13 +3511,14 @@ async function aggiornaEsitoAppuntamentoCAS(id) {
   } catch(e) { alert('Errore: '+e.message); }
 }
 
-async function salvaEsitoAppuntamentoCAS(prendiNuovo) {
+async function salvaEsitoAppuntamentoCAS(prendiNuovo, nuovoStato) {
+  nuovoStato = nuovoStato || 'Svolto';
   const esito = document.getElementById('esito-testo').value.trim();
-  if (!esito) { alert('Scrivi almeno una breve nota sull\'esito.'); return; }
+  if (!esito) { alert(nuovoStato==='Rinviato' ? 'Scrivi in breve perché è stato rinviato.' : 'Scrivi almeno una breve nota sull\'esito.'); return; }
   try {
     const res = await supa(`appuntamenti_cas?id=eq.${_esitoAppuntamentoId}&limit=1`);
     const a = (res && res[0]) || null;
-    await supa(`appuntamenti_cas?id=eq.${_esitoAppuntamentoId}`, {method:'PATCH', body: JSON.stringify({ stato: 'Svolto', esito })});
+    await supa(`appuntamenti_cas?id=eq.${_esitoAppuntamentoId}`, {method:'PATCH', body: JSON.stringify({ stato: nuovoStato, esito })});
 
     // Se l'appuntamento è collegato a un ospite, aggiunge l'esito anche allo Storico Interventi della sua scheda
     if (a && a.ospite_id) {
@@ -3526,7 +3527,7 @@ async function salvaEsitoAppuntamentoCAS(prendiNuovo) {
         const ospite = ospiteRes && ospiteRes[0];
         if (ospite) {
           const dataAppuntamento = new Date(a.data_ora).toLocaleDateString('it-IT');
-          const rigaStorico = `[${dataAppuntamento}] ${a.tipo}: ${esito}`;
+          const rigaStorico = `[${dataAppuntamento}] ${a.tipo}${nuovoStato==='Rinviato'?' (rinviato)':''}: ${esito}`;
           const notaAggiornata = ospite.note ? `${ospite.note}\n${rigaStorico}` : rigaStorico;
           await supa(`ospiti_cas?id=eq.${a.ospite_id}`, {method:'PATCH', body: JSON.stringify({ note: notaAggiornata })});
         }
@@ -4769,8 +4770,8 @@ async function renderCasAppuntamenti(el, tipo) {
             const d = new Date(a.data_ora);
             const isOggi = d.toDateString()===new Date().toDateString();
             const passatoMese = d < oggi;
-            const daSvolgereMese = passatoMese && a.stato !== 'Svolto';
-            return `<div class="card" style="padding:16px;border-left:3px solid ${bordoTipo(a,isOggi)};${passatoMese && !daSvolgereMese ? 'opacity:.6;' : ''}">
+            const daSvolgereMese = passatoMese && (a.stato||'Da svolgere') === 'Da svolgere';
+            return `<div class="card" style="padding:16px;border-left:3px solid ${bordoTipo(a,isOggi)};${passatoMese && a.stato==='Svolto' ? 'opacity:.6;' : ''}">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
                 <div>
                   ${badgeTipo(a)}
@@ -4779,7 +4780,7 @@ async function renderCasAppuntamenti(el, tipo) {
                   ${a.ospite_nome?`<div style="font-size:.82rem;color:var(--muted);">👤 ${a.ospite_nome}</div>`:''}
                   ${a.nome_avvocato?`<div style="font-size:.82rem;color:var(--muted);">⚖️ ${a.nome_avvocato}</div>`:''}
                   ${a.note?`<div style="font-size:.82rem;color:var(--muted);margin-top:4px;">${a.note}</div>`:''}
-                  ${passatoMese && a.stato==='Svolto' && a.esito ? `<div style="font-size:.8rem;color:var(--muted);margin-top:6px;">📝 ${a.esito}</div>` : ''}
+                  ${a.stato==='Rinviato' ? `<div style="font-size:.8rem;color:#b45309;margin-top:6px;">⏸️ Rinviato${a.esito?': '+a.esito:''}</div>` : (passatoMese && a.stato==='Svolto' && a.esito ? `<div style="font-size:.8rem;color:var(--muted);margin-top:6px;">📝 ${a.esito}</div>` : '')}
                   ${daSvolgereMese ? `<button onclick="aggiornaEsitoAppuntamentoCAS('${a.id}')" class="btn btn-primary" style="font-size:.75rem;padding:4px 10px;margin-top:8px;">✅ Aggiorna esito</button>` : ''}
                   <div style="margin-top:8px;">
                     ${SESSION.is_coordinatore_cas
@@ -4804,15 +4805,15 @@ async function renderCasAppuntamenti(el, tipo) {
       </div>
       ${passati.length>0?`<details><summary style="cursor:pointer;color:var(--muted);font-size:.85rem;padding:8px 0;">Passati (${passati.length})</summary><div style="display:grid;gap:8px;margin-top:10px;">${passati.reverse().map(a=>{
         const d=new Date(a.data_ora);
-        const daSvolgere = a.stato !== 'Svolto';
-        return `<div class="card" style="padding:12px;${combinata?`border-left:3px solid ${coloreTipoAppuntamento(a.tipo)};`:''}${daSvolgere?'':'opacity:.6;'}">
+        const daSvolgere = (a.stato||'Da svolgere') === 'Da svolgere';
+        return `<div class="card" style="padding:12px;${combinata?`border-left:3px solid ${coloreTipoAppuntamento(a.tipo)};`:''}${a.stato==='Svolto'?'opacity:.6;':''}">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <span style="font-weight:500;">${combinata?`${a.tipo==='Ricorso'?'📋':'⚖️'} `:''}${a.titolo}</span>
             <span style="font-size:.82rem;color:var(--muted);">${d.toLocaleDateString('it-IT')}</span>
           </div>
           ${daSvolgere
             ? `<div style="margin-top:8px;text-align:right;"><button onclick="aggiornaEsitoAppuntamentoCAS('${a.id}')" class="btn btn-primary" style="font-size:.75rem;padding:4px 10px;">✅ Aggiorna esito</button></div>`
-            : (a.esito?`<div style="font-size:.8rem;color:var(--muted);margin-top:6px;">📝 ${a.esito}</div>`:'')}
+            : (a.stato==='Rinviato' ? `<div style="font-size:.8rem;color:#b45309;margin-top:6px;">⏸️ Rinviato${a.esito?': '+a.esito:''}</div>` : (a.esito?`<div style="font-size:.8rem;color:var(--muted);margin-top:6px;">📝 ${a.esito}</div>`:''))}
         </div>`;
       }).join('')}</div></details>`:''}
     `;
@@ -4860,15 +4861,15 @@ async function renderCasCalendario(el) {
             const d = new Date(a.data_ora);
             const isOggi = d.toDateString()===new Date().toDateString();
             const passatoMese = d < oggi;
-            const daSvolgereMese = passatoMese && a.stato !== 'Svolto';
-            return `<div class="card" style="padding:16px;border-left:3px solid ${isOggi?'var(--accent2)':'var(--accent)'};${passatoMese && !daSvolgereMese ? 'opacity:.6;' : ''}">
+            const daSvolgereMese = passatoMese && (a.stato||'Da svolgere') === 'Da svolgere';
+            return `<div class="card" style="padding:16px;border-left:3px solid ${isOggi?'var(--accent2)':'var(--accent)'};${passatoMese && a.stato==='Svolto' ? 'opacity:.6;' : ''}">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;">
                 <div>
                   <div style="font-weight:600;">${a.titolo}</div>
                   <div style="font-size:.82rem;color:var(--muted);margin-top:2px;">${tipoAppuntamentoIcon(a.tipo)} ${a.tipo} · 🏠 ${mapS[a.struttura_id]||'—'}</div>
                   ${a.ospite_nome?`<div style="font-size:.82rem;color:var(--muted);">👤 ${a.ospite_nome}</div>`:''}
                   ${a.note?`<div style="font-size:.82rem;color:var(--muted);margin-top:4px;">${a.note}</div>`:''}
-                  ${passatoMese && a.stato==='Svolto' && a.esito ? `<div style="font-size:.8rem;color:var(--muted);margin-top:6px;">📝 ${a.esito}</div>` : ''}
+                  ${a.stato==='Rinviato' ? `<div style="font-size:.8rem;color:#b45309;margin-top:6px;">⏸️ Rinviato${a.esito?': '+a.esito:''}</div>` : (passatoMese && a.stato==='Svolto' && a.esito ? `<div style="font-size:.8rem;color:var(--muted);margin-top:6px;">📝 ${a.esito}</div>` : '')}
                   ${daSvolgereMese && puoModificareQuestura ? `<button onclick="aggiornaEsitoAppuntamentoCAS('${a.id}')" class="btn btn-primary" style="font-size:.75rem;padding:4px 10px;margin-top:8px;">✅ Aggiorna esito</button>` : ''}
                 </div>
                 <div style="text-align:right;flex-shrink:0;margin-left:12px;">
@@ -4887,15 +4888,15 @@ async function renderCasCalendario(el) {
           <div style="display:grid;gap:8px;margin-top:10px;">
             ${passati.reverse().map(a=>{
               const d=new Date(a.data_ora);
-              const daSvolgere = a.stato !== 'Svolto';
-              return `<div class="card" style="padding:12px;${daSvolgere?'':'opacity:.6;'}">
+              const daSvolgere = (a.stato||'Da svolgere') === 'Da svolgere';
+              return `<div class="card" style="padding:12px;${a.stato==='Svolto'?'opacity:.6;':''}">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
                   <div><span style="font-weight:500;">${a.titolo}</span> <span style="font-size:.78rem;color:var(--muted);">· ${tipoAppuntamentoIcon(a.tipo)} ${a.tipo}</span></div>
                   <div style="font-size:.82rem;color:var(--muted);">${d.toLocaleDateString('it-IT')} ${oraAppCAS(a)}</div>
                 </div>
                 ${daSvolgere && puoModificareQuestura
                   ? `<div style="margin-top:8px;text-align:right;"><button onclick="aggiornaEsitoAppuntamentoCAS('${a.id}')" class="btn btn-primary" style="font-size:.75rem;padding:4px 10px;">✅ Aggiorna esito</button></div>`
-                  : (a.esito?`<div style="font-size:.8rem;color:var(--muted);margin-top:6px;">📝 ${a.esito}</div>`:'')}
+                  : (a.stato==='Rinviato' ? `<div style="font-size:.8rem;color:#b45309;margin-top:6px;">⏸️ Rinviato${a.esito?': '+a.esito:''}</div>` : (a.esito?`<div style="font-size:.8rem;color:var(--muted);margin-top:6px;">📝 ${a.esito}</div>`:''))}
               </div>`;
             }).join('')}
           </div>
@@ -5237,6 +5238,8 @@ async function salvaAppuntamentoCAS() {
       }
     }
     if(_appEditId) {
+      const prec = await supa(`appuntamenti_cas?id=eq.${_appEditId}&select=stato`);
+      if(prec && prec[0] && prec[0].stato==='Rinviato' && new Date(payload.data_ora) > new Date()) payload.stato = 'Da svolgere';
       await supa(`appuntamenti_cas?id=eq.${_appEditId}`,{method:'PATCH',body:JSON.stringify(payload)});
     } else {
       await supa('appuntamenti_cas',{method:'POST',body:JSON.stringify(payload)});
@@ -7176,9 +7179,10 @@ async function salvaTrasferimento() {
   <div class="modal">
     <h3>✅ Aggiorna esito</h3>
     <div id="esito-appuntamento-riepilogo" style="font-size:.85rem;color:var(--muted);margin-bottom:12px;"></div>
-    <div class="form-group"><label>Com'è andato l'appuntamento? *</label><textarea id="esito-testo" rows="3" placeholder="es. Rinnovo concesso, ritiro permesso tra 30 giorni" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
+    <div class="form-group"><label>Com'è andato l'appuntamento? *</label><textarea id="esito-testo" rows="3" placeholder="es. Rinnovo concesso, ritiro permesso tra 30 giorni. Se non si è svolto: motivo del rinvio e premi Rinviato" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;resize:vertical;"></textarea></div>
     <div class="modal-footer" style="flex-wrap:wrap;gap:8px;">
       <button class="btn btn-ghost" onclick="closeModal('modal-esito-appuntamento-cas')">Annulla</button>
+      <button class="btn btn-ghost" style="color:#b45309;" onclick="salvaEsitoAppuntamentoCAS(false,'Rinviato')" title="Non si è svolto: resta in attesa della nuova data">⏸️ Rinviato</button>
       <button class="btn btn-ghost" onclick="salvaEsitoAppuntamentoCAS(false)">💾 Salva esito</button>
       <button class="btn btn-primary" onclick="salvaEsitoAppuntamentoCAS(true)">💾 Salva e registra altro appuntamento</button>
     </div>
