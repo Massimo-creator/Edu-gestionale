@@ -5729,7 +5729,7 @@ let _clioBadgeTimer = null;
 function avviaBadgeClio() {
   aggiornaBadgeClio();
   if (_clioBadgeTimer) clearInterval(_clioBadgeTimer);
-  _clioBadgeTimer = setInterval(()=>aggiornaBadgeClio(), 60000);
+  _clioBadgeTimer = setInterval(()=>aggiornaBadgeClio(), 15*60000);
 }
 
 function clioCambiaMese(delta) {
