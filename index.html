@@ -1010,6 +1010,14 @@ async function doLogin() {
         is_coordinatore_cas: isCoord
       });
 
+      // Registro attività: annota l'accesso (non blocca mai il login)
+      try {
+        supabaseClient.rpc('registra_accesso', {
+          p_email: email,
+          p_dettagli: { dispositivo: (navigator.userAgent || '').slice(0, 300) }
+        }).then(function(){}, function(){});
+      } catch(e) {}
+
       mostraAppCAS();
       return;
     } catch(e) {
@@ -3262,6 +3270,7 @@ function mostraAppCAS() {
         var t = item.textContent.trim();
         if(isSimona && t.includes('Ospiti')) item.style.display='none';
         if(!SESSION.is_coordinatore_cas && t.includes('Calendario Coordinatore')) item.style.display='none';
+        if(!SESSION.is_coordinatore_cas && t.includes('Registro attività')) item.style.display='none';
       });
       avviaPollingNotificheCAS();
       avviaBadgeClio();
@@ -3334,6 +3343,7 @@ function mostraAppCAS() {
   <h2>Navigazione</h2>
   <div class="nav-item active" onclick="showPageCAS('cas-dashboard')"><span class="ico">📊</span> Dashboard</div>
   <div class="nav-item" onclick="showPageCAS('cas-calendario-coordinatore')"><span class="ico">📅</span> Calendario Coordinatore</div>
+  <div class="nav-item" onclick="showPageCAS('cas-registro')"><span class="ico">🛡️</span> Registro attività</div>
   <div class="nav-item" onclick="showPageCAS('cas-strutture')"><span class="ico">🏠</span> Strutture e Ospiti</div>
 
   <div style="padding:10px 16px 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-top:4px;">Appuntamenti e Scadenze</div>
@@ -3559,9 +3569,10 @@ async function salvaEsitoAppuntamentoCAS(prendiNuovo, nuovoStato) {
 function showPageCAS(page) {
   if (SESSION.is_max && page !== 'cas-clio') page = 'cas-manutenzioni';
   if (page === 'cas-calendario-coordinatore' && !SESSION.is_coordinatore_cas) return;
+  if (page === 'cas-registro' && !SESSION.is_coordinatore_cas) return;
   _casPaginaAttuale = page;
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
-  const titles = { 'cas-dashboard':'Dashboard','cas-strutture':'Strutture e Ospiti','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni e Ricorsi','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-accompagnamenti':'Accompagnamenti','cas-mio-calendario':'Mio Calendario','cas-calendario-mensile-accompagnamenti':'Calendario Mensile Accompagnamenti','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti','cas-report-accompagnamenti':'Report Accompagnamenti','cas-clio':'Auto Clio' };
+  const titles = { 'cas-dashboard':'Dashboard','cas-strutture':'Strutture e Ospiti','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni e Ricorsi','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-accompagnamenti':'Accompagnamenti','cas-mio-calendario':'Mio Calendario','cas-calendario-mensile-accompagnamenti':'Calendario Mensile Accompagnamenti','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti','cas-report-accompagnamenti':'Report Accompagnamenti','cas-clio':'Auto Clio','cas-registro':'Registro attività' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
   if (page === 'cas-calendario-coordinatore') { _calCoordMese = new Date().getMonth(); _calCoordAnno = new Date().getFullYear(); renderCalendarioCoordinatoreCAS(content); }
@@ -3582,6 +3593,190 @@ function showPageCAS(page) {
   else if (page === 'cas-trasferimenti') renderCasTrasferimenti(content);
   else if (page === 'cas-progetti') renderCasProgetti(content);
   else if (page === 'cas-report-accompagnamenti') renderCasReportAccompagnamenti(content);
+  else if (page === 'cas-registro') { _regOffset = 0; renderCasRegistro(content); }
+}
+
+// ===================== REGISTRO ATTIVITÀ (solo Coordinatore) =====================
+// I dati arrivano dalla tabella registro_attivita, riempita da trigger nel database
+// (modifiche) e dalla funzione registra_accesso (login). Qui si legge soltanto.
+const REG_PAGINA = 100;
+let _regOffset = 0;
+let _regRighe = [];
+let _regFiltri = { periodo: '7', operatore: '', tipo: '', testo: '' };
+
+const REG_SEZIONI = {
+  ospiti_cas:'Ospiti', appuntamenti_cas:'Appuntamenti', strutture_cas:'Strutture',
+  operatori_strutture:'Operatori-strutture', turni_cas:'Turni', manutenzioni_cas:'Manutenzioni',
+  pocket_money_cas:'Pocket money', cassette_ps_cas:'Cassetta P.S.', trasferimenti_cas:'Trasferimenti',
+  calendario_personale_cas:'Calendario personale', calendario_coordinatore_cas:'Calendario coordinatore',
+  riunioni_cas:'Riunioni', odg_riunioni_cas:'Ordine del giorno', richieste_ferie_cas:'Permessi e ferie',
+  richieste_cambio_accompagnatore_cas:'Cambio accompagnatore', clio_prenotazioni:'Auto Clio',
+  pec_atti:'Atti PEC', utenti:'Utenti'
+};
+const REG_AZIONI = {
+  accesso:      { testo:'Accesso',      cls:'badge-blue' },
+  creazione:    { testo:'Creazione',    cls:'badge-green' },
+  modifica:     { testo:'Modifica',     cls:'badge-yellow' },
+  eliminazione: { testo:'Eliminazione', cls:'badge-red' }
+};
+
+function _regEsc(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function _regCampo(k) {
+  const s = String(k).replace(/_/g, ' ');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+function _regValore(v) {
+  if (v === null || v === undefined || v === '') return '<span style="color:var(--muted);font-style:italic;">vuoto</span>';
+  if (typeof v === 'boolean') return v ? 'Sì' : 'No';
+  if (typeof v === 'object') return _regEsc(JSON.stringify(v)).slice(0, 400);
+  const s = String(v);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [a,m,g] = s.split('-'); return `${g}/${m}/${a}`; }
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) {
+    const d = new Date(s);
+    if (!isNaN(d)) return d.toLocaleString('it-IT', { timeZone:'Europe/Rome', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  }
+  return _regEsc(s.length > 400 ? s.slice(0, 400) + '…' : s);
+}
+function _regDispositivo(ua) {
+  if (!ua) return 'non indicato';
+  const tel = /iPhone|Android.*Mobile|Mobile/i.test(ua) ? 'Telefono' : /iPad|Tablet|Android/i.test(ua) ? 'Tablet' : 'Computer';
+  const br = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'browser';
+  return tel + ' · ' + br;
+}
+function _regChi(r) {
+  if (r.origine === 'sistema') return '<span style="color:var(--muted);">⚙️ Sistema (sincronizzazioni)</span>';
+  if (r.origine === 'non_identificato') return `<span style="color:#b45309;" title="Sessione non verificata">⚠️ ${_regEsc(r.utente_nome || r.utente_email || 'Non identificato')}</span>`;
+  return _regEsc(r.utente_nome || r.utente_email || '');
+}
+
+async function renderCasRegistro(el) {
+  if (!SESSION.is_coordinatore_cas) return;
+  const f = _regFiltri;
+  const opzioniOp = OPERATORI_CAS.map(o => `<option value="${_regEsc(o.email)}" ${f.operatore===o.email?'selected':''}>${_regEsc(o.nome)}</option>`).join('');
+  el.innerHTML = `
+    <div class="card" style="margin-bottom:14px;">
+      <div style="font-size:.85rem;color:var(--muted);margin-bottom:12px;line-height:1.5;">
+        Accessi ad Approdo e modifiche ai dati, registrati in automatico. Il registro non si può modificare né cancellare. Clicca una riga per vedere il dettaglio.
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+        <div class="form-group" style="margin:0;min-width:130px;"><label>Periodo</label>
+          <select id="reg-periodo" onchange="_regAggiorna()">
+            <option value="1" ${f.periodo==='1'?'selected':''}>Oggi</option>
+            <option value="7" ${f.periodo==='7'?'selected':''}>Ultimi 7 giorni</option>
+            <option value="30" ${f.periodo==='30'?'selected':''}>Ultimi 30 giorni</option>
+            <option value="90" ${f.periodo==='90'?'selected':''}>Ultimi 90 giorni</option>
+            <option value="" ${f.periodo===''?'selected':''}>Tutto</option>
+          </select></div>
+        <div class="form-group" style="margin:0;min-width:150px;"><label>Chi</label>
+          <select id="reg-operatore" onchange="_regAggiorna()">
+            <option value="">Tutti</option>${opzioniOp}
+            <option value="__sistema" ${f.operatore==='__sistema'?'selected':''}>Sistema (sincronizzazioni)</option>
+            <option value="__nonid" ${f.operatore==='__nonid'?'selected':''}>Non identificato</option>
+          </select></div>
+        <div class="form-group" style="margin:0;min-width:130px;"><label>Azione</label>
+          <select id="reg-tipo" onchange="_regAggiorna()">
+            <option value="">Tutte</option>
+            ${Object.entries(REG_AZIONI).map(([k,a]) => `<option value="${k}" ${f.tipo===k?'selected':''}>${a.testo}</option>`).join('')}
+          </select></div>
+        <div class="form-group" style="margin:0;flex:1;min-width:180px;"><label>Cerca (ospite, appuntamento, struttura…)</label>
+          <input id="reg-testo" type="text" value="${_regEsc(f.testo)}" placeholder="es. cognome dell'ospite" onkeydown="if(event.key==='Enter')_regAggiorna()"></div>
+        <button class="btn btn-primary btn-sm" onclick="_regAggiorna()">Filtra</button>
+      </div>
+    </div>
+    <div class="card" style="padding:0;overflow-x:auto;">
+      <table style="width:100%;min-width:640px;">
+        <thead><tr><th style="width:130px;">Quando</th><th style="width:170px;">Chi</th><th style="width:110px;">Azione</th><th style="width:150px;">Sezione</th><th>Oggetto</th></tr></thead>
+        <tbody id="reg-corpo"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px;">Caricamento...</td></tr></tbody>
+      </table>
+    </div>
+    <div id="reg-altro" style="text-align:center;margin:14px 0;"></div>`;
+  await _regCarica(false);
+}
+
+function _regAggiorna() {
+  _regFiltri = {
+    periodo: document.getElementById('reg-periodo').value,
+    operatore: document.getElementById('reg-operatore').value,
+    tipo: document.getElementById('reg-tipo').value,
+    testo: document.getElementById('reg-testo').value.trim()
+  };
+  _regOffset = 0;
+  _regCarica(false);
+}
+
+async function _regCarica(aggiungi) {
+  const corpo = document.getElementById('reg-corpo');
+  const altro = document.getElementById('reg-altro');
+  if (!corpo) return;
+  const f = _regFiltri;
+  let q = `registro_attivita?select=*&order=creato_il.desc&limit=${REG_PAGINA}&offset=${_regOffset}`;
+  if (f.periodo) {
+    const da = new Date();
+    if (f.periodo === '1') da.setHours(0,0,0,0); else da.setDate(da.getDate() - Number(f.periodo));
+    q += `&creato_il=gte.${encodeURIComponent(da.toISOString())}`;
+  }
+  if (f.operatore === '__sistema') q += '&origine=eq.sistema';
+  else if (f.operatore === '__nonid') q += '&origine=eq.non_identificato';
+  else if (f.operatore) q += `&utente_email=ilike.${encodeURIComponent(f.operatore)}`;
+  if (f.tipo) q += `&tipo=eq.${f.tipo}`;
+  if (f.testo) q += `&etichetta=ilike.${encodeURIComponent('*' + f.testo.replace(/[*,()]/g, ' ') + '*')}`;
+  try {
+    const righe = await supa(q) || [];
+    _regRighe = aggiungi ? _regRighe.concat(righe) : righe;
+    if (!_regRighe.length) {
+      corpo.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px;">Nessuna attività per questi filtri.</td></tr>';
+    } else {
+      corpo.innerHTML = _regRighe.map((r, i) => {
+        const az = REG_AZIONI[r.tipo] || { testo:r.tipo, cls:'badge-gray' };
+        const quando = new Date(r.creato_il).toLocaleString('it-IT', { timeZone:'Europe/Rome', day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' });
+        const sezione = r.tipo === 'accesso' ? 'Approdo' : (REG_SEZIONI[r.tabella] || r.tabella || '');
+        const oggetto = r.tipo === 'accesso' ? _regDispositivo(r.dettagli && r.dettagli.dispositivo) : (r.etichetta || '');
+        const nCampi = r.tipo === 'modifica' && r.modifiche ? Object.keys(r.modifiche).length : 0;
+        return `<tr style="cursor:pointer;" onclick="_regDettaglio(${i})">
+          <td style="white-space:nowrap;">${quando}</td>
+          <td>${_regChi(r)}</td>
+          <td><span class="badge ${az.cls}">${az.testo}</span></td>
+          <td>${_regEsc(sezione)}</td>
+          <td>${_regEsc(oggetto)}${nCampi ? ` <span style="color:var(--muted);font-size:.78rem;">(${nCampi} ${nCampi===1?'campo':'campi'})</span>` : ''}</td>
+        </tr><tr id="reg-det-${i}" style="display:none;"><td colspan="5" style="background:#f8fafc;"></td></tr>`;
+      }).join('');
+    }
+    altro.innerHTML = righe.length === REG_PAGINA
+      ? `<button class="btn btn-ghost btn-sm" onclick="_regOffset+=${REG_PAGINA};_regCarica(true)">Carica altre attività</button>` : '';
+  } catch(e) {
+    corpo.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#991b1b;padding:30px;">Errore nel caricamento del registro: ${_regEsc(e.message)}</td></tr>`;
+  }
+}
+
+function _regDettaglio(i) {
+  const tr = document.getElementById('reg-det-' + i);
+  if (!tr) return;
+  if (tr.style.display !== 'none') { tr.style.display = 'none'; return; }
+  const r = _regRighe[i];
+  let html = '';
+  if (r.tipo === 'modifica' && r.modifiche) {
+    html = '<div style="font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:6px;">CAMPI MODIFICATI</div>' +
+      Object.entries(r.modifiche).map(([k, v]) =>
+        `<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:.84rem;">
+          <b>${_regEsc(_regCampo(k))}</b>: ${_regValore(v && v.prima)} <span style="color:var(--muted);">→</span> ${_regValore(v && v.dopo)}
+        </div>`).join('');
+  } else if ((r.tipo === 'creazione' || r.tipo === 'eliminazione') && r.dati) {
+    const campi = Object.entries(r.dati).filter(([k, v]) => v !== null && v !== '' && k !== 'id' && !k.endsWith('_id') && k !== 'created_at' && k !== 'updated_at');
+    html = `<div style="font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:6px;">${r.tipo === 'creazione' ? 'DATI INSERITI' : 'DATI ELIMINATI'}</div>` +
+      (campi.length ? campi.map(([k, v]) => `<div style="padding:3px 0;font-size:.84rem;"><b>${_regEsc(_regCampo(k))}</b>: ${_regValore(v)}</div>`).join('') : '<div style="color:var(--muted);font-size:.84rem;">Nessun dettaglio.</div>');
+  } else if (r.tipo === 'accesso') {
+    const d = r.dettagli || {};
+    html = `<div style="font-size:.84rem;line-height:1.6;">
+      <div><b>Email</b>: ${_regEsc(r.utente_email)}</div>
+      <div><b>Dispositivo</b>: ${_regEsc(_regDispositivo(d.dispositivo))}</div>
+      <div><b>Sessione verificata</b>: ${d.sessione_verificata ? 'Sì' : 'No (accesso registrato senza conferma dal sistema di autenticazione)'}</div>
+    </div>`;
+  }
+  if (r.origine === 'utente' && r.utente_email && r.tipo !== 'accesso') html += `<div style="margin-top:8px;font-size:.78rem;color:var(--muted);">Eseguita da ${_regEsc(r.utente_email)}</div>`;
+  tr.firstElementChild.innerHTML = html || '<span style="color:var(--muted);">Nessun dettaglio.</span>';
+  tr.style.display = '';
 }
 
 const STILE_TIPO_ACC = {
