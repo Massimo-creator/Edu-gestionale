@@ -3790,7 +3790,7 @@ function _regDettaglio(i) {
 const RA_STATI = {
   in_preparazione: { testo:'In preparazione', cls:'badge-gray' },
   bozza_pronta:    { testo:'Bozza pronta da controllare', cls:'badge-yellow' },
-  approvato:       { testo:'Approvato: parte alle 8:00 del giorno di invio', cls:'badge-green' },
+  approvato:       { testo:'Approvato: parte verso le 8 del giorno di invio', cls:'badge-green' },
   inviato:         { testo:'Inviato', cls:'badge-blue' }
 };
 const RA_STATI_CRIT = { aperta:'Aperta', in_corso:'In corso', in_attesa:'In attesa', risolta:'Risolta', archiviata:'Archiviata' };
@@ -3829,7 +3829,7 @@ async function renderCasReportAmm(el) {
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
         <div>
           <div style="font-size:1.05rem;font-weight:700;">Report n. ${r.numero} · ${_raPeriodo(r)}</div>
-          <div style="font-size:.84rem;color:var(--muted);margin-top:3px;">Invio previsto il ${_raData(r.data_invio)} alle 8:00 a ${(r.destinatari||[]).map(_regEsc).join(', ')}</div>
+          <div style="font-size:.84rem;color:var(--muted);margin-top:3px;">Invio previsto il ${_raData(r.data_invio)} verso le 8 a ${(r.destinatari||[]).map(_regEsc).join(', ')}</div>
           <div style="margin-top:8px;"><span class="badge ${st.cls}">${st.testo}</span></div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -3840,7 +3840,7 @@ async function renderCasReportAmm(el) {
         </div>
       </div>
       <div style="font-size:.8rem;color:var(--muted);margin-top:12px;line-height:1.5;">
-        Diario e criticità si aggiornano ogni sera. Il giorno prima dell'invio, alle 18, arriva la bozza in PDF su carta intestata.
+        Diario e criticità si aggiornano ogni sera. Il giorno prima dell'invio, verso le 18, arriva la bozza in PDF su carta intestata.
         Scrivi la valutazione qui sotto e approva: la mattina dopo il report parte dalla tua mail. Senza approvazione non parte nulla.
         ${puoApprovare ? '' : (r.stato === 'in_preparazione' ? '<br><b>Il pulsante di approvazione si attiva quando la bozza è pronta.</b>' : '')}
       </div>
@@ -3943,7 +3943,7 @@ async function _raApprova(approva) {
   if (approva) {
     const val = document.getElementById('ra-valutazione').value.trim();
     const msg = (val ? '' : 'La valutazione del coordinatore è vuota.\n\n') +
-      `Approvi il report n. ${r.numero}? Partirà il ${_raData(r.data_invio)} alle 8:00 dalla tua mail a ${(r.destinatari||[]).join(', ')}.`;
+      `Approvi il report n. ${r.numero}? Partirà il ${_raData(r.data_invio)} verso le 8 dalla tua mail a ${(r.destinatari||[]).join(', ')}.`;
     if (!confirm(msg)) return;
   } else if (!confirm('Annullare l\'approvazione? Il report non partirà finché non lo riapprovi.')) return;
   try {
