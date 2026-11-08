@@ -3271,6 +3271,7 @@ function mostraAppCAS() {
         if(isSimona && t.includes('Ospiti')) item.style.display='none';
         if(!SESSION.is_coordinatore_cas && t.includes('Calendario Coordinatore')) item.style.display='none';
         if(!SESSION.is_coordinatore_cas && t.includes('Registro attività')) item.style.display='none';
+        if(!SESSION.is_coordinatore_cas && t.includes('Report amministrazione')) item.style.display='none';
       });
       avviaPollingNotificheCAS();
       avviaBadgeClio();
@@ -3344,6 +3345,7 @@ function mostraAppCAS() {
   <div class="nav-item active" onclick="showPageCAS('cas-dashboard')"><span class="ico">📊</span> Dashboard</div>
   <div class="nav-item" onclick="showPageCAS('cas-calendario-coordinatore')"><span class="ico">📅</span> Calendario Coordinatore</div>
   <div class="nav-item" onclick="showPageCAS('cas-registro')"><span class="ico">🛡️</span> Registro attività</div>
+  <div class="nav-item" onclick="showPageCAS('cas-report-amm')"><span class="ico">📨</span> Report amministrazione</div>
   <div class="nav-item" onclick="showPageCAS('cas-strutture')"><span class="ico">🏠</span> Strutture e Ospiti</div>
 
   <div style="padding:10px 16px 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#64748b;margin-top:4px;">Appuntamenti e Scadenze</div>
@@ -3570,9 +3572,10 @@ function showPageCAS(page) {
   if (SESSION.is_max && page !== 'cas-clio') page = 'cas-manutenzioni';
   if (page === 'cas-calendario-coordinatore' && !SESSION.is_coordinatore_cas) return;
   if (page === 'cas-registro' && !SESSION.is_coordinatore_cas) return;
+  if (page === 'cas-report-amm' && !SESSION.is_coordinatore_cas) return;
   _casPaginaAttuale = page;
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
-  const titles = { 'cas-dashboard':'Dashboard','cas-strutture':'Strutture e Ospiti','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni e Ricorsi','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-accompagnamenti':'Accompagnamenti','cas-mio-calendario':'Mio Calendario','cas-calendario-mensile-accompagnamenti':'Calendario Mensile Accompagnamenti','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti','cas-report-accompagnamenti':'Report Accompagnamenti','cas-clio':'Auto Clio','cas-registro':'Registro attività' };
+  const titles = { 'cas-dashboard':'Dashboard','cas-strutture':'Strutture e Ospiti','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni e Ricorsi','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-accompagnamenti':'Accompagnamenti','cas-mio-calendario':'Mio Calendario','cas-calendario-mensile-accompagnamenti':'Calendario Mensile Accompagnamenti','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti','cas-report-accompagnamenti':'Report Accompagnamenti','cas-clio':'Auto Clio','cas-registro':'Registro attività','cas-report-amm':'Report amministrazione' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
   if (page === 'cas-calendario-coordinatore') { _calCoordMese = new Date().getMonth(); _calCoordAnno = new Date().getFullYear(); renderCalendarioCoordinatoreCAS(content); }
@@ -3594,6 +3597,7 @@ function showPageCAS(page) {
   else if (page === 'cas-progetti') renderCasProgetti(content);
   else if (page === 'cas-report-accompagnamenti') renderCasReportAccompagnamenti(content);
   else if (page === 'cas-registro') { _regOffset = 0; renderCasRegistro(content); }
+  else if (page === 'cas-report-amm') renderCasReportAmm(content);
 }
 
 // ===================== REGISTRO ATTIVITÀ (solo Coordinatore) =====================
@@ -3611,7 +3615,7 @@ const REG_SEZIONI = {
   calendario_personale_cas:'Calendario personale', calendario_coordinatore_cas:'Calendario coordinatore',
   riunioni_cas:'Riunioni', odg_riunioni_cas:'Ordine del giorno', richieste_ferie_cas:'Permessi e ferie',
   richieste_cambio_accompagnatore_cas:'Cambio accompagnatore', clio_prenotazioni:'Auto Clio',
-  pec_atti:'Atti PEC', utenti:'Utenti'
+  pec_atti:'Atti PEC', utenti:'Utenti', criticita_cas:'Criticità', report_decadi:'Report amministrazione', report_diario:'Diario report'
 };
 const REG_AZIONI = {
   accesso:      { testo:'Accesso',      cls:'badge-blue' },
@@ -3777,6 +3781,227 @@ function _regDettaglio(i) {
   if (r.origine === 'utente' && r.utente_email && r.tipo !== 'accesso') html += `<div style="margin-top:8px;font-size:.78rem;color:var(--muted);">Eseguita da ${_regEsc(r.utente_email)}</div>`;
   tr.firstElementChild.innerHTML = html || '<span style="color:var(--muted);">Nessun dettaglio.</span>';
   tr.style.display = '';
+}
+
+// ===================== REPORT AMMINISTRAZIONE (solo Coordinatore) =====================
+// Report decadale a Presidenza e Amministrazione. Il diario e le criticità si aggiornano ogni sera
+// (attività programmata); il giorno prima dell'invio arriva la bozza in PDF; il coordinatore scrive
+// la valutazione e approva; la mattina dopo il report parte dalla sua mail solo se approvato.
+const RA_STATI = {
+  in_preparazione: { testo:'In preparazione', cls:'badge-gray' },
+  bozza_pronta:    { testo:'Bozza pronta da controllare', cls:'badge-yellow' },
+  approvato:       { testo:'Approvato: parte alle 8:00 del giorno di invio', cls:'badge-green' },
+  inviato:         { testo:'Inviato', cls:'badge-blue' }
+};
+const RA_STATI_CRIT = { aperta:'Aperta', in_corso:'In corso', in_attesa:'In attesa', risolta:'Risolta', archiviata:'Archiviata' };
+const RA_AMBITI = { manutenzione:'Manutenzione', proprieta:'Proprietà', convivenza:'Convivenza', organizzazione:'Organizzazione',
+  occupazione:'Occupazione', amministrativa:'Amministrativa', educativo:'Educativo', giuridico:'Giuridico', altro:'Altro' };
+let _raReport = null, _raCrit = [], _raStrutture = [];
+
+function _raData(d) { if (!d) return ''; const [a,m,g] = String(d).slice(0,10).split('-'); return `${g}/${m}/${a}`; }
+function _raDataBreve(d) { if (!d) return ''; const [,m,g] = String(d).slice(0,10).split('-'); return `${g}/${m}`; }
+function _raPeriodo(r) { return `${_raData(r.periodo_inizio)} - ${_raData(r.periodo_fine)}`; }
+function _raOggi() { return new Date().toLocaleDateString('sv-SE', { timeZone:'Europe/Rome' }); }
+
+async function renderCasReportAmm(el) {
+  if (!SESSION.is_coordinatore_cas) return;
+  el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
+  try {
+    const [reports, crit, strutture] = await Promise.all([
+      supa('report_decadi?select=id,numero,periodo_inizio,periodo_fine,data_invio,stato,valutazione,note_coordinatore,pdf_url,approvato_il,inviato_il,destinatari&order=numero.desc'),
+      supa('criticita_cas?select=*&stato=not.in.(risolta,archiviata)&order=aperta_il.asc'),
+      supa('strutture_cas?select=id,nome&attiva=eq.true&order=nome')
+    ]);
+    _raStrutture = strutture || [];
+    _raCrit = crit || [];
+    const lista = reports || [];
+    _raReport = lista.slice().reverse().find(r => r.stato !== 'inviato') || lista[0] || null;
+    if (!_raReport) { el.innerHTML = '<div class="card">Nessun report impostato.</div>'; return; }
+    const diario = await supa(`report_diario?select=*&decade_id=eq.${_raReport.id}&order=data.asc,created_at.asc`) || [];
+    const nomeStr = id => (_raStrutture.find(s => s.id === id) || {}).nome || '';
+    const r = _raReport;
+    const st = RA_STATI[r.stato] || { testo:r.stato, cls:'badge-gray' };
+    const puoApprovare = r.stato === 'bozza_pronta';
+    const opzStr = '<option value="">Tutta la rete</option>' + _raStrutture.map(s => `<option value="${s.id}">${_regEsc(s.nome)}</option>`).join('');
+
+    el.innerHTML = `
+    <div class="card" style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-size:1.05rem;font-weight:700;">Report n. ${r.numero} · ${_raPeriodo(r)}</div>
+          <div style="font-size:.84rem;color:var(--muted);margin-top:3px;">Invio previsto il ${_raData(r.data_invio)} alle 8:00 a ${(r.destinatari||[]).map(_regEsc).join(', ')}</div>
+          <div style="margin-top:8px;"><span class="badge ${st.cls}">${st.testo}</span></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${r.pdf_url ? `<button class="btn btn-ghost btn-sm" onclick="_raApriPdf('${_regEsc(r.pdf_url)}')">📄 Apri PDF</button>` : ''}
+          ${r.stato === 'approvato'
+            ? `<button class="btn btn-ghost btn-sm" onclick="_raApprova(false)">↩ Annulla approvazione</button>`
+            : `<button class="btn btn-success btn-sm" ${puoApprovare ? '' : 'disabled style="opacity:.5;cursor:not-allowed;"'} onclick="_raApprova(true)">✅ Approva per l'invio</button>`}
+        </div>
+      </div>
+      <div style="font-size:.8rem;color:var(--muted);margin-top:12px;line-height:1.5;">
+        Diario e criticità si aggiornano ogni sera. Il giorno prima dell'invio, alle 18, arriva la bozza in PDF su carta intestata.
+        Scrivi la valutazione qui sotto e approva: la mattina dopo il report parte dalla tua mail. Senza approvazione non parte nulla.
+        ${puoApprovare ? '' : (r.stato === 'in_preparazione' ? '<br><b>Il pulsante di approvazione si attiva quando la bozza è pronta.</b>' : '')}
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-title">Valutazione del coordinatore (sezione 7 del report)</div>
+      <textarea id="ra-valutazione" rows="5" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:.88rem;resize:vertical;font-family:inherit;" placeholder="Clima nelle strutture, situazioni da seguire, priorità per la prossima decade, richieste all'amministrazione...">${_regEsc(r.valutazione || '')}</textarea>
+      <div class="card-title" style="margin-top:14px;">Indicazioni per la bozza (non compaiono nel report)</div>
+      <textarea id="ra-note" rows="2" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:.88rem;resize:vertical;font-family:inherit;" placeholder="Es. dai più spazio a Barattona, non citare ancora la trattativa con il proprietario...">${_regEsc(r.note_coordinatore || '')}</textarea>
+      <div style="margin-top:10px;"><button class="btn btn-primary btn-sm" onclick="_raSalvaTesti()">💾 Salva</button>
+      <span id="ra-salvato" style="font-size:.8rem;color:var(--muted);margin-left:8px;"></span></div>
+      ${r.stato === 'approvato' ? '<div style="font-size:.78rem;color:#92400e;margin-top:8px;">Il report è già approvato: le modifiche alla valutazione entrano comunque nella versione che parte.</div>' : ''}
+    </div>
+
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-title">Criticità aperte (${_raCrit.length})</div>
+      ${_raCrit.length ? _raCrit.map((c, i) => {
+        const agg = Array.isArray(c.aggiornamenti) ? c.aggiornamenti : [];
+        return `<div style="border-bottom:1px solid var(--border);padding:10px 0;">
+          <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;">
+            <div style="cursor:pointer;flex:1;min-width:220px;" onclick="var d=document.getElementById('ra-crit-${i}');d.style.display=d.style.display==='none'?'':'none'">
+              <b>${_regEsc(nomeStr(c.struttura_id) || 'Rete')}</b> · ${_regEsc(c.titolo)}
+              <div style="font-size:.78rem;color:var(--muted);">${_regEsc(RA_AMBITI[c.ambito] || c.ambito)} · dal ${_raData(c.aperta_il)} · ultimo aggiornamento ${_raData(c.ultimo_agg) || '-'}${c.riservata ? ' · <b>riservata, fuori dal report</b>' : ''}</div>
+            </div>
+            <select onchange="_raStatoCrit('${c.id}', this.value)" style="font-size:.8rem;padding:4px 6px;">
+              ${Object.entries(RA_STATI_CRIT).map(([k,t]) => `<option value="${k}" ${c.stato===k?'selected':''}>${t}</option>`).join('')}
+            </select>
+          </div>
+          <div id="ra-crit-${i}" style="display:none;margin-top:8px;font-size:.84rem;">
+            ${c.descrizione ? `<div style="margin-bottom:8px;">${_regEsc(c.descrizione)}</div>` : ''}
+            ${agg.map(a => `<div style="padding:3px 0 3px 10px;border-left:2px solid var(--border);margin-bottom:3px;"><b>${_raDataBreve(a.data)}</b> ${_regEsc(a.testo)} <span style="color:var(--muted);font-size:.76rem;">${_regEsc(a.fonte || '')}</span></div>`).join('')}
+            <div style="display:flex;gap:6px;margin-top:8px;">
+              <input id="ra-agg-${i}" type="text" placeholder="Aggiungi un aggiornamento (es. telefonato al proprietario, lavori fissati per il 20/11)" style="flex:1;font-size:.84rem;">
+              <button class="btn btn-ghost btn-sm" onclick="_raAggiungiAgg(${i})">Aggiungi</button>
+            </div>
+          </div>
+        </div>`; }).join('') : '<div style="color:var(--muted);font-size:.86rem;">Nessuna criticità aperta.</div>'}
+      <details style="margin-top:12px;"><summary style="cursor:pointer;font-size:.86rem;font-weight:600;">＋ Nuova criticità</summary>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+          <select id="ra-nc-str" style="min-width:160px;">${opzStr}</select>
+          <select id="ra-nc-amb">${Object.entries(RA_AMBITI).filter(([k]) => !['educativo','giuridico'].includes(k)).map(([k,t]) => `<option value="${k}">${t}</option>`).join('')}</select>
+          <input id="ra-nc-tit" type="text" placeholder="Titolo breve" style="flex:1;min-width:200px;">
+        </div>
+        <textarea id="ra-nc-desc" rows="2" placeholder="Descrizione" style="width:100%;margin-top:8px;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.86rem;font-family:inherit;"></textarea>
+        <label style="font-size:.82rem;"><input type="checkbox" id="ra-nc-ris"> Riservata (resta fuori dal report)</label>
+        <div style="margin-top:8px;"><button class="btn btn-primary btn-sm" onclick="_raNuovaCrit()">Aggiungi criticità</button></div>
+      </details>
+    </div>
+
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-title">Diario della decade</div>
+      ${diario.length ? diario.map(d => `<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:.86rem;">
+          <div style="width:44px;flex-shrink:0;font-weight:600;">${_raDataBreve(d.data)}</div>
+          <div style="flex:1;">${d.struttura_id ? `<b>${_regEsc(nomeStr(d.struttura_id))}</b> · ` : ''}${_regEsc(d.testo)}
+            <span style="color:var(--muted);font-size:.76rem;">${_regEsc(RA_AMBITI[d.ambito] || '')}${d.fonte ? ' · ' + _regEsc(d.fonte) : ''}${d.inserito_da === 'coordinatore' ? ' · inserita da te' : ''}</span></div>
+        </div>`).join('') : '<div style="color:var(--muted);font-size:.86rem;">Ancora nessuna voce.</div>'}
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;">
+        <input id="ra-d-data" type="date" value="${_raOggi()}">
+        <select id="ra-d-str" style="min-width:150px;">${opzStr}</select>
+        <select id="ra-d-amb">${Object.entries(RA_AMBITI).map(([k,t]) => `<option value="${k}">${t}</option>`).join('')}</select>
+        <input id="ra-d-testo" type="text" placeholder="Aggiungi una voce (es. telefonata con la Prefettura su un trasferimento)" style="flex:1;min-width:220px;">
+        <button class="btn btn-ghost btn-sm" onclick="_raAggiungiDiario()">Aggiungi</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Storico dei report</div>
+      ${lista.filter(x => x.id !== r.id).length ? lista.filter(x => x.id !== r.id).map(x => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:.86rem;">
+          <div>n. ${x.numero} · ${_raPeriodo(x)} · <span class="badge ${(RA_STATI[x.stato]||{}).cls||'badge-gray'}">${(RA_STATI[x.stato]||{}).testo||x.stato}</span>${x.inviato_il ? ` <span style="color:var(--muted);font-size:.78rem;">il ${new Date(x.inviato_il).toLocaleDateString('it-IT')}</span>` : ''}</div>
+          ${x.pdf_url ? `<button class="btn btn-ghost btn-sm" onclick="_raApriPdf('${_regEsc(x.pdf_url)}')">📄 PDF</button>` : ''}
+        </div>`).join('') : '<div style="color:var(--muted);font-size:.86rem;">Questo è il primo report.</div>'}
+    </div>`;
+  } catch(e) {
+    el.innerHTML = `<div class="card" style="color:#991b1b;">Errore nel caricamento: ${_regEsc(e.message)}</div>`;
+  }
+}
+
+async function _raApriPdf(percorso) {
+  const finestra = window.open('', '_blank');
+  try {
+    const { data, error } = await supabaseClient.storage.from('report-amministrazione').createSignedUrl(percorso, 600);
+    if (error || !data) throw new Error(error ? error.message : 'link non disponibile');
+    if (finestra) finestra.location = data.signedUrl; else window.location = data.signedUrl;
+  } catch(e) { if (finestra) finestra.close(); alert('Non riesco ad aprire il PDF: ' + e.message); }
+}
+
+async function _raSalvaTesti() {
+  try {
+    await supa(`report_decadi?id=eq.${_raReport.id}`, { method:'PATCH', body: JSON.stringify({
+      valutazione: document.getElementById('ra-valutazione').value.trim() || null,
+      note_coordinatore: document.getElementById('ra-note').value.trim() || null,
+      updated_at: new Date().toISOString() }) });
+    const s = document.getElementById('ra-salvato'); if (s) s.textContent = 'Salvato alle ' + new Date().toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
+  } catch(e) { alert('Errore nel salvataggio: ' + e.message); }
+}
+
+async function _raApprova(approva) {
+  const r = _raReport;
+  if (approva) {
+    const val = document.getElementById('ra-valutazione').value.trim();
+    const msg = (val ? '' : 'La valutazione del coordinatore è vuota.\n\n') +
+      `Approvi il report n. ${r.numero}? Partirà il ${_raData(r.data_invio)} alle 8:00 dalla tua mail a ${(r.destinatari||[]).join(', ')}.`;
+    if (!confirm(msg)) return;
+  } else if (!confirm('Annullare l\'approvazione? Il report non partirà finché non lo riapprovi.')) return;
+  try {
+    await _raSalvaTesti();
+    await supa(`report_decadi?id=eq.${r.id}`, { method:'PATCH', body: JSON.stringify(approva
+      ? { stato:'approvato', approvato_il: new Date().toISOString(), approvato_da: SESSION.utente.email }
+      : { stato:'bozza_pronta', approvato_il: null, approvato_da: null }) });
+    renderCasReportAmm(document.getElementById('content-cas'));
+  } catch(e) { alert('Errore: ' + e.message); }
+}
+
+async function _raStatoCrit(id, stato) {
+  const c = _raCrit.find(x => x.id === id); if (!c) return;
+  const oggi = _raOggi();
+  const agg = (Array.isArray(c.aggiornamenti) ? c.aggiornamenti : []).concat([{ data: oggi, testo: `Stato cambiato in "${RA_STATI_CRIT[stato]}".`, fonte: 'coordinatore' }]);
+  try {
+    await supa(`criticita_cas?id=eq.${id}`, { method:'PATCH', body: JSON.stringify({ stato, aggiornamenti: agg, ultimo_agg: oggi,
+      chiusa_il: stato === 'risolta' ? oggi : null, updated_at: new Date().toISOString() }) });
+    renderCasReportAmm(document.getElementById('content-cas'));
+  } catch(e) { alert('Errore: ' + e.message); }
+}
+
+async function _raAggiungiAgg(i) {
+  const c = _raCrit[i]; const inp = document.getElementById('ra-agg-' + i);
+  const testo = inp.value.trim(); if (!testo) return;
+  const oggi = _raOggi();
+  const agg = (Array.isArray(c.aggiornamenti) ? c.aggiornamenti : []).concat([{ data: oggi, testo, fonte: 'coordinatore' }]);
+  try {
+    await supa(`criticita_cas?id=eq.${c.id}`, { method:'PATCH', body: JSON.stringify({ aggiornamenti: agg, ultimo_agg: oggi, updated_at: new Date().toISOString() }) });
+    renderCasReportAmm(document.getElementById('content-cas'));
+  } catch(e) { alert('Errore: ' + e.message); }
+}
+
+async function _raNuovaCrit() {
+  const titolo = document.getElementById('ra-nc-tit').value.trim();
+  if (!titolo) { alert('Scrivi almeno il titolo.'); return; }
+  const oggi = _raOggi();
+  try {
+    await supa('criticita_cas', { method:'POST', body: JSON.stringify({
+      struttura_id: document.getElementById('ra-nc-str').value || null,
+      ambito: document.getElementById('ra-nc-amb').value, titolo,
+      descrizione: document.getElementById('ra-nc-desc').value.trim() || null,
+      origine: 'coordinatore', responsabile: null, stato: 'aperta', aperta_il: oggi, ultimo_agg: oggi,
+      aggiornamenti: [{ data: oggi, testo: 'Criticità inserita dal coordinatore.', fonte: 'coordinatore' }],
+      riservata: document.getElementById('ra-nc-ris').checked }) });
+    renderCasReportAmm(document.getElementById('content-cas'));
+  } catch(e) { alert('Errore: ' + e.message); }
+}
+
+async function _raAggiungiDiario() {
+  const testo = document.getElementById('ra-d-testo').value.trim(); if (!testo) return;
+  try {
+    await supa('report_diario', { method:'POST', body: JSON.stringify({ decade_id: _raReport.id,
+      data: document.getElementById('ra-d-data').value || _raOggi(),
+      struttura_id: document.getElementById('ra-d-str').value || null,
+      ambito: document.getElementById('ra-d-amb').value, testo, fonte: 'coordinatore', inserito_da: 'coordinatore' }) });
+    renderCasReportAmm(document.getElementById('content-cas'));
+  } catch(e) { alert('Errore: ' + e.message); }
 }
 
 const STILE_TIPO_ACC = {
