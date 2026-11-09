@@ -3420,6 +3420,7 @@ function mostraAppCAS() {
       <div class="form-group"><label>Luogo di nascita</label><input id="cas-luogo-nascita" placeholder="Città, Paese"></div>
       <div class="form-group"><label>Nazionalità</label><input id="cas-nazionalita" placeholder="es. Senegal"></div>
       <div class="form-group"><label>Lingua principale</label><input id="cas-lingua" placeholder="es. Wolof, Francese"></div>
+      <div class="form-group"><label>Sesso</label><select id="cas-sesso"><option value="">—</option><option value="M">M</option><option value="F">F</option></select></div>
     </div>
     <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
     <h4 style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Iter asilo</h4>
@@ -3454,6 +3455,9 @@ function mostraAppCAS() {
     <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
     <h4 style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Atti PEC</h4>
     <div id="cas-atti-pec-box" style="font-size:.85rem;color:var(--muted);margin-bottom:4px;">—</div>
+    <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
+    <h4 style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Certificato di ospitalità</h4>
+    <div id="cas-certificato-box" style="font-size:.85rem;color:var(--muted);margin-bottom:4px;">—</div>
     <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
     <h4 style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Permesso di soggiorno</h4>
     <div class="grid g2">
@@ -5416,6 +5420,41 @@ async function caricaAttiPecOspiteCAS(ospiteId) {
   }
 }
 
+// --- Certificato di ospitalità (tabella certificati_ospitalita) ---
+// Lo genera Approdo alle 15 del giorno prima dell'appuntamento in Questura (funzione certificati-ospitalita);
+// lo script Google lo copia nella cartella Giuridico tra le 16 e le 17 e qui compare il link. Un solo file per ospite.
+async function caricaCertificatoOspiteCAS(ospiteId) {
+  const box = document.getElementById('cas-certificato-box');
+  if(!box) return;
+  box.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Caricamento…</div>';
+  try {
+    const righe = (await supa(`certificati_ospitalita?ospite_id=eq.${ospiteId}&select=data_ora_appuntamento,generato_il,drive_url,drive_salvato_il,problema&limit=1`)) || [];
+    const c = righe[0];
+    if(!c || (!c.generato_il && !c.problema)) {
+      box.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Nessun certificato. Viene generato in automatico il giorno prima dell\'appuntamento in Questura.</div>';
+      return;
+    }
+    const parti = [];
+    if(c.generato_il && c.data_ora_appuntamento) {
+      const dataApp = new Date(c.data_ora_appuntamento).toLocaleDateString('it-IT', { timeZone:'Europe/Rome', day:'2-digit', month:'2-digit', year:'numeric' });
+      const link = _linkDocumentoAtto(c.drive_url);
+      const inAttesa = !c.drive_salvato_il || new Date(c.drive_salvato_il) < new Date(c.generato_il);
+      parti.push(`<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;">
+        <div style="font-size:1rem;">🏠</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:.85rem;">Per la Questura del ${dataApp}</div>
+          <div style="color:var(--muted);font-size:.78rem;">${inAttesa ? 'In copia su Drive entro le 17' : 'Salvato su Drive, nella cartella dell\'ospite'}</div>
+        </div>
+        <div style="white-space:nowrap;">${inAttesa ? '' : link}</div>
+      </div>`);
+    }
+    if(c.problema) parti.push(`<div style="color:var(--danger);font-size:.8rem;">⚠️ ${_escAtto(c.problema)}</div>`);
+    box.innerHTML = parti.join('');
+  } catch(e) {
+    box.innerHTML = `<div style="color:var(--danger);font-size:.85rem;">Errore nel caricamento del certificato: ${_escAtto(e.message)}</div>`;
+  }
+}
+
 async function mostraConvocazioneAppuntamentoCAS(appId, tipo) {
   const el = document.getElementById('app-convocazione-link');
   if(!el) return;
@@ -5916,8 +5955,10 @@ function nuovoOspiteCAS(strutturaIdPreselezionata) {
   document.getElementById('modal-ospite-cas-title').textContent = 'Nuovo Ospite';
   ['cas-nome','cas-cognome','cas-nui','cas-id-vestanet','cas-luogo-nascita','cas-nazionalita','cas-lingua','cas-note-iter','cas-tipo-permesso','cas-numero-permesso','cas-documenti','cas-note','cas-nucleo-familiare'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   ['cas-dob','cas-data-audizione','cas-scadenza-permesso','cas-data-ingresso'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
-  ['cas-tipo-domanda','cas-esito-audizione'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['cas-tipo-domanda','cas-esito-audizione','cas-sesso'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   document.getElementById('cas-nucleo-membri').innerHTML = '';
+  const boxCert = document.getElementById('cas-certificato-box');
+  if(boxCert) boxCert.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Nessun certificato.</div>';
   const boxApp = document.getElementById('cas-appuntamenti-box');
   if(boxApp) boxApp.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Salva la scheda per poter collegare gli appuntamenti.</div>';
   const boxAtti = document.getElementById('cas-atti-pec-box');
@@ -5939,7 +5980,7 @@ async function apriOspiteCAS(id) {
     document.getElementById('modal-ospite-cas-title').textContent = `${o.cognome} ${o.nome}`;
     const fields = {
       'cas-nome':o.nome,'cas-cognome':o.cognome,'cas-dob':o.data_nascita,'cas-luogo-nascita':o.luogo_nascita,
-      'cas-nazionalita':o.nazionalita,'cas-lingua':o.lingua,'cas-tipo-domanda':o.tipo_domanda,'cas-nui':o.nui,'cas-id-vestanet':o.id_vestanet,
+      'cas-nazionalita':o.nazionalita,'cas-lingua':o.lingua,'cas-sesso':o.sesso,'cas-tipo-domanda':o.tipo_domanda,'cas-nui':o.nui,'cas-id-vestanet':o.id_vestanet,
       'cas-data-audizione':o.data_audizione,'cas-esito-audizione':o.esito_audizione,'cas-note-iter':o.note_iter,
       'cas-tipo-permesso':o.tipo_permesso,'cas-numero-permesso':o.numero_permesso,'cas-scadenza-permesso':o.scadenza_permesso,
       'cas-documenti':o.documenti_identita,'cas-data-ingresso':o.data_ingresso,'cas-note':o.note,'cas-nucleo-familiare':o.nucleo_familiare
@@ -5974,6 +6015,7 @@ async function apriOspiteCAS(id) {
       </select>`;
     caricaAppuntamentiOspiteCAS(o.id, `${o.cognome} ${o.nome}`);
     caricaAttiPecOspiteCAS(o.id);
+    caricaCertificatoOspiteCAS(o.id);
     openModal('modal-ospite-cas');
   } catch(e) { alert('Errore: '+e.message); }
 }
@@ -6033,6 +6075,7 @@ async function salvaOspiteCAS() {
     luogo_nascita: document.getElementById('cas-luogo-nascita').value||null,
     nazionalita: document.getElementById('cas-nazionalita').value||null,
     lingua: document.getElementById('cas-lingua').value||null,
+    sesso: document.getElementById('cas-sesso').value||null,
     tipo_domanda: document.getElementById('cas-tipo-domanda').value||null,
     nui: document.getElementById('cas-nui').value||null,
     id_vestanet: document.getElementById('cas-id-vestanet').value||null,
