@@ -42,8 +42,7 @@ function salvaCertificato_(o) {
     if (!cartelle) cartelle = indiceCartelle();
     const cartella = cartellaOspite_(o);
     if (!cartella) throw new Error('cartella dell\'ospite non trovata su Drive ("' + o.cartella + '")');
-    const sotto = cartella.getFoldersByName('Giuridico');
-    const dest = sotto.hasNext() ? sotto.next() : cartella;
+    const dest = giuridicoDi_(cartella) || cartella;
     const esistenti = dest.getFilesByName(p.nomeFile);
     file = esistenti.hasNext() ? esistenti.next() : null;
     if (!file) {
@@ -61,6 +60,16 @@ function registraCertificato_(o, p, file) {
   const r = chiamaUrl(CERT_URL, { azione: 'registra', ospite_id: o.ospite_id, generato_il: p.generato_il,
     drive_file_id: file.getId(), drive_url: file.getUrl() });
   if (!r || r.status !== 'ok') throw new Error('link non registrato in Approdo: ' + JSON.stringify(r));
+}
+
+// Sottocartella "Giuridico" dell'ospite: il nome si confronta senza spazi e maiuscole ("Giuridico " va bene).
+function giuridicoDi_(cartella) {
+  const figli = cartella.getFolders();
+  while (figli.hasNext()) {
+    const f = figli.next();
+    if (f.getName().trim().toLowerCase() === 'giuridico') return f;
+  }
+  return null;
 }
 
 // Stessa ricerca usata per le PEC; per i nomi scritti male vale l'abbinamento manuale di Cartelle.gs.
@@ -93,4 +102,24 @@ function creaAttivatoreCertificati() {
   });
   ScriptApp.newTrigger('salvaCertificati').timeBased().everyDays(1).atHour(16).nearMinute(15).inTimezone('Europe/Rome').create();
   salvaCertificati();
+}
+
+// CARTELLE GIURIDICO MANCANTI (richiesta di Massimo, 09/11/2026)
+// Crea SOLO la sottocartella "Giuridico" nelle cartelle ospite di "Utenti presenti" che non ce l'hanno.
+// Non rinomina, non sposta, non cancella nulla. Si può rilanciare: le cartelle già presenti vengono saltate.
+// Usa UTENTI_PRESENTI (Cartelle.gs).
+function creaGiuridicoMancanti() {
+  const create = [];
+  Object.keys(UTENTI_PRESENTI).forEach(function (struttura) {
+    const ospiti = DriveApp.getFolderById(UTENTI_PRESENTI[struttura]).getFolders();
+    while (ospiti.hasNext()) {
+      const cartella = ospiti.next();
+      if (!giuridicoDi_(cartella)) {
+        cartella.createFolder('Giuridico');
+        create.push(struttura + ': ' + cartella.getName().trim());
+      }
+    }
+  });
+  console.log('Cartelle Giuridico create: ' + create.length);
+  create.forEach(function (r) { console.log(r); });
 }
