@@ -792,7 +792,7 @@ function mostraAppCAS() {
         history.replaceState(null, '', location.pathname);
         setTimeout(function(){ apriChatCaso(daAprire); }, 400);
       }
-      if (typeof _chatContaNonLetti === 'function') setTimeout(_chatContaNonLetti, 1500);
+      if (typeof _chatAvvisoLogin === 'function') setTimeout(_chatAvvisoLogin, 1500);
     } catch(e) {}
   }, 200);
 }
@@ -854,7 +854,7 @@ function mostraAppCAS() {
 
 <div id="main-cas">
   <div id="topbar-cas" style="display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:56px;background:var(--card);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;">
-    <button id="cas-hamburger" onclick="apriSidebarCAS()" aria-label="Menu">☰</button>
+    <button id="cas-hamburger" onclick="apriSidebarCAS()" aria-label="Menu" style="position:relative;">☰<span id="cas-hamburger-badge" style="display:none;position:absolute;top:-2px;right:2px;background:#25d366;color:#fff;border-radius:9px;font-size:.6rem;font-weight:700;min-width:16px;height:16px;line-height:16px;text-align:center;padding:0 3px;"></span></button>
     <h3 id="cas-page-title" style="font-size:1rem;font-weight:600;">Dashboard CAS</h3>
     <div id="cas-ricerca-wrap" style="position:relative;flex:1;min-width:0;max-width:320px;margin:0 20px;">
       <input id="cas-ricerca-ospiti" type="text" placeholder="🔍 Cerca ospite per nome o cognome..." autocomplete="off"
@@ -2489,6 +2489,15 @@ async function caricaNotificheCAS() {
       pagina: 'cas-ferie'
     }));
   } catch(e) {}
+  try {
+    if (typeof _chatNonLettiDettaglio === 'function') {
+      (await _chatNonLettiDettaglio()).forEach(p => eventi.push({
+        data: p.ultimo.created_at,
+        testo: `💬 ${_confEsc((p.ultimo.autore_nome||'').split(' ')[0])} su ${_confEsc(p.nome)}: ${_confEsc(String(p.ultimo.testo).slice(0, 70))}${p.n > 1 ? ` (${p.n} nuovi)` : ''}`,
+        pagina: 'chat:' + p.ospite_id
+      }));
+    }
+  } catch(e) {}
   eventi.sort((a,b)=>new Date(b.data)-new Date(a.data));
   return eventi;
 }
@@ -2547,6 +2556,7 @@ function renderPannelloNotificheCAS(eventi) {
 function chiudiEVaiNotificaCAS(pagina) {
   const panel = document.getElementById('cas-notifiche-panel');
   if (panel) panel.style.display = 'none';
+  if (String(pagina).startsWith('chat:')) { apriChatCaso(String(pagina).slice(5)); return; }
   showPageCAS(pagina);
 }
 
@@ -3877,7 +3887,8 @@ async function _chatMostra() {
   _chatAggiornaBadge();
   _chatDisegnaLista();
   supa('casi_letture?on_conflict=utente_email,ospite_id', { method:'POST', prefer:'resolution=merge-duplicates,return=minimal',
-    body: JSON.stringify({ utente_email: io, ospite_id: _chatAperta, letto_il: new Date().toISOString() }) }).catch(() => {});
+    body: JSON.stringify({ utente_email: io, ospite_id: _chatAperta, letto_il: new Date().toISOString() }) })
+    .then(() => _chatContaNonLetti()).catch(() => {});
 }
 
 function _chatToggleDaFare() {
@@ -3983,8 +3994,67 @@ async function _chatContaNonLetti() {
     const lette = {}; (letture || []).forEach(l => lette[l.ospite_id] = l.letto_il);
     const io = _confEmail();
     const n = (msg || []).filter(m => String(m.autore_email).toLowerCase() !== io && (!lette[m.ospite_id] || new Date(m.created_at) > new Date(lette[m.ospite_id]))).length;
-    _chatAggiornaBadge(n);
+    _chatImpostaNumeri(n);
     _chatAscolta();
+    aggiornaBadgeNotificheCAS();
+  } catch (e) {}
+}
+
+// ── Messaggi nuovi della chat: avviso all'apertura di Approdo, numero su menu ☰, voce "Chat casi" e campanella ──
+let _chatAvvisoMostrato = false;
+async function _chatNonLettiDettaglio() {
+  const attive = await _confAttive();
+  if (!attive.length) return [];
+  const [msg, letture] = await Promise.all([
+    supa(`casi_messaggi?select=ospite_id,autore_email,autore_nome,testo,created_at&order=created_at.desc&limit=500`),
+    supa(`casi_letture?select=ospite_id,letto_il&utente_email=eq.${encodeURIComponent(_confEmail())}`)
+  ]);
+  const lette = {}; (letture || []).forEach(l => lette[l.ospite_id] = l.letto_il);
+  const io = _confEmail();
+  const per = {};
+  (msg || []).forEach(m => {
+    if (String(m.autore_email).toLowerCase() === io) return;
+    if (lette[m.ospite_id] && new Date(m.created_at) <= new Date(lette[m.ospite_id])) return;
+    const p = per[m.ospite_id] || (per[m.ospite_id] = { ospite_id: m.ospite_id, n: 0, ultimo: m });
+    p.n++;
+  });
+  const lista = Object.values(per);
+  if (lista.length) {
+    const ospiti = (await supa(`ospiti_cas?id=in.(${lista.map(x => x.ospite_id).join(',')})&select=id,nome,cognome`)) || [];
+    lista.forEach(p => { const o = ospiti.find(x => x.id === p.ospite_id); p.nome = o ? `${o.cognome} ${o.nome}` : 'un ospite'; });
+  }
+  return lista.sort((a, b) => b.ultimo.created_at.localeCompare(a.ultimo.created_at));
+}
+
+function _chatImpostaNumeri(n) {
+  _chatAggiornaBadge(n);
+  const h = document.getElementById('cas-hamburger-badge');
+  if (h) { h.textContent = n > 9 ? '9+' : String(n); h.style.display = n ? '' : 'none'; }
+}
+
+async function _chatAvvisoLogin() {
+  try {
+    const lista = await _chatNonLettiDettaglio();
+    const tot = lista.reduce((s, p) => s + p.n, 0);
+    _chatImpostaNumeri(tot);
+    _chatAscolta();
+    if (!tot || _chatAvvisoMostrato || (SESSION && SESSION.is_max)) return;
+    _chatAvvisoMostrato = true;
+    const vecchio = document.getElementById('chat-avviso-login'); if (vecchio) vecchio.remove();
+    const d = document.createElement('div');
+    d.id = 'chat-avviso-login';
+    d.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;';
+    d.innerHTML = `<div style="background:#fff;border-radius:14px;max-width:420px;width:100%;padding:18px 18px 14px;box-shadow:0 20px 50px rgba(0,0,0,.25);">
+      <div style="font-weight:700;font-size:1rem;margin-bottom:10px;">💬 ${tot === 1 ? 'Hai un messaggio nuovo' : `Hai ${tot} messaggi nuovi`} nella chat dei casi</div>
+      ${lista.slice(0, 5).map(p => `<div onclick="document.getElementById('chat-avviso-login').remove();apriChatCaso('${p.ospite_id}')" style="cursor:pointer;padding:9px 10px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;gap:8px;"><b style="font-size:.88rem;">${_confEsc(p.nome)}</b>${p.n > 1 ? `<span class="chat-nonletti" style="background:#25d366;color:#fff;border-radius:10px;font-size:.7rem;font-weight:700;padding:1px 7px;">${p.n}</span>` : ''}</div>
+        <div style="font-size:.8rem;color:#54656f;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_confEsc((p.ultimo.autore_nome || '').split(' ')[0])}: ${_confEsc(p.ultimo.testo)}</div></div>`).join('')}
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('chat-avviso-login').remove()">Più tardi</button>
+        <button class="btn btn-primary btn-sm" onclick="document.getElementById('chat-avviso-login').remove();${lista.length === 1 ? `apriChatCaso('${lista[0].ospite_id}')` : `showPageCAS('cas-chat')`}">Apri la chat</button>
+      </div></div>`;
+    d.addEventListener('click', e => { if (e.target === d) d.remove(); });
+    document.body.appendChild(d);
   } catch (e) {}
 }
 
