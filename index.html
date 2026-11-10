@@ -3832,7 +3832,8 @@ function _regDettaglio(i) {
 const RA_STATI = {
   in_preparazione: { testo:'In preparazione', cls:'badge-gray' },
   bozza_pronta:    { testo:'Bozza pronta da controllare', cls:'badge-yellow' },
-  approvato:       { testo:'Approvato: parte verso le 8 del giorno di invio', cls:'badge-green' },
+  sospeso:         { testo:'Sospeso: da rivedere, non parte finché non lo approvi', cls:'badge-red' },
+  approvato:      { testo:'Approvato: parte verso le 8 del giorno di invio', cls:'badge-green' },
   inviato:         { testo:'Inviato', cls:'badge-blue' }
 };
 const RA_STATI_CRIT = { aperta:'Aperta', in_corso:'In corso', in_attesa:'In attesa', risolta:'Risolta', archiviata:'Archiviata' };
@@ -3863,7 +3864,7 @@ async function renderCasReportAmm(el) {
     const nomeStr = id => (_raStrutture.find(s => s.id === id) || {}).nome || '';
     const r = _raReport;
     const st = RA_STATI[r.stato] || { testo:r.stato, cls:'badge-gray' };
-    const puoApprovare = r.stato === 'bozza_pronta';
+    const puoApprovare = r.stato === 'bozza_pronta' || r.stato === 'sospeso';
     const opzStr = '<option value="">Tutta la rete</option>' + _raStrutture.map(s => `<option value="${s.id}">${_regEsc(s.nome)}</option>`).join('');
 
     el.innerHTML = `
@@ -3877,8 +3878,10 @@ async function renderCasReportAmm(el) {
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           ${r.pdf_url ? `<button class="btn btn-ghost btn-sm" onclick="_raApriPdf('${_regEsc(r.pdf_url)}')">📄 Apri PDF</button>` : ''}
           ${r.stato === 'approvato'
-            ? `<button class="btn btn-ghost btn-sm" onclick="_raApprova(false)">↩ Annulla approvazione</button>`
-            : `<button class="btn btn-success btn-sm" ${puoApprovare ? '' : 'disabled style="opacity:.5;cursor:not-allowed;"'} onclick="_raApprova(true)">✅ Approva per l'invio</button>`}
+            ? `<button class="btn btn-ghost btn-sm" onclick="_raApprova(false)">↩ Annulla approvazione</button>
+               <button class="btn btn-ghost btn-sm" onclick="_raSospendi()">⏸ Sospendi</button>`
+            : `<button class="btn btn-success btn-sm" ${puoApprovare ? '' : 'disabled style="opacity:.5;cursor:not-allowed;"'} onclick="_raApprova(true)">✅ Approva per l'invio</button>
+               ${r.stato === 'bozza_pronta' ? `<button class="btn btn-ghost btn-sm" onclick="_raSospendi()">⏸ Sospendi</button>` : ''}`}
         </div>
       </div>
       <div style="font-size:.8rem;color:var(--muted);margin-top:12px;line-height:1.5;">
@@ -3993,6 +3996,17 @@ async function _raApprova(approva) {
     await supa(`report_decadi?id=eq.${r.id}`, { method:'PATCH', body: JSON.stringify(approva
       ? { stato:'approvato', approvato_il: new Date().toISOString(), approvato_da: SESSION.utente.email }
       : { stato:'bozza_pronta', approvato_il: null, approvato_da: null }) });
+    renderCasReportAmm(document.getElementById('content-cas'));
+  } catch(e) { alert('Errore: ' + e.message); }
+}
+
+// Sospende il report: non parte la mattina dell'invio finché il coordinatore non lo riapprova.
+async function _raSospendi() {
+  const r = _raReport;
+  if (!confirm(`Sospendere il report n. ${r.numero}? Non partirà finché non lo riapprovi.`)) return;
+  try {
+    await _raSalvaTesti();
+    await supa(`report_decadi?id=eq.${r.id}`, { method:'PATCH', body: JSON.stringify({ stato:'sospeso', approvato_il: null, approvato_da: null }) });
     renderCasReportAmm(document.getElementById('content-cas'));
   } catch(e) { alert('Errore: ' + e.message); }
 }
