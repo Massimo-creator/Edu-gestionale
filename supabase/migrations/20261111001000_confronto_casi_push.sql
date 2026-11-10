@@ -1,0 +1,10 @@
+-- Confronto sui casi (prova su Barattona, 11/11/2026) e notifiche push. Già applicata sul progetto
+-- (migrazione confronto_casi_e_push + funzione chiave_vapid).
+-- Tabelle: casi_strutture_attive (dove la chat è attiva), casi_messaggi, casi_letture, push_iscrizioni.
+-- Permessi: solo utenti CAS autenticati (utente_cas()); si scrive solo sugli ospiti delle strutture attive;
+-- il testo lo corregge solo l'autore entro 10 minuti; le iscrizioni push e le letture sono di ciascuno.
+-- Trigger casi_messaggi_notifica: a ogni nuovo messaggio chiama la funzione casi-notifiche (chiave vault cron_casi),
+-- che manda le notifiche push e le mail a menzionati e incaricato.
+-- Chiave privata VAPID nel vault (vapid_privata), letta solo dal service role con public.chiave_vapid().
+-- Per attivare la chat su un'altra struttura:
+--   insert into public.casi_strutture_attive (struttura_id) select id from public.strutture_cas where nome = '<nome>';
