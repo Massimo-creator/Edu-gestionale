@@ -13,14 +13,11 @@
 <link rel="apple-touch-icon" href="/icon-512.png">
 <script>
 if('serviceWorker' in navigator) {
-  const sw = `
-    const CACHE='approdo-v1';
-    self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['/']))));
-    self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));
-  `;
-  const blob = new Blob([sw], {type:'application/javascript'});
-  const url = URL.createObjectURL(blob);
-  navigator.serviceWorker.register(url).catch(()=>{});
+  // sw.js serve solo per le notifiche sul telefono (nessuna cache delle pagine)
+  navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data && e.data.ospite && typeof SESSION !== 'undefined' && SESSION && typeof apriOspiteCAS === 'function') apriOspiteCAS(e.data.ospite);
+  });
 }
 
 let _deferredInstallPrompt = null;
@@ -789,6 +786,13 @@ function mostraAppCAS() {
       }
     }
     if(typeof showPageCAS === 'function') showPageCAS('cas-dashboard');
+    try {
+      var daAprire = new URLSearchParams(location.search).get('ospite');
+      if (daAprire && /^[0-9a-f-]{36}$/i.test(daAprire) && typeof apriOspiteCAS === 'function') {
+        history.replaceState(null, '', location.pathname);
+        setTimeout(function(){ apriOspiteCAS(daAprire); }, 400);
+      }
+    } catch(e) {}
   }, 200);
 }
 </script>
@@ -877,6 +881,7 @@ function mostraAppCAS() {
 <div class="modal-overlay" id="modal-ospite-cas">
   <div class="modal" style="max-width:680px;">
     <h3>👤 <span id="modal-ospite-cas-title">Nuovo Ospite</span></h3>
+    <div id="cas-confronto-wrap"></div>
     <div class="grid g2">
       <div class="form-group"><label>Nome *</label><input id="cas-nome" placeholder="Nome"></div>
       <div class="form-group"><label>Cognome *</label><input id="cas-cognome" placeholder="Cognome"></div>
@@ -2408,6 +2413,7 @@ async function renderCasDashboard(el) {
         </div>
       </div>
     `;
+    _casiNuoviDashboard(el);
   } catch(e) { el.innerHTML=`<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
 }
 
@@ -3449,6 +3455,7 @@ function nuovoOspiteCAS(strutturaIdPreselezionata) {
   ['cas-dob','cas-data-audizione','cas-scadenza-permesso','cas-data-ingresso'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   ['cas-tipo-domanda','cas-esito-audizione','cas-sesso'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   document.getElementById('cas-nucleo-membri').innerHTML = '';
+  const boxConf = document.getElementById('cas-confronto-wrap'); if(boxConf) boxConf.innerHTML = '';
   const boxCert = document.getElementById('cas-certificato-box');
   if(boxCert) boxCert.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Nessun certificato.</div>';
   const boxApp = document.getElementById('cas-appuntamenti-box');
@@ -3508,8 +3515,192 @@ async function apriOspiteCAS(id) {
     caricaAppuntamentiOspiteCAS(o.id, `${o.cognome} ${o.nome}`);
     caricaAttiPecOspiteCAS(o.id);
     caricaCertificatoOspiteCAS(o.id);
+    caricaConfrontoCAS(o.id, o.struttura_id);
     openModal('modal-ospite-cas');
   } catch(e) { alert('Errore: '+e.message); }
+}
+
+// ===================== CONFRONTO SUI CASI (prova su Barattona, 11/11/2026) =====================
+// Conversazione legata alla scheda dell'ospite: menzioni, "da fare" con incaricato, avvisi push e mail
+// (funzione casi-notifiche, chiamata dal database a ogni nuovo messaggio).
+const VAPID_PUBBLICA_APPRODO = 'BFt99Y1E1xCIXGQ6nSPoK3N22Q8mnBtgkltSCos3ZqLqImOzK8A_TFMwjSLuDftsPwRwnPk2lzAohPEq-hgyGZM';
+let _confStruttureAttive = null, _confColleghi = null, _confOspite = null;
+
+function _confEmail() { return String((SESSION && SESSION.utente && SESSION.utente.email) || '').toLowerCase(); }
+function _confEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function _confQuando(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit'}) + ' ' + d.toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'});
+}
+async function _confAttive() {
+  if (_confStruttureAttive === null) {
+    try { _confStruttureAttive = ((await supa('casi_strutture_attive?select=struttura_id')) || []).map(r => r.struttura_id); }
+    catch(e) { _confStruttureAttive = []; }
+  }
+  return _confStruttureAttive;
+}
+async function _confListaColleghi() {
+  if (_confColleghi === null) {
+    try { _confColleghi = ((await supa('utenti?select=email,nome,cognome&comunita_id=is.null&order=nome')) || []).map(u => ({ email: String(u.email).toLowerCase(), nome: (u.nome + ' ' + (u.cognome||'')).trim() })); }
+    catch(e) { _confColleghi = []; }
+  }
+  return _confColleghi;
+}
+
+async function caricaConfrontoCAS(ospiteId, strutturaId) {
+  const wrap = document.getElementById('cas-confronto-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  _confOspite = null;
+  const attive = await _confAttive();
+  if (!attive.includes(strutturaId)) return;
+  _confOspite = { id: ospiteId, struttura_id: strutturaId };
+  const colleghi = (await _confListaColleghi()).filter(c => c.email !== _confEmail());
+  wrap.innerHTML = `
+  <div style="border:1px solid #c7d2fe;background:#f5f7ff;border-radius:10px;padding:12px 14px;margin:6px 0 16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+      <div style="font-weight:700;font-size:.9rem;">💬 Confronto sul caso <span style="font-weight:400;color:var(--muted);font-size:.75rem;">(in prova su Barattona)</span></div>
+      <span id="conf-avvisi-btn"></span>
+    </div>
+    <div id="conf-messaggi" style="max-height:300px;overflow-y:auto;margin:10px 0;font-size:.85rem;">Caricamento…</div>
+    <textarea id="conf-testo" rows="2" placeholder="Scrivi ai colleghi su questo caso…" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;font-family:inherit;resize:vertical;"></textarea>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0;font-size:.78rem;align-items:center;">
+      <span style="color:var(--muted);">Avvisa:</span>
+      ${colleghi.map(c => `<label style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border:1px solid var(--border);border-radius:14px;background:#fff;cursor:pointer;"><input type="checkbox" class="conf-menz" value="${_confEsc(c.email)}" style="margin:0;"> ${_confEsc(c.nome)}</label>`).join('')}
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:.8rem;">
+      <label style="display:inline-flex;align-items:center;gap:4px;"><input type="checkbox" id="conf-dafare" onchange="document.getElementById('conf-incaricato').style.display=this.checked?'':'none'"> Da fare</label>
+      <select id="conf-incaricato" style="display:none;font-size:.8rem;padding:4px 6px;"><option value="">chi se ne occupa?</option>${colleghi.map(c => `<option value="${_confEsc(c.email)}">${_confEsc(c.nome)}</option>`).join('')}<option value="${_confEsc(_confEmail())}">io</option></select>
+      <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="inviaConfrontoCAS()">Invia</button>
+    </div>
+  </div>`;
+  aggiornaBottoneAvvisi();
+  await _confMostraMessaggi();
+}
+
+async function _confMostraMessaggi() {
+  if (!_confOspite) return;
+  const box = document.getElementById('conf-messaggi');
+  if (!box) return;
+  try {
+    const msg = (await supa(`casi_messaggi?ospite_id=eq.${_confOspite.id}&order=created_at.asc`)) || [];
+    const colleghi = await _confListaColleghi();
+    const nomeDi = e => (colleghi.find(c => c.email === String(e||'').toLowerCase()) || {}).nome || e;
+    const io = _confEmail();
+    box.innerHTML = msg.length ? msg.map(m => {
+      const mio = String(m.autore_email).toLowerCase() === io;
+      const menz = (m.menzioni||[]).length ? `<span style="color:#4338ca;">${(m.menzioni||[]).map(e => '@' + _confEsc(nomeDi(e))).join(' ')}</span> ` : '';
+      const dafare = m.da_fare ? (m.fatto_il
+        ? `<div style="font-size:.75rem;color:#166534;margin-top:3px;">✅ Fatto da ${_confEsc(nomeDi(m.fatto_da))} il ${_confQuando(m.fatto_il)}</div>`
+        : `<div style="font-size:.75rem;color:#92400e;margin-top:3px;">📌 Da fare${m.incaricato_email ? ': ' + _confEsc(nomeDi(m.incaricato_email)) : ''} <button class="btn btn-ghost btn-sm" style="padding:1px 8px;font-size:.72rem;margin-left:6px;" onclick="segnaFattoConfronto('${m.id}')">✓ Fatto</button></div>`) : '';
+      return `<div style="margin:0 0 8px;${mio ? 'margin-left:24px;' : 'margin-right:24px;'}padding:7px 10px;border-radius:8px;background:${mio ? '#e0e7ff' : '#fff'};border:1px solid var(--border);">
+        <div style="font-size:.72rem;color:var(--muted);margin-bottom:2px;"><b style="color:var(--text);">${_confEsc(m.autore_nome || m.autore_email)}</b> · ${_confQuando(m.created_at)}${m.modificato_il ? ' · corretto' : ''}</div>
+        <div style="white-space:pre-wrap;word-wrap:break-word;">${menz}${_confEsc(m.testo)}</div>${dafare}</div>`;
+    }).join('') : '<div style="color:var(--muted);">Ancora nessun messaggio su questo caso.</div>';
+    box.scrollTop = box.scrollHeight;
+    supa('casi_letture?on_conflict=utente_email,ospite_id', { method:'POST', prefer:'resolution=merge-duplicates,return=minimal',
+      body: JSON.stringify({ utente_email: io, ospite_id: _confOspite.id, letto_il: new Date().toISOString() }) }).catch(()=>{});
+  } catch(e) {
+    box.innerHTML = `<div style="color:var(--danger);">Non riesco a leggere i messaggi: ${_confEsc(e.message).slice(0,200)}</div>`;
+  }
+}
+
+async function inviaConfrontoCAS() {
+  if (!_confOspite) return;
+  const el = document.getElementById('conf-testo');
+  const testo = (el.value || '').trim();
+  if (!testo) { el.focus(); return; }
+  const menzioni = Array.from(document.querySelectorAll('.conf-menz:checked')).map(c => c.value);
+  const daFare = document.getElementById('conf-dafare').checked;
+  const incaricato = daFare ? (document.getElementById('conf-incaricato').value || null) : null;
+  try {
+    await supa('casi_messaggi', { method:'POST', prefer:'return=minimal',
+      body: JSON.stringify({ ospite_id: _confOspite.id, autore_email: _confEmail(), testo, menzioni, da_fare: daFare, incaricato_email: incaricato }) });
+    el.value = '';
+    document.querySelectorAll('.conf-menz:checked').forEach(c => c.checked = false);
+    document.getElementById('conf-dafare').checked = false;
+    document.getElementById('conf-incaricato').style.display = 'none';
+    await _confMostraMessaggi();
+  } catch(e) { alert('Messaggio non inviato: ' + e.message); }
+}
+
+async function segnaFattoConfronto(id) {
+  try {
+    await supa(`casi_messaggi?id=eq.${id}`, { method:'PATCH', prefer:'return=minimal', body: JSON.stringify({ fatto_il: new Date().toISOString(), fatto_da: _confEmail() }) });
+    await _confMostraMessaggi();
+  } catch(e) { alert('Errore: ' + e.message); }
+}
+
+// Dashboard: casi con messaggi nuovi (non ancora letti da me) o con un "da fare" affidato a me
+async function _casiNuoviDashboard(el) {
+  try {
+    const attive = await _confAttive();
+    if (!attive.length) return;
+    const dal = new Date(Date.now() - 30*86400000).toISOString();
+    const [msg, letture] = await Promise.all([
+      supa(`casi_messaggi?select=ospite_id,created_at,autore_email,da_fare,fatto_il,incaricato_email&created_at=gte.${dal}&order=created_at.desc`),
+      supa(`casi_letture?select=ospite_id,letto_il&utente_email=eq.${encodeURIComponent(_confEmail())}`)
+    ]);
+    const lette = {}; (letture||[]).forEach(l => lette[l.ospite_id] = l.letto_il);
+    const io = _confEmail();
+    const perOspite = {};
+    (msg||[]).forEach(m => {
+      const nuovo = String(m.autore_email).toLowerCase() !== io && (!lette[m.ospite_id] || new Date(m.created_at) > new Date(lette[m.ospite_id]));
+      const mioDaFare = m.da_fare && !m.fatto_il && String(m.incaricato_email||'').toLowerCase() === io;
+      if (!nuovo && !mioDaFare) return;
+      const p = perOspite[m.ospite_id] || (perOspite[m.ospite_id] = { nuovi:0, dafare:0, ultimo:m.created_at });
+      if (nuovo) p.nuovi++;
+      if (mioDaFare) p.dafare++;
+    });
+    const ids = Object.keys(perOspite);
+    if (!ids.length) return;
+    const ospiti = (await supa(`ospiti_cas?id=in.(${ids.join(',')})&select=id,nome,cognome`)) || [];
+    const box = document.createElement('div');
+    box.className = 'card';
+    box.style.cssText = 'margin-bottom:16px;border:1px solid #c7d2fe;background:#f5f7ff;';
+    box.innerHTML = `<div class="card-title">💬 Casi con messaggi nuovi</div>` + ids.sort((a,b) => String(perOspite[b].ultimo).localeCompare(String(perOspite[a].ultimo))).map(id => {
+      const o = ospiti.find(x => x.id === id) || { nome:'', cognome:'Ospite' };
+      const p = perOspite[id];
+      return `<div onclick="apriOspiteCAS('${id}')" style="display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer;font-size:.86rem;">
+        <b>${_confEsc(o.cognome)} ${_confEsc(o.nome)}</b>
+        <span>${p.nuovi ? `<span class="badge badge-blue">${p.nuovi} nuov${p.nuovi===1?'o':'i'}</span>` : ''} ${p.dafare ? `<span class="badge badge-yellow">${p.dafare} da fare per te</span>` : ''}</span></div>`;
+    }).join('');
+    el.insertBefore(box, el.firstChild);
+  } catch(e) { /* la dashboard funziona comunque */ }
+}
+
+// ── Avvisi sul telefono (notifiche push) ──
+function _confB64(s) { const p = '='.repeat((4 - s.length % 4) % 4); const b = atob((s + p).replace(/-/g,'+').replace(/_/g,'/')); return Uint8Array.from(b, c => c.charCodeAt(0)); }
+function _confIosNonInstallata() {
+  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  return ios && !standalone;
+}
+async function aggiornaBottoneAvvisi() {
+  const span = document.getElementById('conf-avvisi-btn');
+  if (!span) return;
+  if (_confIosNonInstallata()) { span.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="installaApprodo()">🔔 Per gli avvisi su iPhone: aggiungi Approdo alla Home</button>`; return; }
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) { span.innerHTML = '<span style="font-size:.72rem;color:var(--muted);">Avvisi non disponibili su questo browser</span>'; return; }
+  let attivi = false;
+  try { const reg = await navigator.serviceWorker.getRegistration('/'); attivi = !!reg && Notification.permission === 'granted' && !!(await reg.pushManager.getSubscription()); } catch(e) {}
+  span.innerHTML = attivi
+    ? '<span style="font-size:.72rem;color:#166534;">🔔 Avvisi attivi su questo dispositivo</span>'
+    : `<button class="btn btn-ghost btn-sm" onclick="attivaAvvisiCAS()">🔔 Ricevi gli avvisi su questo dispositivo</button>`;
+}
+async function attivaAvvisiCAS() {
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { alert('Gli avvisi sono bloccati. Puoi riattivarli dalle impostazioni del browser per approdocas.it.'); return; }
+    await navigator.serviceWorker.register('/sw.js');
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _confB64(VAPID_PUBBLICA_APPRODO) });
+    const j = sub.toJSON();
+    await supa('push_iscrizioni?on_conflict=endpoint', { method:'POST', prefer:'resolution=merge-duplicates,return=minimal',
+      body: JSON.stringify({ utente_email: _confEmail(), endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, dispositivo: (navigator.userAgent||'').slice(0,200) }) });
+    aggiornaBottoneAvvisi();
+    alert('Fatto: su questo dispositivo riceverai gli avvisi dei messaggi sui casi.');
+  } catch(e) { alert('Non sono riuscito ad attivare gli avvisi: ' + e.message); }
 }
 
 let _spostaOspiteId = null;
