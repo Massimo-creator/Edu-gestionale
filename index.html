@@ -16,7 +16,7 @@ if('serviceWorker' in navigator) {
   // sw.js serve solo per le notifiche sul telefono (nessuna cache delle pagine)
   navigator.serviceWorker.register('/sw.js').catch(()=>{});
   navigator.serviceWorker.addEventListener('message', e => {
-    if (e.data && e.data.ospite && typeof SESSION !== 'undefined' && SESSION && typeof apriOspiteCAS === 'function') apriOspiteCAS(e.data.ospite);
+    if (e.data && e.data.ospite && typeof SESSION !== 'undefined' && SESSION && typeof apriChatCaso === 'function') apriChatCaso(e.data.ospite);
   });
 }
 
@@ -788,10 +788,11 @@ function mostraAppCAS() {
     if(typeof showPageCAS === 'function') showPageCAS('cas-dashboard');
     try {
       var daAprire = new URLSearchParams(location.search).get('ospite');
-      if (daAprire && /^[0-9a-f-]{36}$/i.test(daAprire) && typeof apriOspiteCAS === 'function') {
+      if (daAprire && /^[0-9a-f-]{36}$/i.test(daAprire) && typeof apriChatCaso === 'function') {
         history.replaceState(null, '', location.pathname);
-        setTimeout(function(){ apriOspiteCAS(daAprire); }, 400);
+        setTimeout(function(){ apriChatCaso(daAprire); }, 400);
       }
+      if (typeof _chatContaNonLetti === 'function') setTimeout(_chatContaNonLetti, 1500);
     } catch(e) {}
   }, 200);
 }
@@ -810,6 +811,7 @@ function mostraAppCAS() {
   </div>
   <h2>Navigazione</h2>
   <div class="nav-item active" onclick="showPageCAS('cas-dashboard')"><span class="ico">📊</span> Dashboard</div>
+  <div class="nav-item" onclick="showPageCAS('cas-chat')"><span class="ico">💬</span> Chat casi <span id="chat-badge-nav" style="display:none;margin-left:auto;background:#25d366;color:#fff;border-radius:10px;font-size:.7rem;font-weight:700;padding:1px 7px;">0</span></div>
   <div class="nav-item" onclick="showPageCAS('cas-calendario-coordinatore')"><span class="ico">📅</span> Calendario Coordinatore</div>
   <div class="nav-item" onclick="showPageCAS('cas-registro')"><span class="ico">🛡️</span> Registro attività</div>
   <div class="nav-item" onclick="showPageCAS('cas-report-amm')"><span class="ico">📨</span> Report amministrazione</div>
@@ -1062,7 +1064,7 @@ function showPageCAS(page) {
   if (page === 'cas-report-amm' && !SESSION.is_coordinatore_cas) return;
   _casPaginaAttuale = page;
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
-  const titles = { 'cas-dashboard':'Dashboard','cas-strutture':'Strutture e Ospiti','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni e Ricorsi','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-accompagnamenti':'Accompagnamenti','cas-mio-calendario':'Mio Calendario','cas-calendario-mensile-accompagnamenti':'Calendario Mensile Accompagnamenti','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti','cas-report-accompagnamenti':'Report Accompagnamenti','cas-clio':'Auto Clio','cas-registro':'Registro attività','cas-report-amm':'Report amministrazione' };
+  const titles = { 'cas-dashboard':'Dashboard','cas-strutture':'Strutture e Ospiti','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni e Ricorsi','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-accompagnamenti':'Accompagnamenti','cas-mio-calendario':'Mio Calendario','cas-calendario-mensile-accompagnamenti':'Calendario Mensile Accompagnamenti','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti','cas-report-accompagnamenti':'Report Accompagnamenti','cas-clio':'Auto Clio','cas-registro':'Registro attività','cas-report-amm':'Report amministrazione','cas-chat':'Chat casi' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
   if (page === 'cas-calendario-coordinatore') { _calCoordMese = new Date().getMonth(); _calCoordAnno = new Date().getFullYear(); renderCalendarioCoordinatoreCAS(content); }
@@ -1085,6 +1087,8 @@ function showPageCAS(page) {
   else if (page === 'cas-report-accompagnamenti') renderCasReportAccompagnamenti(content);
   else if (page === 'cas-registro') { _regOffset = 0; renderCasRegistro(content); }
   else if (page === 'cas-report-amm') renderCasReportAmm(content);
+  else if (page === 'cas-chat') renderCasChat(content);
+  if (page !== 'cas-chat') _chatAperta = null;
 }
 
 // ===================== REGISTRO ATTIVITÀ (solo Coordinatore) =====================
@@ -3555,27 +3559,22 @@ async function caricaConfrontoCAS(ospiteId, strutturaId) {
   const attive = await _confAttive();
   if (!attive.includes(strutturaId)) return;
   _confOspite = { id: ospiteId, struttura_id: strutturaId };
-  const colleghi = (await _confListaColleghi()).filter(c => c.email !== _confEmail());
-  wrap.innerHTML = `
-  <div style="border:1px solid #c7d2fe;background:#f5f7ff;border-radius:10px;padding:12px 14px;margin:6px 0 16px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-      <div style="font-weight:700;font-size:.9rem;">💬 Confronto sul caso <span style="font-weight:400;color:var(--muted);font-size:.75rem;">(in prova su Barattona)</span></div>
-      <span id="conf-avvisi-btn"></span>
-    </div>
-    <div id="conf-messaggi" style="max-height:300px;overflow-y:auto;margin:10px 0;font-size:.85rem;">Caricamento…</div>
-    <textarea id="conf-testo" rows="2" placeholder="Scrivi ai colleghi su questo caso…" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;font-family:inherit;resize:vertical;"></textarea>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0;font-size:.78rem;align-items:center;">
-      <span style="color:var(--muted);">Avvisa:</span>
-      ${colleghi.map(c => `<label style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border:1px solid var(--border);border-radius:14px;background:#fff;cursor:pointer;"><input type="checkbox" class="conf-menz" value="${_confEsc(c.email)}" style="margin:0;"> ${_confEsc(c.nome)}</label>`).join('')}
-    </div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:.8rem;">
-      <label style="display:inline-flex;align-items:center;gap:4px;"><input type="checkbox" id="conf-dafare" onchange="document.getElementById('conf-incaricato').style.display=this.checked?'':'none'"> Da fare</label>
-      <select id="conf-incaricato" style="display:none;font-size:.8rem;padding:4px 6px;"><option value="">chi se ne occupa?</option>${colleghi.map(c => `<option value="${_confEsc(c.email)}">${_confEsc(c.nome)}</option>`).join('')}<option value="${_confEsc(_confEmail())}">io</option></select>
-      <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="inviaConfrontoCAS()">Invia</button>
-    </div>
-  </div>`;
-  aggiornaBottoneAvvisi();
-  await _confMostraMessaggi();
+  let n = 0, nuovi = 0, ultimo = null;
+  try {
+    const [msg, lett] = await Promise.all([
+      supa(`casi_messaggi?ospite_id=eq.${ospiteId}&select=autore_email,autore_nome,testo,created_at&order=created_at.desc`),
+      supa(`casi_letture?ospite_id=eq.${ospiteId}&utente_email=eq.${encodeURIComponent(_confEmail())}&select=letto_il`)
+    ]);
+    const letto = lett && lett[0] ? new Date(lett[0].letto_il) : null;
+    n = (msg || []).length; ultimo = (msg || [])[0] || null;
+    nuovi = (msg || []).filter(m => String(m.autore_email).toLowerCase() !== _confEmail() && (!letto || new Date(m.created_at) > letto)).length;
+  } catch(e) {}
+  wrap.innerHTML = `<div onclick="apriChatCaso('${ospiteId}')" style="cursor:pointer;display:flex;align-items:center;gap:10px;border:1px solid #c7d2fe;background:#f5f7ff;border-radius:10px;padding:10px 14px;margin:6px 0 16px;">
+    <div style="font-size:1.4rem;">💬</div>
+    <div style="flex:1;min-width:0;"><b style="font-size:.88rem;">Chat sul caso</b>
+      <div style="font-size:.78rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${ultimo ? _confEsc((ultimo.autore_nome||'').split(' ')[0]) + ': ' + _confEsc(ultimo.testo) : 'Nessun messaggio, scrivi il primo'}</div></div>
+    ${nuovi ? `<span style="background:#25d366;color:#fff;border-radius:10px;font-size:.72rem;font-weight:700;padding:1px 8px;">${nuovi}</span>` : ''}
+    <span style="color:#4338ca;font-size:.82rem;white-space:nowrap;">Apri →</span></div>`;
 }
 
 async function _confMostraMessaggi() {
@@ -3661,11 +3660,12 @@ async function _casiNuoviDashboard(el) {
     box.innerHTML = `<div class="card-title">💬 Casi con messaggi nuovi</div>` + ids.sort((a,b) => String(perOspite[b].ultimo).localeCompare(String(perOspite[a].ultimo))).map(id => {
       const o = ospiti.find(x => x.id === id) || { nome:'', cognome:'Ospite' };
       const p = perOspite[id];
-      return `<div onclick="apriOspiteCAS('${id}')" style="display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer;font-size:.86rem;">
+      return `<div onclick="apriChatCaso('${id}')" style="display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer;font-size:.86rem;">
         <b>${_confEsc(o.cognome)} ${_confEsc(o.nome)}</b>
         <span>${p.nuovi ? `<span class="badge badge-blue">${p.nuovi} nuov${p.nuovi===1?'o':'i'}</span>` : ''} ${p.dafare ? `<span class="badge badge-yellow">${p.dafare} da fare per te</span>` : ''}</span></div>`;
     }).join('');
     el.insertBefore(box, el.firstChild);
+    _chatAggiornaBadge(ids.reduce((s, id) => s + perOspite[id].nuovi, 0));
   } catch(e) { /* la dashboard funziona comunque */ }
 }
 
@@ -3679,13 +3679,13 @@ function _confIosNonInstallata() {
 async function aggiornaBottoneAvvisi() {
   const span = document.getElementById('conf-avvisi-btn');
   if (!span) return;
-  if (_confIosNonInstallata()) { span.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="installaApprodo()">🔔 Per gli avvisi su iPhone: aggiungi Approdo alla Home</button>`; return; }
+  if (_confIosNonInstallata()) { span.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="installaApprodo()">🔔 Avvisi: aggiungi alla Home</button>`; return; }
   if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) { span.innerHTML = '<span style="font-size:.72rem;color:var(--muted);">Avvisi non disponibili su questo browser</span>'; return; }
   let attivi = false;
   try { const reg = await navigator.serviceWorker.getRegistration('/'); attivi = !!reg && Notification.permission === 'granted' && !!(await reg.pushManager.getSubscription()); } catch(e) {}
   span.innerHTML = attivi
-    ? '<span style="font-size:.72rem;color:#166534;">🔔 Avvisi attivi su questo dispositivo</span>'
-    : `<button class="btn btn-ghost btn-sm" onclick="attivaAvvisiCAS()">🔔 Ricevi gli avvisi su questo dispositivo</button>`;
+    ? '<span style="font-size:.72rem;color:#166534;">🔔 Avvisi attivi</span>'
+    : `<button class="btn btn-ghost btn-sm" onclick="attivaAvvisiCAS()">🔔 Attiva gli avvisi</button>`;
 }
 async function attivaAvvisiCAS() {
   try {
@@ -3701,6 +3701,291 @@ async function attivaAvvisiCAS() {
     aggiornaBottoneAvvisi();
     alert('Fatto: su questo dispositivo riceverai gli avvisi dei messaggi sui casi.');
   } catch(e) { alert('Non sono riuscito ad attivare gli avvisi: ' + e.message); }
+}
+
+// ===================== CHAT CASI (stile WhatsApp, prova su Barattona, 11/11/2026) =====================
+// Elenco degli ospiti delle strutture con la chat attiva; conversazione a schermo intero sul telefono;
+// messaggi in diretta (Supabase Realtime, con controllo ogni 20 secondi di riserva); @ per avvisare un collega.
+let _chatOspiti = [], _chatUltimi = {}, _chatLetture = {}, _chatAperta = null, _chatCanale = null, _chatTimer = null;
+let _chatMenz = {}; // nome mostrato -> email
+let _chatFiltro = '';
+
+const _chatCSS = `
+<style>
+#chat-root{display:flex;height:calc(100vh - 104px);border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff}
+#chat-lista{width:320px;border-right:1px solid var(--border);display:flex;flex-direction:column;min-width:0}
+#chat-conv{flex:1;display:flex;flex-direction:column;min-width:0;background:#efeae2}
+.chat-voce{display:flex;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer}
+.chat-voce:hover,.chat-voce.attiva{background:#f0f2f5}
+.chat-avatar{width:40px;height:40px;border-radius:50%;background:#dfe5e7;display:flex;align-items:center;justify-content:center;font-weight:700;color:#54656f;flex-shrink:0;font-size:.85rem}
+.chat-bolla{max-width:78%;padding:6px 9px 4px;border-radius:8px;margin:3px 0;font-size:.88rem;box-shadow:0 1px .5px rgba(0,0,0,.13);word-wrap:break-word}
+.chat-bolla .chat-txt{white-space:pre-wrap}
+.chat-mia{align-self:flex-end;background:#d9fdd3}
+.chat-altrui{align-self:flex-start;background:#fff}
+.chat-ora{font-size:.66rem;color:#667781;text-align:right;margin-top:2px}
+.chat-nonletti{background:#25d366;color:#fff;border-radius:10px;font-size:.7rem;font-weight:700;padding:1px 7px}
+#chat-menz-pop{position:absolute;bottom:100%;left:8px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.12);max-height:180px;overflow-y:auto;min-width:180px;display:none;z-index:5}
+#chat-menz-pop div{padding:7px 12px;cursor:pointer;font-size:.85rem}
+#chat-menz-pop div:hover{background:#f0f2f5}
+@media(max-width:768px){
+  #chat-root{height:calc(100vh - 120px);border-radius:0;border:none;margin:-12px}
+  #chat-lista{width:100%;border-right:none}
+  #chat-root.conv-aperta #chat-lista{display:none}
+  #chat-root:not(.conv-aperta) #chat-conv{display:none}
+}
+</style>`;
+
+async function renderCasChat(el) {
+  el.innerHTML = _chatCSS + `<div id="chat-root">
+    <div id="chat-lista">
+      <div style="padding:10px;border-bottom:1px solid var(--border);background:#f0f2f5;">
+        <input id="chat-cerca" placeholder="🔍 Cerca un ospite" oninput="_chatFiltro=this.value.toLowerCase();_chatDisegnaLista()" style="width:100%;padding:8px 12px;border:none;border-radius:8px;font-size:.88rem;">
+      </div>
+      <div id="chat-voci" style="overflow-y:auto;flex:1;"><div style="padding:20px;color:var(--muted);">Caricamento…</div></div>
+    </div>
+    <div id="chat-conv"><div style="margin:auto;color:#667781;text-align:center;padding:20px;">💬<br>Scegli un ospite per aprire la chat sul suo caso.<br><span style="font-size:.78rem;">In prova su Barattona</span></div></div>
+  </div>`;
+  _chatFiltro = '';
+  await _chatCaricaLista();
+  _chatAscolta();
+  if (_chatAperta) apriChatCaso(_chatAperta, true);
+}
+
+async function _chatCaricaLista() {
+  const attive = await _confAttive();
+  if (!attive.length) { document.getElementById('chat-voci').innerHTML = '<div style="padding:20px;color:var(--muted);">Nessuna struttura con la chat attiva.</div>'; return; }
+  const [ospiti, msg, letture] = await Promise.all([
+    supa(`ospiti_cas?struttura_id=in.(${attive.join(',')})&attivo=eq.true&select=id,nome,cognome,struttura_id&order=cognome`),
+    supa(`casi_messaggi?select=ospite_id,testo,autore_nome,autore_email,created_at&order=created_at.desc&limit=1000`),
+    supa(`casi_letture?select=ospite_id,letto_il&utente_email=eq.${encodeURIComponent(_confEmail())}`)
+  ]);
+  _chatOspiti = ospiti || [];
+  _chatLetture = {}; (letture || []).forEach(l => _chatLetture[l.ospite_id] = l.letto_il);
+  _chatUltimi = {};
+  const io = _confEmail();
+  (msg || []).forEach(m => {
+    const u = _chatUltimi[m.ospite_id] || (_chatUltimi[m.ospite_id] = { ultimo: m, nonletti: 0 });
+    if (String(m.autore_email).toLowerCase() !== io && (!_chatLetture[m.ospite_id] || new Date(m.created_at) > new Date(_chatLetture[m.ospite_id]))) u.nonletti++;
+  });
+  if (_chatAperta && _chatUltimi[_chatAperta]) _chatUltimi[_chatAperta].nonletti = 0;
+  _chatDisegnaLista();
+  _chatAggiornaBadge();
+}
+
+function _chatIniziali(o) { return ((o.cognome || '?')[0] + (o.nome || '')[0] || '').toUpperCase(); }
+function _chatOraBreve(iso) {
+  const d = new Date(iso), oggi = new Date();
+  const stessoGiorno = d.toLocaleDateString('it-IT',{timeZone:'Europe/Rome'}) === oggi.toLocaleDateString('it-IT',{timeZone:'Europe/Rome'});
+  return stessoGiorno ? d.toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) : d.toLocaleDateString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit'});
+}
+
+function _chatDisegnaLista() {
+  const box = document.getElementById('chat-voci');
+  if (!box) return;
+  const lista = _chatOspiti
+    .filter(o => !_chatFiltro || (o.cognome + ' ' + o.nome).toLowerCase().includes(_chatFiltro))
+    .sort((a, b) => {
+      const ua = _chatUltimi[a.id], ub = _chatUltimi[b.id];
+      if (ua && ub) return ub.ultimo.created_at.localeCompare(ua.ultimo.created_at);
+      if (ua) return -1; if (ub) return 1;
+      return (a.cognome || '').localeCompare(b.cognome || '');
+    });
+  box.innerHTML = lista.map(o => {
+    const u = _chatUltimi[o.id];
+    const anteprima = u ? `${_confEsc((u.ultimo.autore_nome || '').split(' ')[0])}: ${_confEsc(u.ultimo.testo).slice(0, 60)}` : '<i>Nessun messaggio</i>';
+    return `<div class="chat-voce${_chatAperta === o.id ? ' attiva' : ''}" onclick="apriChatCaso('${o.id}')">
+      <div class="chat-avatar">${_confEsc(_chatIniziali(o))}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;justify-content:space-between;gap:6px;"><b style="font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_confEsc(o.cognome)} ${_confEsc(o.nome)}</b>
+          <span style="font-size:.7rem;color:${u && u.nonletti ? '#25d366' : '#667781'};white-space:nowrap;">${u ? _chatOraBreve(u.ultimo.created_at) : ''}</span></div>
+        <div style="display:flex;justify-content:space-between;gap:6px;align-items:center;"><span style="font-size:.8rem;color:#667781;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${anteprima}</span>
+          ${u && u.nonletti ? `<span class="chat-nonletti">${u.nonletti}</span>` : ''}</div>
+      </div></div>`;
+  }).join('') || '<div style="padding:20px;color:var(--muted);">Nessun ospite trovato.</div>';
+}
+
+function _chatAggiornaBadge(totale) {
+  if (totale === undefined) totale = Object.values(_chatUltimi).reduce((s, u) => s + (u.nonletti || 0), 0);
+  const b = document.getElementById('chat-badge-nav');
+  if (b) { b.textContent = totale; b.style.display = totale ? '' : 'none'; }
+}
+
+async function apriChatCaso(ospiteId, giaQui) {
+  _chatAperta = ospiteId;
+  if (!giaQui && _casPaginaAttuale !== 'cas-chat') { closeModal('modal-ospite-cas'); showPageCAS('cas-chat'); return; }
+  const root = document.getElementById('chat-root'); if (root) root.classList.add('conv-aperta');
+  const o = _chatOspiti.find(x => x.id === ospiteId) || { id: ospiteId, nome: '', cognome: '' };
+  const colleghi = (await _confListaColleghi()).filter(c => c.email !== _confEmail());
+  _chatMenz = {};
+  document.getElementById('chat-conv').innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#f0f2f5;border-bottom:1px solid var(--border);">
+      <button onclick="_chatChiudi()" class="chat-indietro" style="background:none;border:none;font-size:1.3rem;cursor:pointer;padding:2px 6px;">←</button>
+      <div class="chat-avatar" style="width:36px;height:36px;">${_confEsc(_chatIniziali(o))}</div>
+      <div style="flex:1;min-width:0;"><b style="font-size:.92rem;">${_confEsc(o.cognome)} ${_confEsc(o.nome)}</b><div id="conf-avvisi-btn" style="font-size:.72rem;"></div></div>
+      <button class="btn btn-ghost btn-sm" onclick="apriOspiteCAS('${ospiteId}')">📋 Scheda</button>
+    </div>
+    <div id="chat-msg" style="flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;"></div>
+    <div style="position:relative;padding:8px 10px;background:#f0f2f5;border-top:1px solid var(--border);">
+      <div id="chat-menz-pop"></div>
+      <div id="chat-dafare-riga" style="display:none;font-size:.78rem;margin-bottom:6px;">📌 Da fare, se ne occupa:
+        <select id="chat-incaricato" style="font-size:.78rem;padding:3px 6px;"><option value="">nessuno in particolare</option>${colleghi.map(c => `<option value="${_confEsc(c.email)}">${_confEsc(c.nome)}</option>`).join('')}<option value="${_confEsc(_confEmail())}">io</option></select></div>
+      <div style="display:flex;gap:6px;align-items:flex-end;">
+        <button id="chat-dafare-btn" title="Segna come da fare" onclick="_chatToggleDaFare()" style="background:none;border:none;font-size:1.25rem;cursor:pointer;padding:6px;opacity:.5;">📌</button>
+        <textarea id="chat-testo" rows="1" placeholder="Messaggio (@ per avvisare)" oninput="_chatInput(this)" onkeydown="_chatTasto(event)"
+          style="flex:1;padding:9px 12px;border:none;border-radius:20px;font-size:.9rem;font-family:inherit;resize:none;max-height:120px;"></textarea>
+        <button onclick="_chatInvia()" style="background:#00a884;color:#fff;border:none;border-radius:50%;width:40px;height:40px;font-size:1.05rem;cursor:pointer;flex-shrink:0;">➤</button>
+      </div>
+    </div>`;
+  _chatDisegnaLista();
+  aggiornaBottoneAvvisi();
+  await _chatMostra();
+  const t = document.getElementById('chat-testo'); if (t && window.innerWidth > 768) t.focus();
+}
+
+function _chatChiudi() {
+  _chatAperta = null;
+  const root = document.getElementById('chat-root'); if (root) root.classList.remove('conv-aperta');
+  _chatDisegnaLista();
+}
+
+async function _chatMostra() {
+  if (!_chatAperta) return;
+  const box = document.getElementById('chat-msg');
+  if (!box) return;
+  const msg = (await supa(`casi_messaggi?ospite_id=eq.${_chatAperta}&order=created_at.asc`)) || [];
+  const colleghi = await _confListaColleghi();
+  const nomeDi = e => (colleghi.find(c => c.email === String(e || '').toLowerCase()) || {}).nome || e;
+  const io = _confEmail();
+  let giorno = '';
+  box.innerHTML = msg.length ? msg.map(m => {
+    const mio = String(m.autore_email).toLowerCase() === io;
+    const g = new Date(m.created_at).toLocaleDateString('it-IT', { timeZone:'Europe/Rome', weekday:'long', day:'numeric', month:'long' });
+    const sep = g !== giorno ? `<div style="align-self:center;background:#fff;color:#54656f;font-size:.72rem;padding:3px 10px;border-radius:7px;margin:8px 0;box-shadow:0 1px .5px rgba(0,0,0,.13);">${g}</div>` : '';
+    giorno = g;
+    let testo = _confEsc(m.testo);
+    (m.menzioni || []).forEach(e => { const n = _confEsc(nomeDi(e)); testo = testo.split('@' + n).join(`<b style="color:#027eb5;">@${n}</b>`); });
+    const dafare = m.da_fare ? (m.fatto_il
+      ? `<div style="font-size:.74rem;color:#166534;margin-top:3px;">✅ Fatto da ${_confEsc(nomeDi(m.fatto_da))}</div>`
+      : `<div style="font-size:.74rem;color:#92400e;margin-top:3px;">📌 Da fare${m.incaricato_email ? ': ' + _confEsc(nomeDi(m.incaricato_email)) : ''} <a href="#" onclick="event.preventDefault();_chatFatto('${m.id}')" style="margin-left:6px;">✓ Fatto</a></div>`) : '';
+    return sep + `<div class="chat-bolla ${mio ? 'chat-mia' : 'chat-altrui'}">` +
+      (mio ? '' : `<div style="font-size:.74rem;font-weight:700;color:#027eb5;margin-bottom:1px;">${_confEsc(m.autore_nome || m.autore_email)}</div>`) +
+      `<div class="chat-txt">${testo}</div>${dafare}<div class="chat-ora">${new Date(m.created_at).toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'})}</div></div>`;
+  }).join('') : '<div style="margin:auto;color:#667781;font-size:.85rem;background:#fff;padding:8px 14px;border-radius:8px;">Nessun messaggio. Scrivi il primo ai colleghi su questo caso.</div>';
+  box.scrollTop = box.scrollHeight;
+  _chatLetture[_chatAperta] = new Date().toISOString();
+  if (_chatUltimi[_chatAperta]) _chatUltimi[_chatAperta].nonletti = 0;
+  _chatAggiornaBadge();
+  _chatDisegnaLista();
+  supa('casi_letture?on_conflict=utente_email,ospite_id', { method:'POST', prefer:'resolution=merge-duplicates,return=minimal',
+    body: JSON.stringify({ utente_email: io, ospite_id: _chatAperta, letto_il: new Date().toISOString() }) }).catch(() => {});
+}
+
+function _chatToggleDaFare() {
+  const r = document.getElementById('chat-dafare-riga'), b = document.getElementById('chat-dafare-btn');
+  const on = r.style.display === 'none';
+  r.style.display = on ? '' : 'none'; b.style.opacity = on ? '1' : '.5';
+}
+
+function _chatTasto(e) {
+  const pop = document.getElementById('chat-menz-pop');
+  if (e.key === 'Enter' && !e.shiftKey && window.innerWidth > 768) {
+    if (pop && pop.style.display === 'block') { const primo = pop.querySelector('div'); if (primo) { e.preventDefault(); primo.click(); return; } }
+    e.preventDefault(); _chatInvia();
+  }
+  if (e.key === 'Escape' && pop) pop.style.display = 'none';
+}
+
+async function _chatInput(t) {
+  t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px';
+  const pop = document.getElementById('chat-menz-pop');
+  const prima = t.value.slice(0, t.selectionStart);
+  const m = prima.match(/@([^\s@]*)$/);
+  if (!m) { pop.style.display = 'none'; return; }
+  const q = m[1].toLowerCase();
+  const colleghi = (await _confListaColleghi()).filter(c => c.email !== _confEmail() && c.nome.toLowerCase().includes(q));
+  if (!colleghi.length) { pop.style.display = 'none'; return; }
+  pop.innerHTML = colleghi.map(c => `<div onmousedown="event.preventDefault()" onclick="_chatScegli('${_confEsc(c.email)}')">${_confEsc(c.nome)}</div>`).join('');
+  pop.style.display = 'block';
+}
+
+async function _chatScegli(email) {
+  const t = document.getElementById('chat-testo');
+  const c = (await _confListaColleghi()).find(x => x.email === email);
+  if (!c || !t) return;
+  const pos = t.selectionStart, prima = t.value.slice(0, pos).replace(/@([^\s@]*)$/, '@' + c.nome + ' ');
+  t.value = prima + t.value.slice(pos);
+  t.selectionStart = t.selectionEnd = prima.length;
+  _chatMenz[c.nome] = c.email;
+  document.getElementById('chat-menz-pop').style.display = 'none';
+  t.focus();
+}
+
+async function _chatInvia() {
+  if (!_chatAperta) return;
+  const t = document.getElementById('chat-testo');
+  const testo = (t.value || '').trim();
+  if (!testo) return;
+  const menzioni = Object.entries(_chatMenz).filter(([nome]) => testo.includes('@' + nome)).map(([, e]) => e);
+  const daFare = document.getElementById('chat-dafare-riga').style.display !== 'none';
+  const incaricato = daFare ? (document.getElementById('chat-incaricato').value || null) : null;
+  t.value = ''; t.style.height = 'auto';
+  try {
+    await supa('casi_messaggi', { method:'POST', prefer:'return=minimal',
+      body: JSON.stringify({ ospite_id: _chatAperta, autore_email: _confEmail(), testo, menzioni, da_fare: daFare, incaricato_email: incaricato }) });
+    _chatMenz = {};
+    if (daFare) _chatToggleDaFare();
+    await _chatMostra();
+    _chatCaricaLista();
+  } catch (e) { t.value = testo; alert('Messaggio non inviato: ' + e.message); }
+}
+
+async function _chatFatto(id) {
+  try {
+    await supa(`casi_messaggi?id=eq.${id}`, { method:'PATCH', prefer:'return=minimal', body: JSON.stringify({ fatto_il: new Date().toISOString(), fatto_da: _confEmail() }) });
+    await _chatMostra();
+  } catch (e) { alert('Errore: ' + e.message); }
+}
+
+// Messaggi in diretta: Realtime di Supabase, più un controllo ogni 20 secondi se la pagina è aperta
+function _chatAscolta() {
+  try {
+    if (!_chatCanale && typeof supabaseClient !== 'undefined') {
+      _chatCanale = supabaseClient.channel('chat-casi')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'casi_messaggi' }, () => _chatNovita())
+        .subscribe();
+    }
+  } catch (e) {}
+  if (!_chatTimer) _chatTimer = setInterval(() => { if (_casPaginaAttuale === 'cas-chat' && !document.hidden) _chatNovita(); }, 20000);
+}
+let _chatInAggiornamento = false;
+async function _chatNovita() {
+  if (_chatInAggiornamento) return;
+  _chatInAggiornamento = true;
+  try {
+    if (_casPaginaAttuale === 'cas-chat') {
+      await _chatCaricaLista();
+      if (_chatAperta && document.getElementById('chat-msg')) await _chatMostra();
+    } else {
+      _chatContaNonLetti();
+    }
+  } finally { _chatInAggiornamento = false; }
+}
+
+// Contatore dei non letti accanto a "Chat casi" nel menu (anche fuori dalla pagina chat)
+async function _chatContaNonLetti() {
+  try {
+    const attive = await _confAttive();
+    if (!attive.length) return;
+    const [msg, letture] = await Promise.all([
+      supa(`casi_messaggi?select=ospite_id,autore_email,created_at&order=created_at.desc&limit=500`),
+      supa(`casi_letture?select=ospite_id,letto_il&utente_email=eq.${encodeURIComponent(_confEmail())}`)
+    ]);
+    const lette = {}; (letture || []).forEach(l => lette[l.ospite_id] = l.letto_il);
+    const io = _confEmail();
+    const n = (msg || []).filter(m => String(m.autore_email).toLowerCase() !== io && (!lette[m.ospite_id] || new Date(m.created_at) > new Date(lette[m.ospite_id]))).length;
+    _chatAggiornaBadge(n);
+    _chatAscolta();
+  } catch (e) {}
 }
 
 let _spostaOspiteId = null;
