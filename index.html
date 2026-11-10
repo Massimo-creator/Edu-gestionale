@@ -3548,7 +3548,11 @@ function _confQuando(iso) {
 }
 async function _confAttive() {
   if (_confStruttureAttive === null) {
-    try { _confStruttureAttive = ((await supa('casi_strutture_attive?select=struttura_id')) || []).map(r => r.struttura_id); }
+    try {
+      const st = (await supa('strutture_cas?attiva=eq.true&select=id,nome&order=nome')) || [];
+      _chatStrutture = {}; st.forEach(s => _chatStrutture[s.id] = s.nome);
+      _confStruttureAttive = st.map(s => s.id);
+    }
     catch(e) { _confStruttureAttive = []; }
   }
   return _confStruttureAttive;
@@ -3718,6 +3722,7 @@ async function attivaAvvisiCAS() {
 // messaggi in diretta (Supabase Realtime, con controllo ogni 20 secondi di riserva); @ per avvisare un collega.
 let _chatOspiti = [], _chatUltimi = {}, _chatLetture = {}, _chatAperta = null, _chatCanale = null, _chatTimer = null;
 let _chatMenz = {}; // nome mostrato -> email
+let _chatStrutture = {}, _chatMie = [], _chatEspanse = {};
 let _chatFiltro = '';
 
 const _chatCSS = `
@@ -3749,11 +3754,11 @@ async function renderCasChat(el) {
   el.innerHTML = _chatCSS + `<div id="chat-root">
     <div id="chat-lista">
       <div style="padding:10px;border-bottom:1px solid var(--border);background:#f0f2f5;">
-        <input id="chat-cerca" placeholder="🔍 Cerca un ospite" oninput="_chatFiltro=this.value.toLowerCase();_chatDisegnaLista()" style="width:100%;padding:8px 12px;border:none;border-radius:8px;font-size:.88rem;">
+        <input id="chat-cerca" placeholder="🔍 Cerca ospite o struttura" oninput="_chatFiltro=this.value.toLowerCase();_chatDisegnaLista()" style="width:100%;padding:8px 12px;border:none;border-radius:8px;font-size:.88rem;">
       </div>
       <div id="chat-voci" style="overflow-y:auto;flex:1;"><div style="padding:20px;color:var(--muted);">Caricamento…</div></div>
     </div>
-    <div id="chat-conv"><div style="margin:auto;color:#667781;text-align:center;padding:20px;">💬<br>Scegli un ospite per aprire la chat sul suo caso.<br><span style="font-size:.78rem;">In prova su Barattona</span></div></div>
+    <div id="chat-conv"><div style="margin:auto;color:#667781;text-align:center;padding:20px;">💬<br>Scegli un ospite per aprire la chat sul suo caso.<br><span style="font-size:.78rem;">Cerca per nome o apri una struttura nell'elenco.</span></div></div>
   </div>`;
   _chatFiltro = '';
   await _chatCaricaLista();
@@ -3764,11 +3769,14 @@ async function renderCasChat(el) {
 async function _chatCaricaLista() {
   const attive = await _confAttive();
   if (!attive.length) { document.getElementById('chat-voci').innerHTML = '<div style="padding:20px;color:var(--muted);">Nessuna struttura con la chat attiva.</div>'; return; }
-  const [ospiti, msg, letture] = await Promise.all([
+  const [ospiti, msg, letture, mie] = await Promise.all([
     supa(`ospiti_cas?struttura_id=in.(${attive.join(',')})&attivo=eq.true&select=id,nome,cognome,struttura_id&order=cognome`),
     supa(`casi_messaggi?select=ospite_id,testo,autore_nome,autore_email,created_at&order=created_at.desc&limit=1000`),
-    supa(`casi_letture?select=ospite_id,letto_il&utente_email=eq.${encodeURIComponent(_confEmail())}`)
+    supa(`casi_letture?select=ospite_id,letto_il&utente_email=eq.${encodeURIComponent(_confEmail())}`),
+    supa(`operatori_strutture?operatore_email=eq.${encodeURIComponent(_confEmail())}&select=struttura_id`).catch(() => [])
   ]);
+  _chatMie = (mie || []).map(r => r.struttura_id);
+  if (!_chatEspanse._init) { _chatEspanse._init = true; if (_chatMie.length <= 3) _chatMie.forEach(id => _chatEspanse[id] = true); }
   _chatOspiti = ospiti || [];
   _chatLetture = {}; (letture || []).forEach(l => _chatLetture[l.ospite_id] = l.letto_il);
   _chatUltimi = {};
@@ -3789,29 +3797,46 @@ function _chatOraBreve(iso) {
   return stessoGiorno ? d.toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) : d.toLocaleDateString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit'});
 }
 
+function _chatVoce(o, conStruttura) {
+  const u = _chatUltimi[o.id];
+  const sotto = u ? `${_confEsc((u.ultimo.autore_nome || '').split(' ')[0])}: ${_confEsc(u.ultimo.testo).slice(0, 60)}`
+    : (conStruttura ? _confEsc(_chatStrutture[o.struttura_id] || '') : '<i>Nessun messaggio</i>');
+  return `<div class="chat-voce${_chatAperta === o.id ? ' attiva' : ''}" onclick="apriChatCaso('${o.id}')">
+    <div class="chat-avatar">${_confEsc(_chatIniziali(o))}</div>
+    <div style="flex:1;min-width:0;">
+      <div style="display:flex;justify-content:space-between;gap:6px;"><b style="font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_confEsc(o.cognome)} ${_confEsc(o.nome)}</b>
+        <span style="font-size:.7rem;color:${u && u.nonletti ? '#25d366' : '#667781'};white-space:nowrap;">${u ? _chatOraBreve(u.ultimo.created_at) : ''}</span></div>
+      <div style="display:flex;justify-content:space-between;gap:6px;align-items:center;"><span style="font-size:.8rem;color:#667781;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${conStruttura && u ? _confEsc(_chatStrutture[o.struttura_id] || '') + ' · ' : ''}${sotto}</span>
+        ${u && u.nonletti ? `<span class="chat-nonletti">${u.nonletti}</span>` : ''}</div>
+    </div></div>`;
+}
+function _chatTitolo(testo) { return `<div style="padding:8px 12px 4px;font-size:.7rem;font-weight:700;color:#008069;text-transform:uppercase;letter-spacing:.05em;background:#f7f8fa;">${testo}</div>`; }
+function _chatEspandi(id) { _chatEspanse[id] = !_chatEspanse[id]; _chatDisegnaLista(); }
+
 function _chatDisegnaLista() {
   const box = document.getElementById('chat-voci');
   if (!box) return;
-  const lista = _chatOspiti
-    .filter(o => !_chatFiltro || (o.cognome + ' ' + o.nome).toLowerCase().includes(_chatFiltro))
-    .sort((a, b) => {
-      const ua = _chatUltimi[a.id], ub = _chatUltimi[b.id];
-      if (ua && ub) return ub.ultimo.created_at.localeCompare(ua.ultimo.created_at);
-      if (ua) return -1; if (ub) return 1;
-      return (a.cognome || '').localeCompare(b.cognome || '');
-    });
-  box.innerHTML = lista.map(o => {
-    const u = _chatUltimi[o.id];
-    const anteprima = u ? `${_confEsc((u.ultimo.autore_nome || '').split(' ')[0])}: ${_confEsc(u.ultimo.testo).slice(0, 60)}` : '<i>Nessun messaggio</i>';
-    return `<div class="chat-voce${_chatAperta === o.id ? ' attiva' : ''}" onclick="apriChatCaso('${o.id}')">
-      <div class="chat-avatar">${_confEsc(_chatIniziali(o))}</div>
-      <div style="flex:1;min-width:0;">
-        <div style="display:flex;justify-content:space-between;gap:6px;"><b style="font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_confEsc(o.cognome)} ${_confEsc(o.nome)}</b>
-          <span style="font-size:.7rem;color:${u && u.nonletti ? '#25d366' : '#667781'};white-space:nowrap;">${u ? _chatOraBreve(u.ultimo.created_at) : ''}</span></div>
-        <div style="display:flex;justify-content:space-between;gap:6px;align-items:center;"><span style="font-size:.8rem;color:#667781;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${anteprima}</span>
-          ${u && u.nonletti ? `<span class="chat-nonletti">${u.nonletti}</span>` : ''}</div>
-      </div></div>`;
-  }).join('') || '<div style="padding:20px;color:var(--muted);">Nessun ospite trovato.</div>';
+  const alfa = (a, b) => (a.cognome + ' ' + a.nome).localeCompare(b.cognome + ' ' + b.nome);
+  if (_chatFiltro) {
+    const trovati = _chatOspiti.filter(o => (o.cognome + ' ' + o.nome + ' ' + o.nome + ' ' + o.cognome + ' ' + (_chatStrutture[o.struttura_id] || '')).toLowerCase().includes(_chatFiltro))
+      .sort((a, b) => (_chatUltimi[b.id] ? 1 : 0) - (_chatUltimi[a.id] ? 1 : 0) || alfa(a, b));
+    box.innerHTML = trovati.length ? trovati.map(o => _chatVoce(o, true)).join('') : '<div style="padding:20px;color:var(--muted);">Nessun ospite trovato.</div>';
+    return;
+  }
+  let html = '';
+  const conMessaggi = _chatOspiti.filter(o => _chatUltimi[o.id]).sort((a, b) => _chatUltimi[b.id].ultimo.created_at.localeCompare(_chatUltimi[a.id].ultimo.created_at));
+  if (conMessaggi.length) html += _chatTitolo('Conversazioni') + conMessaggi.map(o => _chatVoce(o, true)).join('');
+  const ids = Object.keys(_chatStrutture).sort((a, b) => (_chatMie.includes(b) ? 1 : 0) - (_chatMie.includes(a) ? 1 : 0) || _chatStrutture[a].localeCompare(_chatStrutture[b]));
+  html += _chatTitolo('Ospiti per struttura') + ids.map(id => {
+    const osp = _chatOspiti.filter(o => o.struttura_id === id).sort(alfa);
+    if (!osp.length) return '';
+    const aperta = !!_chatEspanse[id];
+    return `<div onclick="_chatEspandi('${id}')" style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:.88rem;">
+        <span>🏠 <b>${_confEsc(_chatStrutture[id])}</b>${_chatMie.includes(id) ? ' <span style="font-size:.7rem;color:#008069;">· tua</span>' : ''}</span>
+        <span style="color:#667781;font-size:.8rem;">${osp.length} ${aperta ? '▾' : '▸'}</span></div>` +
+      (aperta ? osp.map(o => _chatVoce(o, false)).join('') : '');
+  }).join('');
+  box.innerHTML = html;
 }
 
 function _chatAggiornaBadge(totale) {
