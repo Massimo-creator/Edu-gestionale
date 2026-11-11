@@ -2493,7 +2493,9 @@ async function caricaNotificheCAS() {
     if (typeof _chatNonLettiDettaglio === 'function') {
       (await _chatNonLettiDettaglio()).forEach(p => eventi.push({
         data: p.ultimo.created_at,
-        testo: `💬 ${_confEsc((p.ultimo.autore_nome||'').split(' ')[0])} su ${_confEsc(p.nome)}: ${_confEsc(String(p.ultimo.testo).slice(0, 70))}${p.n > 1 ? ` (${p.n} nuovi)` : ''}`,
+        testo: p.menzione
+          ? `💬 <b>${_confEsc((p.menzione.autore_nome||'Un collega').split(' ')[0])} ti ha menzionato</b> nella chat di ${_confEsc(p.nome)}: ${_confEsc(String(p.menzione.testo).slice(0, 70))}`
+          : `💬 ${_confEsc((p.ultimo.autore_nome||'').split(' ')[0])} su ${_confEsc(p.nome)}: ${_confEsc(String(p.ultimo.testo).slice(0, 70))}${p.n > 1 ? ` (${p.n} nuovi)` : ''}`,
         pagina: 'chat:' + p.ospite_id
       }));
     }
@@ -3645,24 +3647,38 @@ async function segnaFattoConfronto(id) {
 }
 
 // Dashboard: casi con messaggi nuovi (non ancora letti da me) o con un "da fare" affidato a me
+// Quali messaggi riguardano me: menzionato o incaricato, struttura di cui sono referente (casi_referenti),
+// oppure ospite su cui ho già scritto. Solo questi accendono campanella, numeri e avviso all'apertura.
+async function _chatMessaggiPerMe(filtro) {
+  const io = _confEmail();
+  const [msg, letture, ref] = await Promise.all([
+    supa(`casi_messaggi?select=ospite_id,struttura_id,autore_email,autore_nome,testo,created_at,menzioni,da_fare,fatto_il,incaricato_email${filtro || ''}&order=created_at.desc&limit=500`),
+    supa(`casi_letture?select=ospite_id,letto_il&utente_email=eq.${encodeURIComponent(io)}`),
+    supa(`casi_referenti?select=struttura_id&utente_email=eq.${encodeURIComponent(io)}`)
+  ]);
+  const lette = {}; (letture || []).forEach(l => lette[l.ospite_id] = l.letto_il);
+  const mie = new Set((ref || []).map(r => r.struttura_id));
+  const scritto = new Set((msg || []).filter(m => String(m.autore_email).toLowerCase() === io).map(m => m.ospite_id));
+  const perMe = m => (m.menzioni || []).some(e => String(e).toLowerCase() === io) || String(m.incaricato_email || '').toLowerCase() === io;
+  const rilevante = m => perMe(m) || mie.has(m.struttura_id) || scritto.has(m.ospite_id);
+  const nonLetto = m => String(m.autore_email).toLowerCase() !== io && (!lette[m.ospite_id] || new Date(m.created_at) > new Date(lette[m.ospite_id]));
+  return { msg: msg || [], io, perMe, rilevante, nonLetto };
+}
+
 async function _casiNuoviDashboard(el) {
   try {
     const attive = await _confAttive();
     if (!attive.length) return;
     const dal = new Date(Date.now() - 30*86400000).toISOString();
-    const [msg, letture] = await Promise.all([
-      supa(`casi_messaggi?select=ospite_id,created_at,autore_email,da_fare,fatto_il,incaricato_email&created_at=gte.${dal}&order=created_at.desc`),
-      supa(`casi_letture?select=ospite_id,letto_il&utente_email=eq.${encodeURIComponent(_confEmail())}`)
-    ]);
-    const lette = {}; (letture||[]).forEach(l => lette[l.ospite_id] = l.letto_il);
-    const io = _confEmail();
+    const { msg, io, perMe, rilevante, nonLetto } = await _chatMessaggiPerMe(`&created_at=gte.${dal}`);
     const perOspite = {};
-    (msg||[]).forEach(m => {
-      const nuovo = String(m.autore_email).toLowerCase() !== io && (!lette[m.ospite_id] || new Date(m.created_at) > new Date(lette[m.ospite_id]));
+    msg.forEach(m => {
+      const nuovo = nonLetto(m) && rilevante(m);
       const mioDaFare = m.da_fare && !m.fatto_il && String(m.incaricato_email||'').toLowerCase() === io;
       if (!nuovo && !mioDaFare) return;
-      const p = perOspite[m.ospite_id] || (perOspite[m.ospite_id] = { nuovi:0, dafare:0, ultimo:m.created_at });
+      const p = perOspite[m.ospite_id] || (perOspite[m.ospite_id] = { nuovi:0, dafare:0, menzione:false, ultimo:m.created_at });
       if (nuovo) p.nuovi++;
+      if (nuovo && perMe(m)) p.menzione = true;
       if (mioDaFare) p.dafare++;
     });
     const ids = Object.keys(perOspite);
@@ -3676,10 +3692,9 @@ async function _casiNuoviDashboard(el) {
       const p = perOspite[id];
       return `<div onclick="apriChatCaso('${id}')" style="display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer;font-size:.86rem;">
         <b>${_confEsc(o.cognome)} ${_confEsc(o.nome)}</b>
-        <span>${p.nuovi ? `<span class="badge badge-blue">${p.nuovi} nuov${p.nuovi===1?'o':'i'}</span>` : ''} ${p.dafare ? `<span class="badge badge-yellow">${p.dafare} da fare per te</span>` : ''}</span></div>`;
+        <span>${p.menzione ? `<span class="badge badge-purple">@ ti hanno menzionato</span>` : ''} ${p.nuovi ? `<span class="badge badge-blue">${p.nuovi} nuov${p.nuovi===1?'o':'i'}</span>` : ''} ${p.dafare ? `<span class="badge badge-yellow">${p.dafare} da fare per te</span>` : ''}</span></div>`;
     }).join('');
     el.insertBefore(box, el.firstChild);
-    _chatAggiornaBadge(ids.reduce((s, id) => s + perOspite[id].nuovi, 0));
   } catch(e) { /* la dashboard funziona comunque */ }
 }
 
@@ -3787,7 +3802,7 @@ async function _chatCaricaLista() {
   });
   if (_chatAperta && _chatUltimi[_chatAperta]) _chatUltimi[_chatAperta].nonletti = 0;
   _chatDisegnaLista();
-  _chatAggiornaBadge();
+  _chatContaNonLetti();
 }
 
 function _chatIniziali(o) { return ((o.cognome || '?')[0] + (o.nome || '')[0] || '').toUpperCase(); }
@@ -3909,7 +3924,6 @@ async function _chatMostra() {
   box.scrollTop = box.scrollHeight;
   _chatLetture[_chatAperta] = new Date().toISOString();
   if (_chatUltimi[_chatAperta]) _chatUltimi[_chatAperta].nonletti = 0;
-  _chatAggiornaBadge();
   _chatDisegnaLista();
   supa('casi_letture?on_conflict=utente_email,ospite_id', { method:'POST', prefer:'resolution=merge-duplicates,return=minimal',
     body: JSON.stringify({ utente_email: io, ospite_id: _chatAperta, letto_il: new Date().toISOString() }) })
@@ -4012,13 +4026,8 @@ async function _chatContaNonLetti() {
   try {
     const attive = await _confAttive();
     if (!attive.length) return;
-    const [msg, letture] = await Promise.all([
-      supa(`casi_messaggi?select=ospite_id,autore_email,created_at&order=created_at.desc&limit=500`),
-      supa(`casi_letture?select=ospite_id,letto_il&utente_email=eq.${encodeURIComponent(_confEmail())}`)
-    ]);
-    const lette = {}; (letture || []).forEach(l => lette[l.ospite_id] = l.letto_il);
-    const io = _confEmail();
-    const n = (msg || []).filter(m => String(m.autore_email).toLowerCase() !== io && (!lette[m.ospite_id] || new Date(m.created_at) > new Date(lette[m.ospite_id]))).length;
+    const { msg, rilevante, nonLetto } = await _chatMessaggiPerMe();
+    const n = msg.filter(m => nonLetto(m) && rilevante(m)).length;
     _chatImpostaNumeri(n);
     _chatAscolta();
     aggiornaBadgeNotificheCAS();
@@ -4030,18 +4039,13 @@ let _chatAvvisoMostrato = false;
 async function _chatNonLettiDettaglio() {
   const attive = await _confAttive();
   if (!attive.length) return [];
-  const [msg, letture] = await Promise.all([
-    supa(`casi_messaggi?select=ospite_id,autore_email,autore_nome,testo,created_at&order=created_at.desc&limit=500`),
-    supa(`casi_letture?select=ospite_id,letto_il&utente_email=eq.${encodeURIComponent(_confEmail())}`)
-  ]);
-  const lette = {}; (letture || []).forEach(l => lette[l.ospite_id] = l.letto_il);
-  const io = _confEmail();
+  const { msg, perMe, rilevante, nonLetto } = await _chatMessaggiPerMe();
   const per = {};
-  (msg || []).forEach(m => {
-    if (String(m.autore_email).toLowerCase() === io) return;
-    if (lette[m.ospite_id] && new Date(m.created_at) <= new Date(lette[m.ospite_id])) return;
-    const p = per[m.ospite_id] || (per[m.ospite_id] = { ospite_id: m.ospite_id, n: 0, ultimo: m });
+  msg.forEach(m => {
+    if (!nonLetto(m) || !rilevante(m)) return;
+    const p = per[m.ospite_id] || (per[m.ospite_id] = { ospite_id: m.ospite_id, n: 0, ultimo: m, menzione: null });
     p.n++;
+    if (!p.menzione && perMe(m)) p.menzione = m; // la menzione più recente
   });
   const lista = Object.values(per);
   if (lista.length) {
@@ -4073,7 +4077,7 @@ async function _chatAvvisoLogin() {
       <div style="font-weight:700;font-size:1rem;margin-bottom:10px;">💬 ${tot === 1 ? 'Hai un messaggio nuovo' : `Hai ${tot} messaggi nuovi`} nella chat dei casi</div>
       ${lista.slice(0, 5).map(p => `<div onclick="document.getElementById('chat-avviso-login').remove();apriChatCaso('${p.ospite_id}')" style="cursor:pointer;padding:9px 10px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;gap:8px;"><b style="font-size:.88rem;">${_confEsc(p.nome)}</b>${p.n > 1 ? `<span class="chat-nonletti" style="background:#25d366;color:#fff;border-radius:10px;font-size:.7rem;font-weight:700;padding:1px 7px;">${p.n}</span>` : ''}</div>
-        <div style="font-size:.8rem;color:#54656f;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_confEsc((p.ultimo.autore_nome || '').split(' ')[0])}: ${_confEsc(p.ultimo.testo)}</div></div>`).join('')}
+        <div style="font-size:.8rem;color:#54656f;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.menzione ? `<b style="color:#5b21b6;">@ ${_confEsc((p.menzione.autore_nome || 'Un collega').split(' ')[0])} ti ha menzionato:</b> ${_confEsc(p.menzione.testo)}` : `${_confEsc((p.ultimo.autore_nome || '').split(' ')[0])}: ${_confEsc(p.ultimo.testo)}`}</div></div>`).join('')}
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px;">
         <button class="btn btn-ghost btn-sm" onclick="document.getElementById('chat-avviso-login').remove()">Più tardi</button>
         <button class="btn btn-primary btn-sm" onclick="document.getElementById('chat-avviso-login').remove();${lista.length === 1 ? `apriChatCaso('${lista[0].ospite_id}')` : `showPageCAS('cas-chat')`}">Apri la chat</button>

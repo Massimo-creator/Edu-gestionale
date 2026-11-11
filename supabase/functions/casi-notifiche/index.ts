@@ -1,21 +1,19 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
-// CONFRONTO SUI CASI: avvisi per i messaggi scritti nella scheda ospite (prova su Barattona, 11/11/2026).
+// CONFRONTO SUI CASI: avvisi per i messaggi scritti nella scheda ospite (tutte le strutture, dal 11/11/2026).
 // Chiamata dal trigger casi_messaggi_notifica (chiave vault cron_casi) a ogni nuovo messaggio.
-// - Notifica push sul telefono/computer a: menzionati, incaricato del "da fare", referenti della struttura
-//   (operatori_strutture), escluso l'autore. Manutenzione e risorse umane solo se menzionati o incaricati.
-// - Mail (notifiche@approdocas.it) solo a menzionati e incaricato.
+// - Notifica push sul telefono/computer a: menzionati, incaricato del "da fare", referenti della chat della
+//   struttura (tabella casi_referenti), escluso l'autore. Nessuna mail (decisione di Massimo, 11/11/2026):
+//   menzioni e messaggi nuovi si vedono in Approdo (campanella, avviso all'apertura, Chat casi).
 // POST { azione: "nuovo", id }  |  { azione: "prova", email }  (push di prova a una persona)
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const VAPID_PUBBLICA = "BFt99Y1E1xCIXGQ6nSPoK3N22Q8mnBtgkltSCos3ZqLqImOzK8A_TFMwjSLuDftsPwRwnPk2lzAohPEq-hgyGZM";
-const ESCLUSI_DA_REFERENTI = ["m.ceccaroli@coopmetis.com", "s.demartino@coopmetis.com"];
 const SITO = "https://approdocas.it";
 
 const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const risposta = (c: unknown, s = 200) => new Response(JSON.stringify(c), { status: s, headers: { "Content-Type": "application/json" } });
 
 async function autorizzato(req: Request): Promise<boolean> {
@@ -57,15 +55,6 @@ async function inviaPush(emails: string[], payload: Riga): Promise<{ inviati: nu
   return { inviati, falliti };
 }
 
-async function inviaMail(to: string, subject: string, html: string): Promise<boolean> {
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}`, apikey: SERVICE_ROLE_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ to, subject, html }),
-  });
-  return res.ok;
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return risposta({ errore: "solo POST" }, 405);
   if (!(await autorizzato(req))) return risposta({ errore: "non autorizzato" }, 401);
@@ -83,13 +72,13 @@ Deno.serve(async (req: Request) => {
     if (!m) return risposta({ errore: "messaggio non trovato" }, 404);
     const { data: o } = await sb.from("ospiti_cas").select("id, nome, cognome, struttura_id").eq("id", m.ospite_id).maybeSingle();
     const { data: st } = await sb.from("strutture_cas").select("nome").eq("id", m.struttura_id).maybeSingle();
-    const { data: ref } = await sb.from("operatori_strutture").select("operatore_email").eq("struttura_id", m.struttura_id);
+    const { data: ref } = await sb.from("casi_referenti").select("utente_email").eq("struttura_id", m.struttura_id);
     const { data: utenti } = await sb.from("utenti").select("email, nome, cognome").is("comunita_id", null);
     const validi = new Set((utenti ?? []).map((u: Riga) => String(u.email).toLowerCase()));
     const autore = String(m.autore_email).toLowerCase();
 
     const diretti = new Set<string>([...(m.menzioni ?? []), ...(m.incaricato_email ? [m.incaricato_email] : [])].map((e: string) => e.toLowerCase()));
-    const referenti = (ref ?? []).map((r: Riga) => String(r.operatore_email).toLowerCase()).filter((e: string) => !ESCLUSI_DA_REFERENTI.includes(e));
+    const referenti = (ref ?? []).map((r: Riga) => String(r.utente_email).toLowerCase());
     const destinatari = [...new Set([...diretti, ...referenti])].filter((e) => e !== autore && validi.has(e));
 
     const nomeOspite = o ? `${String(o.cognome ?? "").toUpperCase()} ${o.nome ?? ""}`.trim() : "un ospite";
@@ -97,21 +86,21 @@ Deno.serve(async (req: Request) => {
     const breve = String(m.testo).length > 140 ? String(m.testo).slice(0, 137) + "..." : String(m.testo);
     const url = `${SITO}/?ospite=${m.ospite_id}`;
 
-    const push = await inviaPush(destinatari, {
-      title: `${nomeOspite} · ${st?.nome ?? ""}`.trim(),
+    const titolo = `${nomeOspite} · ${st?.nome ?? ""}`.trim();
+    const aDiretti = destinatari.filter((e) => diretti.has(e));
+    const aReferenti = destinatari.filter((e) => !diretti.has(e));
+    const p1 = await inviaPush(aDiretti, {
+      title: titolo,
+      body: `${m.da_fare ? "DA FARE · " : ""}${chi} ti ha menzionato: ${breve}`,
+      url, tag: `caso-${m.ospite_id}`,
+    });
+    const p2 = await inviaPush(aReferenti, {
+      title: titolo,
       body: `${m.da_fare ? "DA FARE · " : ""}${chi}: ${breve}`,
       url, tag: `caso-${m.ospite_id}`,
     });
 
-    let mail = 0;
-    for (const e of [...diretti].filter((e) => e !== autore && validi.has(e))) {
-      const motivo = m.incaricato_email === e ? "ti ha affidato una cosa da fare" : "ti ha menzionato";
-      const html = `<p>${esc(chi)} ${motivo} nel confronto sul caso di <b>${esc(nomeOspite)}</b> (${esc(st?.nome ?? "")}):</p>
-<blockquote style="border-left:3px solid #ccc;margin:8px 0;padding:4px 10px;">${esc(String(m.testo)).replace(/\n/g, "<br>")}</blockquote>
-<p><a href="${url}">Apri la scheda in Approdo</a></p>`;
-      if (await inviaMail(e, `Approdo: ${chi} ${motivo} su ${nomeOspite}`, html)) mail++;
-    }
-    return risposta({ status: "ok", destinatari: destinatari.length, ...push, mail });
+    return risposta({ status: "ok", destinatari: destinatari.length, inviati: p1.inviati + p2.inviati, falliti: p1.falliti + p2.falliti });
   } catch (e) {
     return risposta({ errore: String((e as Error)?.message ?? e) }, 500);
   }
