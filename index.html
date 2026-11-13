@@ -3348,12 +3348,7 @@ async function renderCasTurni(el) {
         </table>
       </div>
       <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap;font-size:.78rem;">
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;background:#3b82f6;border-radius:3px;display:inline-block;"></span> Mattina</span>
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;background:#10b981;border-radius:3px;display:inline-block;"></span> Pomeriggio</span>
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span> Personalizzato</span>
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;background:#eab308;border-radius:3px;display:inline-block;"></span> Permesso</span>
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;background:#ef4444;border-radius:3px;display:inline-block;"></span> Ferie</span>
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;background:#94a3b8;border-radius:3px;display:inline-block;"></span> Riposo</span>
+        ${[['Mattina','Mattina'],['Pomeriggio','Pomeriggio'],['Personalizzato','Personalizzato'],['M1','M1'],['M2','M2'],['M2bis','M2bis'],['M3','M3'],['M4','M4'],['M5','M5'],['PUC','PUC 8-13'],['A1','A1 2h'],['A2','A2 2h'],['A3','A3 2h'],['Permesso','Permesso'],['ML','ML (malattia)'],['Ferie','Ferie'],['Riposo','Riposo']].map(([t,l])=>`<span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;background:${turnoColore(t)};border-radius:3px;display:inline-block;"></span> ${l}</span>`).join('')}
       </div>
     `;
   } catch(e) { el.innerHTML=`<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
@@ -3386,7 +3381,8 @@ async function ritiraTurniMese(anno, mese) {
 function turnoColore(tipo) {
   if(tipo==='Mattina') return '#3b82f6';
   if(tipo==='Pomeriggio') return '#10b981';
-  if(tipo==='Permesso') return '#eab308';
+  if(tipo==='Permesso') return '#f97316';
+  if(tipo==='ML') return '#eab308';
   if(tipo==='Ferie') return '#ef4444';
   if(tipo==='Riposo') return '#94a3b8';
   if(tipo==='M1') return '#2563eb';
@@ -3395,7 +3391,7 @@ function turnoColore(tipo) {
   if(tipo==='M3') return '#14b8a6';
   if(tipo==='M4') return '#84cc16';
   if(tipo==='M5') return '#a855f7';
-  if(tipo==='PUC') return '#f97316';
+  if(tipo==='PUC') return '#92400e';
   if(tipo==='A1') return '#ec4899';
   if(tipo==='A2') return '#db2777';
   if(tipo==='A3') return '#be185d';
@@ -3405,6 +3401,7 @@ function turnoLabel(tipo, oraInizio, oraFine) {
   if(tipo==='Mattina') return 'M';
   if(tipo==='Pomeriggio') return 'P';
   if(tipo==='Permesso') return 'PR';
+  if(tipo==='ML') return 'ML';
   if(tipo==='Ferie') return 'F';
   if(tipo==='Riposo') return 'R';
   if(['M1','M2','M2bis','M3','M4','M5'].includes(tipo)) return tipo;
@@ -3434,7 +3431,7 @@ async function salvaCompilaPeriodoTurni() {
   const dataInizio = document.getElementById('cp-data-inizio').value;
   const dataFine = document.getElementById('cp-data-fine').value;
   const soloFeriali = document.getElementById('cp-solo-feriali').checked;
-  const senzaOrario = ['Permesso','Ferie','Riposo','M1','M2','M2bis','M3','M4','M5','A1','A2','A3'].includes(tipo);
+  const senzaOrario = ['Permesso','ML','Ferie','Riposo','M1','M2','M2bis','M3','M4','M5','A1','A2','A3'].includes(tipo);
   const oraInizio = senzaOrario ? null : document.getElementById('cp-ora-inizio').value;
   const oraFine = senzaOrario ? null : document.getElementById('cp-ora-fine').value;
 
@@ -3500,7 +3497,7 @@ let _turnoEditId = null;
 
 async function salvaTurnoCAS() {
   const tipo = document.getElementById('turno-tipo').value;
-  const senzaOrario = ['Permesso','Ferie','Riposo','M1','M2','M2bis','M3','M4','M5','A1','A2','A3'].includes(tipo);
+  const senzaOrario = ['Permesso','ML','Ferie','Riposo','M1','M2','M2bis','M3','M4','M5','A1','A2','A3'].includes(tipo);
   const payload = {
     operatore_email: _turnoEditEmail,
     operatore_nome: _turnoEditNome,
@@ -4818,7 +4815,7 @@ async function renderCasFerie(el) {
           <div class="form-group"><label>Tipo</label>
             <select id="ferie-tipo">
               <option value="Ferie">🔴 Ferie</option>
-              <option value="Permesso">🟡 Permesso</option>
+              <option value="Permesso">🟠 Permesso</option>
             </select>
           </div>
           <div></div>
@@ -4837,7 +4834,7 @@ async function renderCasFerie(el) {
           ${inAttesa.map(r=>`
             <div style="padding:12px 14px;background:var(--bg);border-radius:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
               <div>
-                <div style="font-weight:600;">${r.tipo==='Ferie'?'🔴':'🟡'} ${r.operatore_nome||r.operatore_email}</div>
+                <div style="font-weight:600;">${r.tipo==='Ferie'?'🔴':'🟠'} ${r.operatore_nome||r.operatore_email}</div>
                 <div style="font-size:.8rem;color:var(--muted);">${fmtData(r.data_inizio)} → ${fmtData(r.data_fine)}${r.note?` · ${r.note}`:''}</div>
               </div>
               <div style="display:flex;gap:6px;">
@@ -4856,7 +4853,7 @@ async function renderCasFerie(el) {
           ${mie.map(r=>`
             <div style="padding:12px 14px;background:var(--bg);border-radius:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
               <div>
-                <div style="font-weight:600;">${r.tipo==='Ferie'?'🔴':'🟡'} ${r.tipo}</div>
+                <div style="font-weight:600;">${r.tipo==='Ferie'?'🔴':'🟠'} ${r.tipo}</div>
                 <div style="font-size:.8rem;color:var(--muted);">${fmtData(r.data_inizio)} → ${fmtData(r.data_fine)}${r.note?` · ${r.note}`:''}</div>
               </div>
               <div style="display:flex;align-items:center;gap:8px;">
@@ -5789,11 +5786,12 @@ async function salvaTrasferimento() {
   <div class="modal">
     <h3>🔄 <span id="turno-modal-title">Nuovo Turno</span></h3>
     <div class="form-group"><label>Tipo turno</label>
-      <select id="turno-tipo" onchange="const t=this.value;const orari=document.getElementById('turno-orari-wrap');orari.style.display=(['Permesso','Ferie','Riposo','M1','M2','M2bis','M3','M4','M5','A1','A2','A3'].includes(t))?'none':'grid';if(t==='PUC'){document.getElementById('turno-ora-inizio').value='08:00';document.getElementById('turno-ora-fine').value='13:00';}">
+      <select id="turno-tipo" onchange="const t=this.value;const orari=document.getElementById('turno-orari-wrap');orari.style.display=(['Permesso','ML','Ferie','Riposo','M1','M2','M2bis','M3','M4','M5','A1','A2','A3'].includes(t))?'none':'grid';if(t==='PUC'){document.getElementById('turno-ora-inizio').value='08:00';document.getElementById('turno-ora-fine').value='13:00';}">
         <option value="Mattina">🔵 Mattina</option>
         <option value="Pomeriggio">🟢 Pomeriggio</option>
         <option value="Personalizzato">🟣 Personalizzato</option>
-        <option value="Permesso">🟡 Permesso</option>
+        <option value="Permesso">🟠 Permesso</option>
+        <option value="ML">🟡 ML (malattia)</option>
         <option value="Ferie">🔴 Ferie</option>
         <option value="Riposo">⚪ Riposo</option>
         <option value="M1">M1</option>
@@ -5827,11 +5825,12 @@ async function salvaTrasferimento() {
     <h3>📋 Compila periodo</h3>
     <div class="form-group"><label>Operatore</label><select id="cp-operatore"></select></div>
     <div class="form-group"><label>Tipo turno</label>
-      <select id="cp-tipo" onchange="const t=this.value;const orari=document.getElementById('cp-orari-wrap');orari.style.display=(['Permesso','Ferie','Riposo','M1','M2','M2bis','M3','M4','M5','A1','A2','A3'].includes(t))?'none':'grid';if(t==='PUC'){document.getElementById('cp-ora-inizio').value='08:00';document.getElementById('cp-ora-fine').value='13:00';}">
+      <select id="cp-tipo" onchange="const t=this.value;const orari=document.getElementById('cp-orari-wrap');orari.style.display=(['Permesso','ML','Ferie','Riposo','M1','M2','M2bis','M3','M4','M5','A1','A2','A3'].includes(t))?'none':'grid';if(t==='PUC'){document.getElementById('cp-ora-inizio').value='08:00';document.getElementById('cp-ora-fine').value='13:00';}">
         <option value="Mattina">🔵 Mattina</option>
         <option value="Pomeriggio">🟢 Pomeriggio</option>
         <option value="Personalizzato">🟣 Personalizzato</option>
-        <option value="Permesso">🟡 Permesso</option>
+        <option value="Permesso">🟠 Permesso</option>
+        <option value="ML">🟡 ML (malattia)</option>
         <option value="Ferie">🔴 Ferie</option>
         <option value="Riposo">⚪ Riposo</option>
         <option value="M1">M1</option>
