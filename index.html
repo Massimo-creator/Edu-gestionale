@@ -3252,10 +3252,50 @@ async function renderCasTurni(el) {
     const dataInizio = `${anno}-${String(mese+1).padStart(2,'0')}-01`;
     const ultimoGiorno = new Date(anno, mese+1, 0).getDate();
     const dataFine = `${anno}-${String(mese+1).padStart(2,'0')}-${ultimoGiorno}`;
-    const turni = await supa(`turni_cas?data=gte.${dataInizio}&data=lte.${dataFine}`) || [];
-
     const nomiMesi = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
     const giorni = Array.from({length:ultimoGiorno},(_,i)=>i+1);
+
+    // Pubblicazione del mese: un mese senza riga è in bozza. Se la lettura fallisce, si mostra (non si nasconde niente per errore).
+    let pub = null, pubErrore = false;
+    try {
+      const r = await supa(`turni_pubblicazioni?anno=eq.${anno}&mese=eq.${mese+1}&limit=1`) || [];
+      pub = r[0] || null;
+    } catch(e) { pubErrore = true; }
+    const pubblicato = pubErrore || !!(pub && pub.pubblicato);
+
+    const frecce = `
+          <button class="btn btn-ghost" onclick="_turniMese--;if(_turniMese<0){_turniMese=11;_turniAnno--;}renderCasTurni(document.getElementById('content-cas'))">←</button>
+          <button class="btn btn-ghost" onclick="_turniMese++;if(_turniMese>11){_turniMese=0;_turniAnno++;}renderCasTurni(document.getElementById('content-cas'))">→</button>`;
+
+    if(!puoModificare && !pubblicato) {
+      el.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+          <h2 style="font-size:1.1rem;">🔄 Turni ${nomiMesi[mese]} ${anno}</h2>
+          <div style="display:flex;gap:8px;align-items:center;">${frecce}</div>
+        </div>
+        <div style="background:#f1f5f9;border:1px solid var(--border);border-radius:8px;padding:28px 20px;text-align:center;color:var(--muted);">
+          🕓 I turni di ${nomiMesi[mese].toLowerCase()} sono in preparazione.<br>Saranno visibili qui appena verranno pubblicati.
+        </div>`;
+      return;
+    }
+
+    const turni = await supa(`turni_cas?data=gte.${dataInizio}&data=lte.${dataFine}`) || [];
+
+    let bannerPub = '';
+    if(puoModificare && !pubErrore) {
+      if(pubblicato) {
+        const quando = pub.pubblicato_il ? new Date(pub.pubblicato_il).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+        bannerPub = `<div style="background:#ecfdf5;border:1px solid #10b981;border-radius:8px;padding:10px 14px;font-size:.82rem;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span>✅ Pubblicato${quando?' il '+quando:''}${pub.pubblicato_da_nome?' da '+pub.pubblicato_da_nome:''}. Gli educatori vedono questo mese e ogni modifica è subito visibile.</span>
+          <button class="btn btn-ghost" style="font-size:.78rem;" onclick="ritiraTurniMese(${anno},${mese+1})">Ritira pubblicazione</button>
+        </div>`;
+      } else {
+        bannerPub = `<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;font-size:.82rem;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span>📝 Bozza: questo mese non è visibile agli educatori.</span>
+          <button class="btn" style="background:#16a34a;color:#fff;border:none;font-weight:700;" onclick="pubblicaTurniMese(${anno},${mese+1})">✅ Pubblica</button>
+        </div>`;
+      }
+    }
 
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
@@ -3266,6 +3306,7 @@ async function renderCasTurni(el) {
           ${puoModificare?`<button class="btn btn-primary" onclick="apriCompilaPeriodoTurni()">📋 Compila periodo</button>`:''}
         </div>
       </div>
+      ${bannerPub}
       ${!puoModificare?'<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;font-size:.82rem;margin-bottom:16px;">👁️ Visualizzazione in sola lettura. I turni vengono gestiti da Simona.</div>':''}
       <div style="overflow-x:auto;">
         <table style="border-collapse:collapse;min-width:100%;font-size:.78rem;">
@@ -3316,6 +3357,30 @@ async function renderCasTurni(el) {
       </div>
     `;
   } catch(e) { el.innerHTML=`<div style="color:var(--danger);padding:20px;">Errore: ${e.message}</div>`; }
+}
+
+async function pubblicaTurniMese(anno, mese) {
+  const nomiMesi = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+  if(!confirm(`Pubblicare i turni di ${nomiMesi[mese-1]} ${anno}? Da questo momento li vedranno tutti gli educatori.`)) return;
+  try {
+    await supa('turni_pubblicazioni', {method:'POST', prefer:'resolution=merge-duplicates,return=representation', body: JSON.stringify({
+      anno, mese, pubblicato: true, pubblicato_il: new Date().toISOString(),
+      pubblicato_da_email: SESSION.utente.email, pubblicato_da_nome: SESSION.utente.nome || SESSION.utente.email,
+      aggiornato_il: new Date().toISOString()
+    })});
+    renderCasTurni(document.getElementById('content-cas'));
+  } catch(e) { alert('Errore nella pubblicazione: ' + e.message); }
+}
+
+async function ritiraTurniMese(anno, mese) {
+  const nomiMesi = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+  if(!confirm(`Ritirare la pubblicazione dei turni di ${nomiMesi[mese-1]} ${anno}? Gli educatori non li vedranno più finché non verranno pubblicati di nuovo.`)) return;
+  try {
+    await supa('turni_pubblicazioni', {method:'POST', prefer:'resolution=merge-duplicates,return=representation', body: JSON.stringify({
+      anno, mese, pubblicato: false, aggiornato_il: new Date().toISOString()
+    })});
+    renderCasTurni(document.getElementById('content-cas'));
+  } catch(e) { alert('Errore: ' + e.message); }
 }
 
 function turnoColore(tipo) {
