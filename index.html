@@ -3,6 +3,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Approdo - Gestionale CAS Metis Rimini</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&display=swap">
 <meta name="description" content="Gestionale digitale CAS - Cooperativa Sociale Metis Rimini">
 <meta name="theme-color" content="#1a2540">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -496,7 +497,7 @@ tr:hover td{background:#f8fafc}
 </head>
 <body>
 
-<div id="welcomeScreen" class="welcome-screen">
+<div id="welcomeScreen" class="welcome-screen" style="display:none">
   <!-- floating orbs -->
   <div class="ws-orb ws-orb-1"></div>
   <div class="ws-orb ws-orb-2"></div>
@@ -544,41 +545,33 @@ tr:hover td{background:#f8fafc}
   <div class="welcome-footer">Approdo &nbsp;·&nbsp; Gestionale CAS Metis Rimini &nbsp;·&nbsp; v1.0</div>
 </div>
 
-<!-- LOGIN SCREEN -->
-<div id="loginScreen" style="display:none;height:100vh;align-items:center;justify-content:center;background:#0d1b3e;position:relative;overflow:hidden;">
-  <!-- orbs decorativi -->
-  <div style="position:absolute;width:400px;height:400px;border-radius:50%;background:rgba(59,130,246,.12);filter:blur(80px);top:-100px;left:-100px;pointer-events:none;"></div>
-  <div style="position:absolute;width:300px;height:300px;border-radius:50%;background:rgba(16,185,129,.1);filter:blur:80px;bottom:-80px;right:-60px;pointer-events:none;"></div>
+<!-- LOGIN SCREEN (pagina d'ingresso unica: logo Metis + accesso) -->
+<div id="loginScreen" style="display:flex;min-height:100vh;align-items:center;justify-content:center;background:#0d1b3e;padding:32px 20px;">
+  <div style="width:min(380px,94vw);text-align:center;">
+    <!-- logo Metis -->
+    <img src="/logo-metis.png" alt="Metis" style="display:block;width:190px;max-width:60vw;height:auto;margin:0 auto 4px;">
+    <div style="font-family:'DM Serif Display',Georgia,serif;font-style:italic;font-size:1.25rem;color:#c4c3bd;margin-bottom:34px;">Cooperativa Sociale</div>
 
-  <div style="background:rgba(255,255,255,.04);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:44px 40px;width:min(420px,94vw);position:relative;z-index:1;box-shadow:0 24px 80px rgba(0,0,0,.5);">
-    <!-- logo -->
-    <div style="text-align:center;margin-bottom:32px;">
-      <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#1e40af,#065f46);box-shadow:0 8px 24px rgba(0,0,0,.3);margin-bottom:16px;">
-        <span style="font-size:1.8rem;">📖</span>
-      </div>
-      <div style="font-family:'DM Serif Display',Georgia,serif;font-size:2rem;color:#fff;line-height:1;"><span style="color:#fff;">Approdo</span></div>
-      <div style="color:rgba(255,255,255,.45);font-size:.82rem;margin-top:6px;letter-spacing:.1em;text-transform:uppercase;">Gestionale CAS · Metis Rimini</div>
-    </div>
+    <!-- nome del gestionale -->
+    <div style="font-family:'DM Serif Display',Georgia,serif;font-size:2.8rem;color:#fff;line-height:1;margin-bottom:30px;">Approdo</div>
 
     <!-- form -->
-    <div style="display:flex;flex-direction:column;gap:14px;">
+    <div style="display:flex;flex-direction:column;gap:14px;text-align:left;">
       <div>
-        <label style="display:block;color:rgba(255,255,255,.6);font-size:.78rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;">Email</label>
-        <input id="login-email" type="email" placeholder="nome@esempio.it" style="width:100%;padding:12px 16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:.95rem;outline:none;transition:.2s;" onfocus="this.style.borderColor=&#39;rgba(74,222,128,.6)&#39;" onblur="this.style.borderColor=&#39;rgba(255,255,255,.15)&#39;" onkeydown="if(event.key===&#39;Enter&#39;)document.getElementById(&#39;login-password&#39;).focus()">
+        <label for="login-email" style="display:block;color:rgba(255,255,255,.6);font-size:.78rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;">Email</label>
+        <input id="login-email" type="email" autocomplete="username" placeholder="nome@coopmetis.com" style="width:100%;padding:12px 16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:.95rem;outline:none;transition:.2s;" onfocus="this.style.borderColor=&#39;rgba(245,217,10,.7)&#39;" onblur="this.style.borderColor=&#39;rgba(255,255,255,.15)&#39;" onkeydown="if(event.key===&#39;Enter&#39;)document.getElementById(&#39;login-password&#39;).focus()">
       </div>
       <div>
-        <label style="display:block;color:rgba(255,255,255,.6);font-size:.78rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;">Password</label>
-        <input id="login-password" type="password" placeholder="••••••••" style="width:100%;padding:12px 16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:.95rem;outline:none;transition:.2s;" onfocus="this.style.borderColor=&#39;rgba(74,222,128,.6)&#39;" onblur="this.style.borderColor=&#39;rgba(255,255,255,.15)&#39;" onkeydown="if(event.key===&#39;Enter&#39;)doLogin()">
+        <label for="login-password" style="display:block;color:rgba(255,255,255,.6);font-size:.78rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;">Password</label>
+        <input id="login-password" type="password" autocomplete="current-password" placeholder="••••••••" style="width:100%;padding:12px 16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:.95rem;outline:none;transition:.2s;" onfocus="this.style.borderColor=&#39;rgba(245,217,10,.7)&#39;" onblur="this.style.borderColor=&#39;rgba(255,255,255,.15)&#39;" onkeydown="if(event.key===&#39;Enter&#39;)doLogin()">
       </div>
       <div id="login-error" style="color:#f87171;font-size:.82rem;min-height:18px;text-align:center;"></div>
-      <button id="login-btn" onclick="doLogin()" style="width:100%;padding:14px;border:none;border-radius:10px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:1rem;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(34,197,94,.3);transition:.18s;margin-top:4px;" onmouseover="this.style.transform=&#39;translateY(-1px)&#39;;this.style.boxShadow=&#39;0 12px 32px rgba(34,197,94,.4)&#39;" onmouseout="this.style.transform=&#39;&#39;;this.style.boxShadow=&#39;0 8px 24px rgba(34,197,94,.3)&#39;">
-        Accedi
+      <button id="login-btn" onclick="doLogin()" style="width:100%;padding:14px;border:none;border-radius:10px;background:#F5D90A;color:#2c2c2a;font-size:1rem;font-weight:700;cursor:pointer;transition:.18s;margin-top:4px;" onmouseover="this.style.filter=&#39;brightness(1.06)&#39;" onmouseout="this.style.filter=&#39;&#39;">
+        Entra
       </button>
     </div>
 
-    <div style="text-align:center;margin-top:20px;color:rgba(255,255,255,.3);font-size:.75rem;">
-      Approdo · Cooperativa Sociale Metis
-    </div>
+    <div style="margin-top:22px;color:rgba(255,255,255,.4);font-size:.78rem;letter-spacing:.04em;">Settore Migranti · Rimini</div>
   </div>
 </div>
 
@@ -709,7 +702,7 @@ async function doLogin() {
       return;
     } catch(e) {
       errEl.textContent = e.message || 'Errore di accesso CAS.';
-      btn.textContent = 'Accedi';
+      btn.textContent = 'Entra';
       btn.disabled = false;
       return;
     }
