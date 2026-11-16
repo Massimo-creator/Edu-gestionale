@@ -166,7 +166,7 @@ async function generaPerAppuntamento(appId: string): Promise<Esito> {
     generato_il: ora, problema: null, problema_il: null, aggiornato_il: ora,
   });
   if (errReg) throw new Error(errReg.message);
-  return { esito: "ok", ospite_id: o.id, nominativo: nome, nomeFile: `Certificato di ospitalità - ${nome}.pdf`, pdf, inclusi: dati.minori!.map((m) => m.nominativo) };
+  return { esito: "ok", ospite_id: o.id, nominativo: nome, nomeFile: `Dichiarazione di ospitalità - ${nome}.pdf`, pdf, inclusi: dati.minori!.map((m) => m.nominativo) };
 }
 
 Deno.serve(async (req: Request) => {
@@ -217,7 +217,7 @@ Deno.serve(async (req: Request) => {
       if (error) throw new Error(error.message);
       // deno-lint-ignore no-explicit-any
       const nome = nominativo((r as any).ospiti_cas ?? {});
-      return risposta({ status: "ok", nomeFile: `Certificato di ospitalità - ${nome}.pdf`, generato_il: r.generato_il,
+      return risposta({ status: "ok", nomeFile: `Dichiarazione di ospitalità - ${nome}.pdf`, generato_il: r.generato_il,
         pdfBase64: encodeBase64(new Uint8Array(await f!.arrayBuffer())) });
     }
 

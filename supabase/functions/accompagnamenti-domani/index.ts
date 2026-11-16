@@ -101,9 +101,9 @@ async function certificato(appuntamentoId: string): Promise<Cert> {
 }
 function notaCertificato(c: Cert | undefined): string {
   if (!c) return "";
-  if (c.esito === "ok") return c.inclusi.length ? ` <i>(certificato allegato, comprende ${esc(c.inclusi.join(", "))})</i>` : " <i>(certificato allegato)</i>";
-  if (c.esito === "incluso") return ` <i>(nel certificato di ${esc(c.in)})</i>`;
-  return ` <i>(certificato NON generato: ${esc(c.motivo)})</i>`;
+  if (c.esito === "ok") return c.inclusi.length ? ` <i>(dichiarazione di ospitalità allegata, comprende ${esc(c.inclusi.join(", "))})</i>` : " <i>(dichiarazione di ospitalità allegata)</i>";
+  if (c.esito === "incluso") return ` <i>(nella dichiarazione di ${esc(c.in)})</i>`;
+  return ` <i>(dichiarazione NON generata: ${esc(c.motivo)})</i>`;
 }
 
 Deno.serve(async (req: Request) => {
@@ -215,7 +215,7 @@ Deno.serve(async (req: Request) => {
     const allegati = allegatiDi(lista);
     const html = `<p>Ciao ${esc(nome)},</p><p>${giorni.length > 1 ? "Ecco" : "Domani"} i tuoi accompagnamenti${giorni.length > 1 ? ` di <b>${titoloGiorni}</b>` : ` (<b>${titoloGiorni}</b>)`}:</p>` +
       righe(lista) +
-      (allegati.length ? `<p>In allegato trovi i certificati di ospitalità per la Questura (${allegati.length}), già firmati e con la data dell'appuntamento.</p>` : "") +
+      (allegati.length ? `<p>In allegato trovi le dichiarazioni di ospitalità per la Questura (${allegati.length}), già firmate e con la data dell'appuntamento.</p>` : "") +
       "<p>Buon lavoro,<br>Approdo</p>";
     if (await inviaMail(email, `Approdo — Accompagnamenti di ${titoloGiorni}`, html, allegati)) inviate++;
     else fallite.push(`${nome} (${email})`);
@@ -230,7 +230,7 @@ Deno.serve(async (req: Request) => {
       parti.push(`<p><b>Questura senza accompagnatore assegnato</b> (a questi non è partita nessuna mail):</p>` + righe(questuraSenzaOperatore));
     }
     if (certProblemi.length) {
-      parti.push("<p><b>Certificati di ospitalità NON generati</b> (da fare a mano):</p><p>" +
+      parti.push("<p><b>Dichiarazioni di ospitalità NON generate</b> (da fare a mano):</p><p>" +
         certProblemi.map(([id, c]) => {
           // deno-lint-ignore no-explicit-any
           const a = questura.find((x: any) => x.id === id);
@@ -240,7 +240,7 @@ Deno.serve(async (req: Request) => {
     if (nonMappati.length) parti.push(`<p>Per questi accompagnatori non ho un indirizzo email: <b>${esc(nonMappati.join(", "))}</b>. Vanno aggiunti tra gli utenti di Approdo.</p>`);
     if (fallite.length) parti.push(`<p>Per questi accompagnatori l'invio non è riuscito: <b>${esc(fallite.join(", "))}</b>.</p>`);
     const allegati = allegatiDi(questuraSenzaOperatore);
-    if (allegati.length) parti.push(`<p>In allegato i certificati di ospitalità degli appuntamenti senza accompagnatore (${allegati.length}).</p>`);
+    if (allegati.length) parti.push(`<p>In allegato le dichiarazioni di ospitalità degli appuntamenti senza accompagnatore (${allegati.length}).</p>`);
     await inviaMail(EMAIL_MASSIMO, `Approdo — Accompagnamenti di ${titoloGiorni}: da verificare`, parti.join(""), allegati);
   }
 

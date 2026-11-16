@@ -1,4 +1,5 @@
-// Impaginazione del certificato di ospitalità (testo approvato da Massimo il 09/11/2026).
+// Impaginazione della dichiarazione di ospitalità (testo approvato da Massimo il 09/11/2026;
+// dal 16/11/2026 "dichiarazione/DICHIARA" al posto di "certificato/CERTIFICA", su sua richiesta).
 // Riceve la libreria pdf-lib dall'esterno, così si può provare anche fuori da Supabase.
 
 export type DatiCertificato = {
@@ -25,7 +26,7 @@ export async function creaPdf(lib: any, baseBytes: Uint8Array, timbroBytes: Uint
   const doc = await PDFDocument.create();
   const [pag] = await doc.copyPages(base, [0]);
   doc.addPage(pag);
-  doc.setTitle(`Certificato di ospitalità - ${d.nominativo}`);
+  doc.setTitle(`Dichiarazione di ospitalità - ${d.nominativo}`);
   doc.setAuthor("Cooperativa Sociale Metis");
   doc.setCreator("Approdo");
   doc.setProducer("Approdo");
@@ -99,12 +100,12 @@ export async function creaPdf(lib: any, baseBytes: Uint8Array, timbroBytes: Uint
   const o = d.femmina ? "a" : "o";
   const PASSO = 35; // da un paragrafo all'altro (riga + spazio dopo)
 
-  paragrafo([{ t: "CERTIFICATO DI OSPITALITÀ", b: true }], 172, 16, "centro");
+  paragrafo([{ t: "DICHIARAZIONE DI OSPITALITÀ", b: true }], 172, 16, "centro");
   let y = paragrafo([
     { t: "Il sottoscritto " }, { t: "Dott. Massimo Andreoni", b: true },
     { t: ", in qualità di coordinatore della " }, { t: "Cooperativa Sociale Metis Società Cooperativa", b: true }, { t: "," },
   ], 228);
-  y = paragrafo([{ t: "CERTIFICA", b: true }], y + 34, 12, "centro");
+  y = paragrafo([{ t: "DICHIARA", b: true }], y + 34, 12, "centro");
   const minori = d.minori ?? [];
   const pezziMinori: Pezzo[] = [];
   minori.forEach((m, i) => {
@@ -130,7 +131,7 @@ export async function creaPdf(lib: any, baseBytes: Uint8Array, timbroBytes: Uint
   if (d.appOra) app.push({ t: " alle ore " }, { t: d.appOra, b: true });
   app.push({ t: "." });
   y = paragrafo(app, y + PASSO);
-  y = paragrafo([{ t: `Il presente certificato è rilasciato su richiesta dell’interessat${o} per gli usi consentiti dalla legge.` }], y + PASSO);
+  y = paragrafo([{ t: `La presente dichiarazione è rilasciata su richiesta dell’interessat${o} per gli usi consentiti dalla legge.` }], y + PASSO);
   y = paragrafo([{ t: `Rimini, ${d.dataEmissione}` }], y + PASSO);
 
   const xf = FIRMA_X - 100;
