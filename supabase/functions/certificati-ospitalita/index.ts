@@ -4,7 +4,7 @@ import { encodeBase64 } from "jsr:@std/encoding@1/base64";
 import { creaPdf, type DatiCertificato } from "./pdf.ts";
 
 // CERTIFICATI DI OSPITALITÀ (decisioni di Massimo, 09/11/2026)
-// - Il certificato si genera solo per l'appuntamento in Questura imminente: lo chiede la mail delle 15
+// - Il certificato si genera solo per l'appuntamento in Questura imminente: lo chiede la mail delle 13
 //   (accompagnamenti-domani) il giorno prima (il venerdì per il lunedì).
 // - Data di emissione = giorno dell'appuntamento. Carta intestata Metis, timbro e firma del coordinatore.
 // - I minori dello stesso nucleo con l'appuntamento in Questura lo stesso giorno entrano nel certificato dell'adulto.
