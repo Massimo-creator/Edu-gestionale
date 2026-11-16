@@ -78,10 +78,11 @@ export function apriPec(sorgente: Uint8Array): Promise<Pec | null> {
     if (a.tipo === "application/pdf" || /\.pdf$/i.test(a.nome)) {
       pdf.push({ nome: a.nome, base64: a.base64, tipo: "application/pdf" });
     } else if (/\.p7m$/i.test(a.nome) || /pkcs7/i.test(a.tipo)) {
-      // Atto firmato digitalmente (.p7m): si conserva l'originale e, se dentro c'è un PDF, anche il PDF leggibile.
-      pdf.push({ nome: a.nome, base64: a.base64, tipo: "application/pkcs7-mime" });
+      // Atto firmato digitalmente (.p7m): su Drive va solo il PDF leggibile che c'è dentro (decisione di Massimo, 16/11/2026).
+      // Il .p7m si salva solo se non se ne riesce a estrarre il PDF, così l'atto non va perso.
       const interno = pdfDaP7m(a.bytes());
       if (interno) pdf.push({ nome: a.nome.replace(/\.p7m$/i, "").replace(/(\.pdf)?$/i, ".pdf"), base64: Buffer.from(interno).toString("base64"), tipo: "application/pdf" });
+      else pdf.push({ nome: a.nome, base64: a.base64, tipo: "application/pkcs7-mime" });
     }
   }
   // I PDF leggibili per primi: il primo viene letto per date e decisioni.
