@@ -924,7 +924,7 @@ function mostraAppCAS() {
     <h4 style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Atti PEC</h4>
     <div id="cas-atti-pec-box" style="font-size:.85rem;color:var(--muted);margin-bottom:4px;">—</div>
     <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
-    <h4 style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Certificato di ospitalità</h4>
+    <h4 style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Dichiarazione di ospitalità</h4>
     <div id="cas-certificato-box" style="font-size:.85rem;color:var(--muted);margin-bottom:4px;">—</div>
     <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
     <h4 style="font-size:.85rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;">Permesso di soggiorno</h4>
@@ -2942,7 +2942,7 @@ async function caricaCertificatoOspiteCAS(ospiteId) {
     const righe = (await supa(`certificati_ospitalita?ospite_id=eq.${ospiteId}&select=data_ora_appuntamento,generato_il,drive_url,drive_salvato_il,problema&limit=1`)) || [];
     const c = righe[0];
     if(!c || (!c.generato_il && !c.problema)) {
-      box.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Nessun certificato. Viene generato in automatico il giorno prima dell\'appuntamento in Questura.</div>';
+      box.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Nessuna dichiarazione. Viene generata in automatico il giorno prima dell\'appuntamento in Questura.</div>';
       return;
     }
     const parti = [];
@@ -2962,7 +2962,7 @@ async function caricaCertificatoOspiteCAS(ospiteId) {
     if(c.problema) parti.push(`<div style="color:var(--danger);font-size:.8rem;">⚠️ ${_escAtto(c.problema)}</div>`);
     box.innerHTML = parti.join('');
   } catch(e) {
-    box.innerHTML = `<div style="color:var(--danger);font-size:.85rem;">Errore nel caricamento del certificato: ${_escAtto(e.message)}</div>`;
+    box.innerHTML = `<div style="color:var(--danger);font-size:.85rem;">Errore nel caricamento della dichiarazione: ${_escAtto(e.message)}</div>`;
   }
 }
 
@@ -3532,7 +3532,7 @@ function nuovoOspiteCAS(strutturaIdPreselezionata) {
   document.getElementById('cas-nucleo-membri').innerHTML = '';
   const boxConf = document.getElementById('cas-confronto-wrap'); if(boxConf) boxConf.innerHTML = '';
   const boxCert = document.getElementById('cas-certificato-box');
-  if(boxCert) boxCert.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Nessun certificato.</div>';
+  if(boxCert) boxCert.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Nessuna dichiarazione.</div>';
   const boxApp = document.getElementById('cas-appuntamenti-box');
   if(boxApp) boxApp.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Salva la scheda per poter collegare gli appuntamenti.</div>';
   const boxAtti = document.getElementById('cas-atti-pec-box');
