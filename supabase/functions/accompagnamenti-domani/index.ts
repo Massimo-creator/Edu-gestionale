@@ -15,12 +15,12 @@ const EXTRA: Record<string, string> = {
 const EMAIL_MASSIMO = "m.andreoni@coopmetis.com";
 
 // Decisioni di Massimo (09/11/2026):
-// - la mail parte alle 15 (prima era alle 18);
+// - la mail parte alle 13 (prima alle 18, poi alle 15; spostata alle 13 il 16/11/2026);
 // - il venerdì avvisa per sabato, domenica e lunedì; sabato e domenica non parte nulla;
 // - per la Questura si allegano i certificati di ospitalità (generati qui, con la data dell'appuntamento);
 // - senza operatore assegnato non parte nessuna mail all'operatore: a Massimo arriva l'elenco
 //   delle Questure senza accompagnatore (o "In autonomia"), con i relativi certificati.
-const ORA_INVIO = 15; // ora di Roma alla quale parte la mail
+const ORA_INVIO = 13; // ora di Roma alla quale parte la mail
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
@@ -121,7 +121,7 @@ Deno.serve(async (req: Request) => {
   const forza = url.searchParams.get("forza") === "1";
   const dataScelta = url.searchParams.get("data") || "";
 
-  // Il job gira alle 13 e alle 14 UTC: parte solo quando a Roma sono le 15, con ora legale e solare.
+  // Il job gira alle 11 e alle 12 UTC: parte solo quando a Roma sono le 13, con ora legale e solare.
   if (!prova && !forza && oraRomaAdesso() !== ORA_INVIO) {
     return new Response(JSON.stringify({ status: "ok", inviate: 0, motivo: `a Roma non sono le ${ORA_INVIO}` }), { status: 200 });
   }
