@@ -818,7 +818,7 @@ function mostraAppCAS() {
   <div class="nav-item" onclick="nuovoAppuntamentoCAS(null, true)" style="padding-left:24px;color:#4ade80;font-weight:600;"><span class="ico">＋</span> Aggiungi appuntamento</div>
   <div class="nav-item" onclick="showPageCAS('cas-calendario')" style="padding-left:24px;"><span class="ico">🏛️</span> Questura</div>
   <div class="nav-item" onclick="showPageCAS('cas-commissioni')" style="padding-left:24px;"><span class="ico">⚖️</span> Commissioni e Ricorsi</div>
-  <div class="nav-item" onclick="showPageCAS('cas-sanitari')" style="padding-left:24px;"><span class="ico">🏥</span> Visite sanitarie</div>
+  <div class="nav-item" onclick="showPageCAS('cas-sanitari')" style="padding-left:24px;"><span class="ico">🏥</span> Visite mediche ed esami</div>
   <div class="nav-item" onclick="showPageCAS('cas-avvocato')" style="padding-left:24px;"><span class="ico">👨‍⚖️</span> Appuntamenti Avvocato</div>
   <div class="nav-item" onclick="showPageCAS('cas-accompagnamenti')" style="padding-left:24px;"><span class="ico">🚗</span> Accompagnamenti</div>
   <div class="nav-item" onclick="showPageCAS('cas-mio-calendario')" style="padding-left:24px;"><span class="ico">📅</span> Mio Calendario</div>
@@ -1061,7 +1061,7 @@ function showPageCAS(page) {
   if (page === 'cas-report-amm' && !SESSION.is_coordinatore_cas) return;
   _casPaginaAttuale = page;
   document.querySelectorAll('#sidebar-cas .nav-item').forEach(el => el.classList.remove('active'));
-  const titles = { 'cas-dashboard':'Dashboard','cas-strutture':'Strutture e Ospiti','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni e Ricorsi','cas-sanitari':'Visite Sanitarie','cas-avvocato':'Appuntamenti Avvocato','cas-accompagnamenti':'Accompagnamenti','cas-mio-calendario':'Mio Calendario','cas-calendario-mensile-accompagnamenti':'Calendario Mensile Accompagnamenti','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti','cas-report-accompagnamenti':'Report Accompagnamenti','cas-clio':'Auto Clio','cas-registro':'Registro attività','cas-report-amm':'Report amministrazione','cas-chat':'Chat casi' };
+  const titles = { 'cas-dashboard':'Dashboard','cas-strutture':'Strutture e Ospiti','cas-calendario':'Appuntamenti Questura','cas-commissioni':'Commissioni e Ricorsi','cas-sanitari':'Visite mediche ed esami','cas-avvocato':'Appuntamenti Avvocato','cas-accompagnamenti':'Accompagnamenti','cas-mio-calendario':'Mio Calendario','cas-calendario-mensile-accompagnamenti':'Calendario Mensile Accompagnamenti','cas-calendario-coordinatore':'Calendario Coordinatore','cas-equipe':'Riunioni d\'équipe','cas-turni':'Turni Operatori','cas-ferie':'Permessi e Ferie','cas-manutenzioni':'Segnalazioni Manutenzione','cas-trasferimenti':'Trasferimenti Interni','cas-progetti':'Progetti','cas-report-accompagnamenti':'Report Accompagnamenti','cas-clio':'Auto Clio','cas-registro':'Registro attività','cas-report-amm':'Report amministrazione','cas-chat':'Chat casi' };
   document.getElementById('cas-page-title').textContent = titles[page] || page;
   const content = document.getElementById('content-cas');
   if (page === 'cas-calendario-coordinatore') { _calCoordMese = new Date().getMonth(); _calCoordAnno = new Date().getFullYear(); renderCalendarioCoordinatoreCAS(content); }
@@ -2686,7 +2686,7 @@ async function renderCasAppuntamenti(el, tipo) {
     const passati = [];
     const nomiMesiApp = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
     const icona = combinata ? '⚖️' : tipoAppuntamentoIcon(tipo);
-    const titoloPagina = combinata ? 'Commissioni e Ricorsi' : tipo;
+    const titoloPagina = combinata ? 'Commissioni e Ricorsi' : (tipo === 'Visita medica' ? 'Visite mediche ed esami' : tipo);
     const bottoneNuovo = combinata
       ? `<div style="display:flex;gap:8px;"><button class="btn btn-primary" style="background:${coloreTipoAppuntamento('Commissione Territoriale')};" onclick="nuovoAppuntamentoCAS('Commissione Territoriale')">+ Commissione</button><button class="btn btn-primary" style="background:${coloreTipoAppuntamento('Ricorso')};" onclick="nuovoAppuntamentoCAS('Ricorso')">+ Ricorso</button></div>`
       : `<button class="btn btn-primary" onclick="nuovoAppuntamentoCAS('${tipo}')">+ Nuovo</button>`;
