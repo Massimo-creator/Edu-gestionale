@@ -581,7 +581,20 @@ const SUPA_URL = 'https://nvwqykhosumrjkdlejtb.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im52d3F5a2hvc3VtcmprZGxlanRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MDY1NDcsImV4cCI6MjA4OTA4MjU0N30.HF0Yog0VpjosAeYH_CSW1x-BvVsPqEbhrtigbItq3YE';
 const supabaseClient = window.supabase.createClient(SUPA_URL, SUPA_KEY);
 
+// Ruolo "Amministrazione" (decisione di Massimo, 17/11/2026): vede tutto come il coordinatore ma in SOLA LETTURA.
+// Ogni scrittura viene bloccata qui; restano permessi solo i segni di lettura della chat e l'iscrizione agli avvisi.
+const TABELLE_SCRIVIBILI_SOLA_LETTURA = ['casi_letture', 'push_iscrizioni'];
+function soloLetturaBlocca(path, metodo) {
+  if (!SESSION || !SESSION.sola_lettura) return false;
+  if (!metodo || String(metodo).toUpperCase() === 'GET') return false;
+  const tabella = String(path).split(/[?\/]/)[0];
+  return !TABELLE_SCRIVIBILI_SOLA_LETTURA.includes(tabella);
+}
 async function supa(path, opts={}) {
+  if (soloLetturaBlocca(path, opts.method)) {
+    try { alert('Accesso in sola lettura: non puoi modificare i dati.'); } catch(e) {}
+    throw new Error('Accesso in sola lettura: modifica non consentita.');
+  }
   const { headers: extraHeaders, prefer, ...restOpts } = opts;
   let token = SUPA_KEY;
   try {
@@ -679,15 +692,18 @@ async function doLogin() {
 
       // Carica strutture: ogni operatore vede tutte le strutture attive, non solo quelle assegnate
       const isCoord = (email === 'm.andreoni@coopmetis.com' || (utenteCAS && utenteCAS.ruolo === 'Coordinatore'));
+      // Amministrazione: vede tutto come il coordinatore, ma senza poter modificare nulla
+      const isAmm = !!(utenteCAS && utenteCAS.ruolo === 'Amministrazione');
       const struttureCAS = await supa('strutture_cas?attiva=eq.true&order=nome') || [];
 
       setSession({
-        utente: { ...utenteCAS, ruolo: isCoord ? 'Coordinatore' : 'Educatore' },
+        utente: { ...utenteCAS, ruolo: isCoord ? 'Coordinatore' : isAmm ? 'Amministrazione' : 'Educatore' },
         comunita_id: null,
         comunita_nome: 'Metis CAS Rimini',
         modalita: 'CAS',
         strutture_cas: struttureCAS,
-        is_coordinatore_cas: isCoord
+        is_coordinatore_cas: isCoord || isAmm,
+        sola_lettura: isAmm && !isCoord
       });
 
       // Registro attività: annota l'accesso (non blocca mai il login)
@@ -746,7 +762,7 @@ function mostraAppCAS() {
       var nome = SESSION.utente.nome || SESSION.utente.email || '';
       var isSimona = SESSION.utente.email === 's.demartino@coopmetis.com';
       var isMax = SESSION.utente.email === 'm.ceccaroli@coopmetis.com';
-      var ruolo = SESSION.is_coordinatore_cas ? 'Coordinatore' : isSimona ? 'Responsabile RU' : isMax ? 'Manutentore' : 'Educatore';
+      var ruolo = SESSION.sola_lettura ? 'Amministrazione · sola lettura' : SESSION.is_coordinatore_cas ? 'Coordinatore' : isSimona ? 'Responsabile RU' : isMax ? 'Manutentore' : 'Educatore';
       SESSION.is_simona = isSimona;
       SESSION.is_max = isMax;
       var topbar = document.getElementById('cas-topbar-user');
@@ -4690,6 +4706,7 @@ async function renderCasManutenzioni(el) {
 }
 
 async function inviaEmailApprodo(to, subject, html, replyTo) {
+  if (SESSION && SESSION.sola_lettura) return; // sola lettura: nessun invio
   try {
     const { data } = await supabaseClient.auth.getSession();
     const token = (data && data.session && data.session.access_token) || SUPA_KEY;
@@ -4713,6 +4730,7 @@ function nuovaSegnalazioneCAS() {
 }
 
 async function salvaManutenzioneCAS() {
+  if (SESSION && SESSION.sola_lettura) { alert('Accesso in sola lettura: non puoi modificare i dati.'); return; }
   const titolo = document.getElementById('man-titolo').value.trim();
   if(!titolo){alert('Inserisci un titolo.');return;}
   const fotoInput = document.getElementById('man-foto');
