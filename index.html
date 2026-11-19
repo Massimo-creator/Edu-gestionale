@@ -493,6 +493,7 @@ tr:hover td{background:#f8fafc}
 .kanban-add-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(59,130,246,.04)}
 .tb-filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
 .tb-filters select,.tb-filters input{padding:7px 11px;border:1px solid var(--border);border-radius:8px;font-size:.82rem;background:#fff;color:var(--text)}
+.acc-apri-scheda:hover { text-decoration: underline; opacity: .9; }
 </style>
 </head>
 <body>
@@ -1913,7 +1914,7 @@ async function renderAccompagnamentiCAS(el) {
 
     const rigaPersona = (a) => {
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.15);gap:8px;flex-wrap:wrap;">
-        <div style="font-size:.85rem;">${a.ospite_nome||a.titolo} <span style="opacity:.75;font-size:.78rem;">— ${mapS[a.struttura_id]||'—'}</span></div>
+        <div class="acc-apri-scheda" onclick="modificaAppuntamentoCAS('${a.id}','ACCOMPAGNAMENTI')" title="Apri la scheda dell'appuntamento" style="font-size:.85rem;cursor:pointer;flex:1;min-width:0;">${a.ospite_nome||a.titolo} <span style="opacity:.75;font-size:.78rem;">— ${mapS[a.struttura_id]||'—'}</span></div>
         <div style="display:flex;align-items:center;gap:6px;">
           ${SESSION.is_coordinatore_cas
             ? `<select onchange="assegnaAccompagnatoreCAS('${a.id}', this.value)" style="font-size:.78rem;padding:3px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.15);color:inherit;">
@@ -3174,6 +3175,9 @@ async function modificaAppuntamentoCAS(id, tipoPagina) {
     } else if (tipoPagina === 'CALENDARIO_MENSILE') {
       _appReturnPage = 'cas-calendario-mensile-accompagnamenti';
       _appReturnTipo = null;
+    } else if (tipoPagina === 'ACCOMPAGNAMENTI') {
+      _appReturnPage = 'cas-accompagnamenti';
+      _appReturnTipo = null;
     } else {
       _appReturnPage = tipoPagina ? 'cas-appuntamenti-tipo' : 'cas-calendario';
       _appReturnTipo = tipoPagina || null;
@@ -3256,6 +3260,7 @@ async function salvaAppuntamentoCAS() {
     if(_appReturnPage==='cas-ospiti-riapri' && _appReturnOspiteId) apriOspiteCAS(_appReturnOspiteId);
     else if(_appReturnPage==='cas-dashboard') renderCasDashboard(document.getElementById('content-cas'));
     else if(_appReturnPage==='cas-calendario-mensile-accompagnamenti') renderCalendarioMensileAccompagnamentiCAS(document.getElementById('content-cas'));
+    else if(_appReturnPage==='cas-accompagnamenti') renderAccompagnamentiCAS(document.getElementById('content-cas'));
     else if(_appReturnPage==='cas-appuntamenti-tipo' && _appReturnTipo) renderCasAppuntamenti(document.getElementById('content-cas'), _appReturnTipo);
     else if(_casPaginaAttuale==='cas-calendario') renderCasCalendario(document.getElementById('content-cas'));
     else showPageCAS('cas-calendario');
