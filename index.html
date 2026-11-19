@@ -2073,8 +2073,30 @@ async function renderMioCalendarioCAS(el) {
     const accompagnamenti = await supa(`appuntamenti_cas?operatore_accompagnatore=eq.${encodeURIComponent(operatoreVisto.nome)}&data_ora=gte.${iniISO}T00:00:00&data_ora=lte.${fineISO}T23:59:59&order=data_ora`) || [];
     const personali = await supa(`calendario_personale_cas?operatore_email=eq.${encodeURIComponent(operatoreVisto.email)}&data_ora=gte.${iniISO}T00:00:00&data_ora=lte.${fineISO}T23:59:59&order=data_ora`) || [];
 
+    // Un accompagnamento che l'operatore ha già scritto lui nel suo calendario (stessa ora, stesso ospite, stesso tipo) non viene ripetuto: resta solo la sua riga.
+    const _norm = (t) => String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const _paroleTipo = {
+      'Visita medica': ['visita','medic','sanitar','dentist','odont','csm','esame','esami'],
+      'Questura': ['questura'],
+      'Commissione Territoriale': ['commission','audizione'],
+      'Ricorso': ['ricorso','udienza','tribunale'],
+      'Avvocato': ['avv'],
+    };
+    const _minuto = (iso) => { const d = new Date(iso); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}`; };
+    const giaScrittoDaLui = (a) => {
+      if (a.ora_da_definire) return false;
+      const nomi = _norm(a.ospite_nome).split(/[^a-z]+/).filter(n => n.length >= 3);
+      if (!nomi.length) return false;
+      const parole = _paroleTipo[a.tipo] || [_norm(a.tipo)].filter(Boolean);
+      return personali.some(p => {
+        if (_minuto(p.data_ora) !== _minuto(a.data_ora)) return false;
+        const t = _norm(p.titolo);
+        return nomi.some(n => t.includes(n)) && parole.some(w => t.includes(w));
+      });
+    };
+
     const perGiorno = {};
-    accompagnamenti.forEach(a=>{
+    accompagnamenti.filter(a => !giaScrittoDaLui(a)).forEach(a=>{
       const d = new Date(a.data_ora);
       const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
       (perGiorno[key] = perGiorno[key]||[]).push({tipo:'accompagnamento', dato:a});
