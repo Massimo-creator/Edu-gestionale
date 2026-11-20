@@ -5086,10 +5086,10 @@ async function apriRiunione(riunioneId) {
                       <span style="font-size:.78rem;color:var(--muted);">👤 ${p.inserito_da_nome||'—'}${p.struttura?' · 🏠 '+p.struttura:''}</span>
                     </div>
                     <div style="font-size:.92rem;font-weight:500;">${i+1}. ${p.punto}</div>
-                    ${p.note_decisione ? `<div style="margin-top:8px;padding:8px;background:rgba(16,185,129,.08);border-radius:6px;font-size:.82rem;color:var(--accent2);">✅ Decisione: ${p.note_decisione}</div>` : ''}
+                    ${p.note_decisione ? `<div style="margin-top:8px;padding:8px;background:rgba(16,185,129,.08);border-radius:6px;font-size:.82rem;color:var(--accent2);">✅ Discussione e decisione: ${p.note_decisione}</div>` : ''}
                   </div>
                   <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
-                    ${puoVerbalizzareODG() ? `<button class="btn btn-ghost" style="font-size:.72rem;padding:3px 8px;" onclick="aggiungiDecisione('${p.id}','${riunioneId}')">✅ Decisione</button>` : ''}
+                    ${puoVerbalizzareODG() ? `<button class="btn btn-ghost" style="font-size:.72rem;padding:3px 8px;" onclick="aggiungiDecisione('${p.id}','${riunioneId}')">✅ Discussione e decisione</button>` : ''}
                     ${(SESSION.is_coordinatore_cas || SESSION.utente.email === p.inserito_da_email) ? `<button onclick="eliminaPuntoODG('${p.id}','${riunioneId}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.75rem;">✕</button>` : ''}
                   </div>
                 </div>
@@ -5259,7 +5259,7 @@ function puoVerbalizzareODG() {
 async function aggiungiDecisione(puntoId, riunioneId) {
   let attuale = '';
   try { const r = await supa(`odg_riunioni_cas?id=eq.${puntoId}&select=note_decisione`); attuale = (r && r[0] && r[0].note_decisione) || ''; } catch(e) {}
-  const decisione = prompt('Inserisci la decisione presa per questo punto:', attuale);
+  const decisione = prompt('Discussione e decisione su questo punto:', attuale);
   if(decisione === null || !decisione.trim()) return;
   try {
     await supa(`odg_riunioni_cas?id=eq.${puntoId}`, {method:'PATCH', body: JSON.stringify({note_decisione: decisione})});
