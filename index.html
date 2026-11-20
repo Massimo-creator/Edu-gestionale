@@ -5089,7 +5089,7 @@ async function apriRiunione(riunioneId) {
                     ${p.note_decisione ? `<div style="margin-top:8px;padding:8px;background:rgba(16,185,129,.08);border-radius:6px;font-size:.82rem;color:var(--accent2);">✅ Decisione: ${p.note_decisione}</div>` : ''}
                   </div>
                   <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
-                    ${SESSION.is_coordinatore_cas ? `<button class="btn btn-ghost" style="font-size:.72rem;padding:3px 8px;" onclick="aggiungiDecisione('${p.id}','${riunioneId}')">✅ Decisione</button>` : ''}
+                    ${puoVerbalizzareODG() ? `<button class="btn btn-ghost" style="font-size:.72rem;padding:3px 8px;" onclick="aggiungiDecisione('${p.id}','${riunioneId}')">✅ Decisione</button>` : ''}
                     ${(SESSION.is_coordinatore_cas || SESSION.utente.email === p.inserito_da_email) ? `<button onclick="eliminaPuntoODG('${p.id}','${riunioneId}')" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.75rem;">✕</button>` : ''}
                   </div>
                 </div>
@@ -5250,9 +5250,17 @@ async function eliminaPuntoODG(id, riunioneId) {
   } catch(e) { alert('Errore: '+e.message); }
 }
 
+// Chi può scrivere le decisioni sui punti dell'ODG: il coordinatore e chi verbalizza (Emy)
+const VERBALIZZATORI_ODG = ['e.zavoli@coopmetis.com'];
+function puoVerbalizzareODG() {
+  return !!SESSION.is_coordinatore_cas || VERBALIZZATORI_ODG.includes((SESSION.utente?.email||'').toLowerCase());
+}
+
 async function aggiungiDecisione(puntoId, riunioneId) {
-  const decisione = prompt('Inserisci la decisione presa per questo punto:');
-  if(!decisione) return;
+  let attuale = '';
+  try { const r = await supa(`odg_riunioni_cas?id=eq.${puntoId}&select=note_decisione`); attuale = (r && r[0] && r[0].note_decisione) || ''; } catch(e) {}
+  const decisione = prompt('Inserisci la decisione presa per questo punto:', attuale);
+  if(decisione === null || !decisione.trim()) return;
   try {
     await supa(`odg_riunioni_cas?id=eq.${puntoId}`, {method:'PATCH', body: JSON.stringify({note_decisione: decisione})});
     apriRiunione(riunioneId);
