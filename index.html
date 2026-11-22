@@ -2884,7 +2884,7 @@ function dataLocaleCAS(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-const _APP_SELECT_SCHEDA = 'id,tipo,titolo,data_ora,ora_da_definire,stato,esito,operatore_accompagnatore,ospite_nome';
+const _APP_SELECT_SCHEDA = 'id,tipo,titolo,data_ora,ora_da_definire,stato,esito,operatore_accompagnatore,ospite_nome,presenza_ospite';
 
 async function caricaAppuntamentiOspiteCAS(ospiteId, ospiteNome) {
   const box = document.getElementById('cas-appuntamenti-box');
@@ -2901,7 +2901,7 @@ async function caricaAppuntamentiOspiteCAS(ospiteId, ospiteNome) {
     const adesso = Date.now();
     const fmt = d => new Date(d).toLocaleString('it-IT',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
     const riga = a => {
-      const dettagli = [a.titolo, a.operatore_accompagnatore?('con '+a.operatore_accompagnatore):'', a.stato||'', a.esito||''].filter(Boolean).join(' · ');
+      const dettagli = [a.titolo, a.presenza_ospite?('presenza '+a.presenza_ospite.toLowerCase()):'', a.operatore_accompagnatore?('con '+a.operatore_accompagnatore):'', a.stato||'', a.esito||''].filter(Boolean).join(' · ');
       return `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;" onclick="apriAppuntamentoDaSchedaOspiteCAS('${a.id}','${ospiteId}')">
         <div style="font-size:1rem;">${tipoAppuntamentoIcon(a.tipo)}</div>
         <div style="flex:1;min-width:0;">
@@ -3116,7 +3116,7 @@ function applicaVincoloQuesturaSelect() {
 }
 
 function impostaModaleAppuntamentoSoloLettura(attivo) {
-  ['app-titolo','app-tipo','app-struttura','app-data','app-ora','app-nome-avvocato','app-ospite','app-note'].forEach(id => {
+  ['app-titolo','app-tipo','app-struttura','app-data','app-ora','app-presenza','app-nome-avvocato','app-ospite','app-note'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.disabled = attivo;
   });
@@ -3124,6 +3124,13 @@ function impostaModaleAppuntamentoSoloLettura(attivo) {
   if (salvaBtn) salvaBtn.style.display = attivo ? 'none' : 'inline-block';
   const avviso = document.getElementById('app-soloLettura-avviso');
   if (avviso) avviso.style.display = attivo ? 'block' : 'none';
+}
+
+// Presenza dell'ospite: per la Questura è sempre richiesta, quindi il campo non si mostra
+function aggiornaPresenzaAppCAS() {
+  const tipo = (document.getElementById('app-tipo') || {}).value;
+  const wrap = document.getElementById('app-presenza-wrap');
+  if (wrap) wrap.style.display = tipo === 'Questura' ? 'none' : 'block';
 }
 
 function nuovoAppuntamentoCAS(tipoPreselezionato, tornaADashboard) {
@@ -3139,10 +3146,12 @@ function nuovoAppuntamentoCAS(tipoPreselezionato, tornaADashboard) {
   popolaSelectOspitiApp(null, null);
   document.getElementById('app-note').value='';
   document.getElementById('app-nome-avvocato').value='';
+  document.getElementById('app-presenza').value='';
   impostaModaleAppuntamentoSoloLettura(false);
   const puoQuestura = applicaVincoloQuesturaSelect();
   document.getElementById('app-tipo').value = tipoPreselezionato || (puoQuestura ? 'Questura' : 'Commissione Territoriale');
   document.getElementById('app-avvocato-wrap').style.display = (tipoPreselezionato==='Avvocato')?'block':'none';
+  aggiornaPresenzaAppCAS();
   const sel = document.getElementById('app-struttura');
   const strutture = SESSION.strutture_cas||[];
   sel.innerHTML = strutture.map(s=>`<option value="${s.id}">${s.nome}</option>`).join('');
@@ -3187,7 +3196,9 @@ async function modificaAppuntamentoCAS(id, tipoPagina) {
     await popolaSelectOspitiApp(a.ospite_id, a.ospite_nome);
     document.getElementById('app-note').value = a.note || '';
     document.getElementById('app-nome-avvocato').value = a.nome_avvocato || '';
+    document.getElementById('app-presenza').value = a.presenza_ospite || '';
     document.getElementById('app-avvocato-wrap').style.display = (a.tipo==='Avvocato')?'block':'none';
+    aggiornaPresenzaAppCAS();
     mostraConvocazioneAppuntamentoCAS(a.id, a.tipo);
     openModal('modal-appuntamento-cas');
   } catch(e) { alert('Errore: '+e.message); }
@@ -3226,6 +3237,7 @@ async function salvaAppuntamentoCAS() {
     ospite_nome: document.getElementById('app-ospite').value||null,
     note: document.getElementById('app-note').value||null,
     nome_avvocato: tipo==='Avvocato' ? (document.getElementById('app-nome-avvocato').value||null) : null,
+    presenza_ospite: tipo==='Questura' ? null : (document.getElementById('app-presenza').value || null),
     ospite_id: (document.getElementById('app-ospite-id') || {}).value || _appReturnOspiteId || null
   };
   try {
@@ -5717,7 +5729,7 @@ async function salvaTrasferimento() {
     <div class="form-group"><label>Titolo *</label><input id="app-titolo" placeholder="es. Audizione Commissione - Ahmed"></div>
     <div class="grid g2">
       <div class="form-group"><label>Tipo *</label>
-        <select id="app-tipo" onchange="document.getElementById('app-avvocato-wrap').style.display=this.value==='Avvocato'?'block':'none';">
+        <select id="app-tipo" onchange="document.getElementById('app-avvocato-wrap').style.display=this.value==='Avvocato'?'block':'none'; aggiornaPresenzaAppCAS();">
           <option value="Questura" id="app-tipo-opt-questura">Questura</option>
           <option value="Commissione Territoriale">Commissione Territoriale</option>
           <option value="Avvocato">Avvocato</option>
@@ -5735,6 +5747,13 @@ async function salvaTrasferimento() {
     <div class="grid g2">
       <div class="form-group"><label>Data *</label><input id="app-data" type="date"></div>
       <div class="form-group"><label>Ora <span style="color:var(--muted);font-size:.8rem;">(vuota = da definire)</span></label><input id="app-ora" type="time"></div>
+    </div>
+    <div class="form-group" id="app-presenza-wrap"><label>Presenza dell'ospite</label>
+      <select id="app-presenza">
+        <option value="">— non indicata —</option>
+        <option value="Richiesta">Richiesta</option>
+        <option value="Non richiesta">Non richiesta</option>
+      </select>
     </div>
     <div class="form-group" id="app-avvocato-wrap" style="display:none;"><label>Nome avvocato</label><input id="app-nome-avvocato" placeholder="es. Avv. Rossi"></div>
     <div class="form-group" style="position:relative;"><label>Nome e cognome ospite</label>
