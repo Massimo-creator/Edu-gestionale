@@ -1544,10 +1544,11 @@ async function renderCasReportAccompagnamenti(el) {
 
     // Niente filtro per struttura: alcuni appuntamenti (es. da sincronizzazione automatica
     // senza abbinamento certo) hanno struttura_id nullo e andrebbero comunque conteggiati.
-    const appuntamenti = await supa(`appuntamenti_cas?data_ora=gte.${inizioMese.toISOString()}&data_ora=lt.${inizioMeseSucc.toISOString()}&select=tipo,data_ora,operatore_accompagnatore`) || [];
+    const appuntamenti = await supa(`appuntamenti_cas?data_ora=gte.${inizioMese.toISOString()}&data_ora=lt.${inizioMeseSucc.toISOString()}&select=tipo,data_ora,operatore_accompagnatore,presenza_ospite`) || [];
 
     const perOperatore = {};
     appuntamenti.forEach(a => {
+      if (presenzaNonRichiestaCAS(a)) return;
       const nome = a.operatore_accompagnatore || 'Non assegnato';
       if (!perOperatore[nome]) perOperatore[nome] = { persone: {}, viaggiSet: {} };
       const g = perOperatore[nome];
@@ -1867,6 +1868,14 @@ async function salvaCalendarioCoordinatoreCAS() {
 let _accMese = new Date().getMonth();
 let _accAnno = new Date().getFullYear();
 
+// Presenza dell'ospite nei calendari degli accompagnamenti: se non è richiesta non c'è nessuno da accompagnare
+function presenzaNonRichiestaCAS(a) { return !!a && a.presenza_ospite === 'Non richiesta'; }
+function etichettaPresenzaCAS(a) {
+  if (presenzaNonRichiestaCAS(a)) return '<span style="display:inline-block;font-size:.72rem;font-weight:600;padding:2px 8px;border-radius:10px;background:#e5e7eb;color:#374151;">🚫 Presenza non richiesta · nessun accompagnamento</span>';
+  if (a && a.presenza_ospite === 'Richiesta') return '<span style="display:inline-block;font-size:.7rem;font-weight:600;padding:1px 7px;border-radius:10px;background:#dcfce7;color:#166534;margin-left:4px;">Presenza richiesta</span>';
+  return '';
+}
+
 async function renderAccompagnamentiCAS(el) {
   el.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;">Caricamento...</div>';
   try {
@@ -1914,9 +1923,9 @@ async function renderAccompagnamentiCAS(el) {
 
     const rigaPersona = (a) => {
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.15);gap:8px;flex-wrap:wrap;">
-        <div class="acc-apri-scheda" onclick="modificaAppuntamentoCAS('${a.id}','ACCOMPAGNAMENTI')" title="Apri la scheda dell'appuntamento" style="font-size:.85rem;cursor:pointer;flex:1;min-width:0;">${a.ospite_nome||a.titolo} <span style="opacity:.75;font-size:.78rem;">— ${mapS[a.struttura_id]||'—'}</span></div>
+        <div class="acc-apri-scheda" onclick="modificaAppuntamentoCAS('${a.id}','ACCOMPAGNAMENTI')" title="Apri la scheda dell'appuntamento" style="font-size:.85rem;cursor:pointer;flex:1;min-width:0;">${a.ospite_nome||a.titolo} <span style="opacity:.75;font-size:.78rem;">— ${mapS[a.struttura_id]||'—'}</span>${presenzaNonRichiestaCAS(a)?'':etichettaPresenzaCAS(a)}</div>
         <div style="display:flex;align-items:center;gap:6px;">
-          ${SESSION.is_coordinatore_cas
+          ${presenzaNonRichiestaCAS(a) ? etichettaPresenzaCAS(a) : SESSION.is_coordinatore_cas
             ? `<select onchange="assegnaAccompagnatoreCAS('${a.id}', this.value)" style="font-size:.78rem;padding:3px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.15);color:inherit;">
                 <option value="">— Non assegnato —</option>
                 <option value="In autonomia" ${a.operatore_accompagnatore==='In autonomia'?'selected':''}>In autonomia</option>
@@ -2746,7 +2755,7 @@ async function renderCasAppuntamenti(el, tipo) {
                   ${a.stato==='Rinviato' ? `<div style="font-size:.8rem;color:#b45309;margin-top:6px;">⏸️ Rinviato${a.esito?': '+a.esito:''}</div>` : (passatoMese && a.stato==='Svolto' && a.esito ? `<div style="font-size:.8rem;color:var(--muted);margin-top:6px;">📝 ${a.esito}</div>` : '')}
                   ${daSvolgereMese ? `<button onclick="aggiornaEsitoAppuntamentoCAS('${a.id}')" class="btn btn-primary" style="font-size:.75rem;padding:4px 10px;margin-top:8px;">✅ Aggiorna esito</button>` : ''}
                   <div style="margin-top:8px;">
-                    ${SESSION.is_coordinatore_cas
+                    ${presenzaNonRichiestaCAS(a) ? etichettaPresenzaCAS(a) : (a.presenza_ospite==='Richiesta' ? etichettaPresenzaCAS(a)+'<br>' : '')}${presenzaNonRichiestaCAS(a) ? '' : SESSION.is_coordinatore_cas
                       ? `<select onchange="assegnaAccompagnatoreCAS('${a.id}', this.value)" style="font-size:.8rem;padding:4px 8px;border-radius:6px;border:1px solid var(--border);">
                           <option value="">— Non assegnato —</option>
                           <option value="In autonomia" ${a.operatore_accompagnatore==='In autonomia'?'selected':''}>In autonomia</option>
@@ -3240,6 +3249,7 @@ async function salvaAppuntamentoCAS() {
     presenza_ospite: tipo==='Questura' ? null : (document.getElementById('app-presenza').value || null),
     ospite_id: (document.getElementById('app-ospite-id') || {}).value || _appReturnOspiteId || null
   };
+  if (payload.presenza_ospite === 'Non richiesta') payload.operatore_accompagnatore = null;
   try {
     if(!_appEditId && payload.ospite_nome) {
       const giorno = data;
