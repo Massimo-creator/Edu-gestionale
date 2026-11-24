@@ -4299,6 +4299,24 @@ function clioNomeMio() {
   const op = OPERATORI_CAS.find(o=>o.email===me) || CLIO_RESPONSABILI.find(o=>o.email===me);
   return op ? op.nome : ((SESSION.utente.nome||'') + ' ' + (SESSION.utente.cognome||'')).trim() || me;
 }
+function clioPrenotaPerAltri() {
+  return SESSION.utente.ruolo === 'Coordinatore' && !SESSION.sola_lettura;
+}
+function clioCampoOperatore() {
+  if (!clioPrenotaPerAltri()) return '';
+  const me = (SESSION.utente.email||'').toLowerCase();
+  const opz = OPERATORI_CAS.filter(o=>o.email!=='mediazione@coopmetis.com')
+    .map(o=>`<option value="${clioEsc(o.email)}" ${o.email===me?'selected':''}>${clioEsc(o.nome)}${o.email===me?' (io)':''}</option>`).join('');
+  return clioCampo('Per quale operatore', `<select id="clio-per" style="width:100%;padding:12px;font-size:1rem;">${opz}</select>`);
+}
+function clioOperatoreScelto() {
+  const me = (SESSION.utente.email||'').toLowerCase();
+  const sel = document.getElementById('clio-per');
+  const email = sel ? sel.value : me;
+  if (email === me) return {email: me, nome: clioNomeMio(), altro: false};
+  const op = OPERATORI_CAS.find(o=>o.email===email);
+  return {email, nome: op ? op.nome : email, altro: true};
+}
 function clioPuoApprovare() {
   return CLIO_RESPONSABILI.some(r=>r.email===(SESSION.utente.email||'').toLowerCase());
 }
@@ -4539,10 +4557,11 @@ function clioApriPrenota(giorno) {
   if (giorno && giorno !== clioChiaveGiorno(new Date())) inizio = new Date(giorno+'T09:00:00');
   const fine = new Date(inizio.getTime()+2*60*60*1000);
   clioModal('📅 Prenota la Clio',
+    clioCampoOperatore() +
     clioCampo('Dal *', clioInput('clio-inizio','datetime-local',`value="${clioLocalInput(inizio)}"`)) +
     clioCampo('Rientro previsto *', clioInput('clio-fine','datetime-local',`value="${clioLocalInput(fine)}"`)) +
     clioCampo('Motivo *', clioInput('clio-motivo','text','placeholder="es. accompagnamento in Questura"')) +
-    `<div style="font-size:.8rem;color:var(--muted);">La richiesta arriva a Massimo, Simona e Isabella per l'approvazione.</div>`,
+    `<div style="font-size:.8rem;color:var(--muted);">${clioPrenotaPerAltri()?'Se prenoti per un altro operatore la prenotazione è già approvata e lui riceve una mail di conferma.':'La richiesta arriva a Massimo, Simona e Isabella per l\'approvazione.'}</div>`,
     '📨 Invia richiesta', clioSalvaPrenota);
 }
 async function clioSalvaPrenota() {
@@ -4555,8 +4574,25 @@ async function clioSalvaPrenota() {
   if (occupata.length) { alert(`In quell'orario la Clio è già prenotata da ${occupata[0].operatore_nome} (${clioFmt(occupata[0].inizio)} → ${clioOra(occupata[0].fine_prevista)}).`); return; }
   const inAttesa = clioSovrapposte(inizio, fine, ['richiesta']);
   if (inAttesa.length && !confirm(`C'è già una richiesta in attesa di ${inAttesa[0].operatore_nome} nello stesso orario. Invii comunque?`)) return;
+  const per = clioOperatoreScelto();
   document.getElementById('clio-modal-ok').disabled = true;
   try {
+    if (per.altro) {
+      // Il coordinatore prenota per conto di un altro operatore: prenotazione già approvata
+      const r = await supa('clio_prenotazioni', {method:'POST', body: JSON.stringify({
+        operatore_email: per.email, operatore_nome: per.nome,
+        inizio, fine_prevista: fine, motivo, stato:'approvata',
+        approvata_da: clioNomeMio(), approvata_at: new Date().toISOString(),
+        nota_approvazione: `Prenotata da ${clioNomeMio()}`
+      })});
+      const p = r[0];
+      inviaEmailApprodo(p.operatore_email, 'Clio: prenotazione a tuo nome',
+        `<p>Ciao ${clioEsc(p.operatore_nome)},</p><p>${clioEsc(clioNomeMio())} ha prenotato per te la Clio. La prenotazione è già approvata.</p>${clioRiepilogoHtml(p)}<p>Quando prendi la macchina registra il ritiro su Approdo (km, carburante, chiave), oppure chiedi a ${clioEsc(clioNomeMio())} di farlo per te.</p>`,
+        SESSION.utente.email);
+      closeModal('modal-clio');
+      renderCasClio(document.getElementById('content-cas'));
+      return;
+    }
     const r = await supa('clio_prenotazioni', {method:'POST', body: JSON.stringify({
       operatore_email: SESSION.utente.email.toLowerCase(), operatore_nome: clioNomeMio(),
       inizio, fine_prevista: fine, motivo, stato:'richiesta'
@@ -4626,6 +4662,7 @@ function clioApriImmediato() {
   const fine = new Date(Date.now()+2*60*60*1000);
   clioModal('⚡ Uso immediato',
     `<div style="font-size:.85rem;color:var(--danger);margin-bottom:10px;">Solo per urgenze: la macchina risulta subito fuori e Massimo, Simona e Isabella ricevono un avviso.</div>` +
+    clioCampoOperatore() +
     clioCampo('Motivo *', clioInput('clio-motivo','text','placeholder="es. accompagnamento al Pronto Soccorso"')) +
     clioCampo('Rientro previsto *', clioInput('clio-fine','datetime-local',`value="${clioLocalInput(fine)}"`)) +
     clioCampiRitiro(),
@@ -4643,10 +4680,11 @@ async function clioSalvaImmediato() {
     const fresche = await supa('clio_prenotazioni?stato=eq.in_uso&select=operatore_nome') || [];
     if (fresche.length) { alert(`La Clio risulta già fuori con ${fresche[0].operatore_nome}.`); closeModal('modal-clio'); renderCasClio(document.getElementById('content-cas')); return; }
     const adesso = new Date().toISOString();
+    const per = clioOperatoreScelto();
     const r = await supa('clio_prenotazioni', {method:'POST', body: JSON.stringify({
-      operatore_email: SESSION.utente.email.toLowerCase(), operatore_nome: clioNomeMio(),
+      operatore_email: per.email, operatore_nome: per.nome,
       inizio: adesso, fine_prevista: fine, motivo, urgenza: true, stato:'in_uso',
-      approvata_da:'uso immediato', ritiro_at: adesso, km_ritiro: km,
+      approvata_da: per.altro ? `uso immediato, registrato da ${clioNomeMio()}` : 'uso immediato', ritiro_at: adesso, km_ritiro: km,
       carburante_ritiro: document.getElementById('clio-carb').value, chiave: document.getElementById('clio-chiave').value
     })});
     const p = r[0];
