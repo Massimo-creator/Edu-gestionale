@@ -740,6 +740,43 @@ async function sha256(msg) {
 
 
 // ===================== UTILS =====================
+function apriCambiaPassword() {
+  ['cp-attuale','cp-nuova','cp-conferma'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
+  var m=document.getElementById('cp-msg'); if(m){ m.textContent=''; }
+  var b=document.getElementById('cp-ok'); if(b) b.disabled=false;
+  openModal('modal-cambia-password');
+  setTimeout(function(){ var el=document.getElementById('cp-attuale'); if(el) el.focus(); }, 50);
+}
+async function salvaCambiaPassword() {
+  var attuale=document.getElementById('cp-attuale').value;
+  var nuova=document.getElementById('cp-nuova').value;
+  var conferma=document.getElementById('cp-conferma').value;
+  var msg=document.getElementById('cp-msg'); var b=document.getElementById('cp-ok');
+  var errore=function(t){ msg.style.color='var(--danger)'; msg.textContent=t; };
+  if (!attuale || !nuova || !conferma) return errore('Compila tutti i campi.');
+  if (nuova.length < 8) return errore('La nuova password deve avere almeno 8 caratteri.');
+  if (nuova !== conferma) return errore('Le due nuove password non coincidono.');
+  if (nuova === attuale) return errore('La nuova password è uguale a quella attuale.');
+  var email=(SESSION && SESSION.utente && SESSION.utente.email || '').toLowerCase();
+  if (!email) return errore('Sessione non valida: esci e rientra.');
+  b.disabled=true; msg.style.color='var(--muted)'; msg.textContent='Salvataggio…';
+  try {
+    var r = await supabaseClient.rpc('cambia_password_utente', { p_email: email, p_password_attuale: attuale, p_password_nuova: nuova });
+    if (r.error) throw r.error;
+    var esito = r.data;
+    if (esito === 'ok') {
+      msg.style.color='var(--success, #16a34a)'; msg.textContent='Password cambiata. Dal prossimo accesso usa quella nuova.';
+      setTimeout(function(){ closeModal('modal-cambia-password'); }, 1800);
+      return;
+    }
+    b.disabled=false;
+    if (esito === 'password_errata') return errore('La password attuale non è corretta.');
+    if (esito === 'troppo_corta') return errore('La nuova password deve avere almeno 8 caratteri.');
+    return errore('Utente non trovato: esci e rientra, poi riprova.');
+  } catch(e) {
+    b.disabled=false; errore('Errore nel salvataggio, riprova tra poco.');
+  }
+}
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function v(id){return document.getElementById(id)?.value||'';}
@@ -795,6 +832,12 @@ function mostraAppCAS() {
           logoutBtn.className = 'btn btn-ghost';
           logoutBtn.style.cssText = 'font-size:.78rem;padding:6px 10px;';
           logoutBtn.onclick = doLogout;
+          var pwBtn = document.createElement('button');
+          pwBtn.textContent = '🔑 Password';
+          pwBtn.className = 'btn btn-ghost';
+          pwBtn.style.cssText = 'font-size:.78rem;padding:6px 10px;';
+          pwBtn.onclick = apriCambiaPassword;
+          topbarCas.appendChild(pwBtn);
           topbarCas.appendChild(logoutBtn);
         }
       }
@@ -861,6 +904,7 @@ function mostraAppCAS() {
   <div style="margin-top:auto;padding:12px 10px;border-top:1px solid rgba(255,255,255,.08);">
     <div id="sidebar-cas-user" style="padding:8px 6px 10px;font-size:.75rem;color:#94a3b8;line-height:1.4;"></div>
     <div class="nav-item" id="nav-installa-cas" onclick="installaApprodo()" style="display:none;color:#7dd3fc;border-radius:8px;margin:0;"><span class="ico">📲</span> Installa Approdo</div>
+    <div class="nav-item" onclick="apriCambiaPassword()" style="color:#cbd5e1;border-radius:8px;margin:0;"><span class="ico">🔑</span> Cambia password</div>
     <div class="nav-item" onclick="doLogout()" style="color:#f87171;border-radius:8px;margin:0;"><span class="ico">🚪</span> Esci</div>
     <div style="padding:8px 6px 0;font-size:.68rem;color:#475569;">Metis CAS v1.0</div>
   </div>
@@ -6061,6 +6105,22 @@ async function salvaTrasferimento() {
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-manutenzione-cas')">Annulla</button>
       <button class="btn btn-primary" onclick="salvaManutenzioneCAS()">📤 Invia segnalazione</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cambia-password">
+  <div class="modal" style="max-width:420px;">
+    <h3>🔑 Cambia password</h3>
+    <div style="margin-top:12px;">
+      <div class="form-group"><label>Password attuale</label><input id="cp-attuale" type="password" autocomplete="current-password" style="width:100%;padding:12px;font-size:1rem;"></div>
+      <div class="form-group"><label>Nuova password (almeno 8 caratteri)</label><input id="cp-nuova" type="password" autocomplete="new-password" style="width:100%;padding:12px;font-size:1rem;"></div>
+      <div class="form-group"><label>Ripeti la nuova password</label><input id="cp-conferma" type="password" autocomplete="new-password" style="width:100%;padding:12px;font-size:1rem;" onkeydown="if(event.key==='Enter')salvaCambiaPassword()"></div>
+      <div id="cp-msg" style="font-size:.85rem;min-height:1.2em;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-cambia-password')">Annulla</button>
+      <button class="btn btn-primary" id="cp-ok" onclick="salvaCambiaPassword()" style="padding:12px 18px;">Salva</button>
     </div>
   </div>
 </div>
